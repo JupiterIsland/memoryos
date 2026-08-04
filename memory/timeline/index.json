@@ -1,0 +1,16 @@
+{
+  "decisions": [
+    {
+      "id": "ADR-0001",
+      "title": "Use Docker",
+      "date": "2026-07-28",
+      "status": "accepted",
+      "tags": "[]",
+      "time_saved": "N/A",
+      "cost_impact": "N/A",
+      "risk_reduction": "N/A",
+      "strategic_value": "N/A",
+      "filepath": "memory/decisions/ADR-0001-use-docker.md"
+    }
+  ]
+}
