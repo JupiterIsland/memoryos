@@ -1,0 +1,22 @@
+﻿id: "adr-2026-07-28-counter-offensive-initiation"
+timestamp: "2026-07-28T02:42:00Z"
+category: "legal_counter_offensive"
+title: "Initiation of Multi-Agency Legal & Technical Counter-Offensive"
+status: "active"
+tags: ["n244", "section_11_lta", "hhsrs", "cumberland_council", "memoryos_provenance"]
+
+summary: >
+  Escalated disrepair dispute into formal dual-track counter-offensive. 
+  Track 1 deploys statutory mechanisms (HHSRS, Adult Social Care, Form N244 set-off).
+  Track 2 establishes an unalterable, git-tracked evidence base via MemoryOS.
+
+targets:
+  - name: "Martin Locket"
+    role: "Landlord"
+  - name: "Adrian Mason"
+    role: "Letting Agent (Letting Centre Carlisle)"
+
+evidence_vault:
+  - "2026-07-28_Email_Disrepair_Notice_CC_Council.pdf"
+  - "window_nailed_shut_photo_01.jpg"
+  - "Statement_of_Facts_N244_Draft.pdf"

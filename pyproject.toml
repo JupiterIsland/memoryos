@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memoryos"
+version = "0.1.0"
+description = "Institutional decision memory CLI"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "PyQt6>=6.0.0",
+]
+
+[project.optional-dependencies]
+desktop = [
+    "PyQtWebEngine>=6.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["memoryos*"]
+
+[project.scripts]
+memoryos = "memoryos.cli:main"

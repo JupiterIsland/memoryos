@@ -1,0 +1,17 @@
+# .dockerignore for MemoryOS
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist
+build
+.venv
+venv
+.git
+.gitignore
+.DS_Store
+memory/
+context.md
+*.spec
+dist/
+MemoryOS/

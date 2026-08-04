@@ -1,0 +1,35 @@
+C:\Dev\memoryos\
+├── memoryos\
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── bootstrap.py
+│   ├── core\
+│   │   ├── __init__.py
+│   │   ├── init.py
+│   │   ├── writer.py
+│   │   ├── indexer.py
+│   │   ├── tlb.py              # Mem-TLB (Thermal)
+│   │   ├── temporal_graph.py   # Temporal Edge Graph
+│   │   ├── execution.py        # Macro Cache
+│   │   ├── garbage_collector.py # Memory GC
+│   │   ├── intent_fingerprint.py # Intent Latent Fingerprinting
+│   │   ├── mcp_bus.py          # MCP Bus
+│   │   ├── tensorrt_executor.py # TensorRT 10 integration
+│   │   ├── rapids_gc.py        # RAPIDS 25.12 integration
+│   │   ├── cuda_tlb.py         # CUDA 13.1 integration
+│   │   ├── hpc_bus.py          # HPC SDK 25.11 integration
+│   │   ├── dlss_intent.py      # DLSS 4 integration
+│   │   ├── physics_memory.py   # PhysicsNeMo 25.11 integration
+│   │   └── nsight_profiler.py  # Nsight Systems 2025.6.1 integration
+│   ├── browser_app.py
+│   ├── context.md
+│   ├── pyproject.toml
+│   ├── README.md
+│   └── requirements.txt
+├── dist\                       # PyInstaller output
+├── memory\                     # Your memory directory
+│   ├── decisions\
+│   ├── events\
+│   ├── projects\
+│   └── timeline\
+└── build\                      # PyInstaller build files
