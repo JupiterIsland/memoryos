@@ -1,22 +1,22 @@
-# Byte-compiled / optimized / DLL files
+# Ignore Python artifacts
 __pycache__/
+.env
+.venv/
+/dist/
+/build/
+*.egg-info/
+
+# Byte-compiled / optimized / DLL files
 *.py[cod]
 *$py.class
 
 # Distribution / packaging
-build/
-dist/
-*.egg-info/
-pip-wheel-metadata/
-
-# Virtual environments
-.venv
+.Python
+env/
 venv/
-.env
 
-# IDE/editor settings
-.vscode/
-.idea/
+# PyInstaller
+*.spec
 
 # OS files
 .DS_Store
@@ -25,5 +25,7 @@ Thumbs.db
 # Logs
 *.log
 
-# Keep project memory files tracked
-# memory/
+# Secrets
+*.pem
+credentials.json
+
