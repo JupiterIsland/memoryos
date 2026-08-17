@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn AI Or Die - C:\dev Visual Triage</title>
+    <style>
+        :root {
+            --bg-base: #060608;
+            --bg-surface: #0c0d12;
+            --bg-card: #13151f;
+            --text-main: #f3f4f6;
+            --text-muted: #848da4;
+            --accent-green: #00ff66;
+            --accent-blue: #00bcff;
+            --accent-pink: #ff0055;
+            --accent-orange: #ff9900;
+            --border-color: #222633;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--bg-surface);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .terminal-header {
+            background: #181b28;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dot-red { background: var(--accent-pink); }
+        .dot-yellow { background: var(--accent-orange); }
+        .dot-green { background: var(--accent-green); }
+
+        .terminal-title {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .visualizer-pane {
+            position: relative;
+            height: 400px;
+            background: #090a0f;
+            border-bottom: 2px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node-link {
+            fill: none;
+            stroke-width: 1.5;
+            stroke-dasharray: 4,4;
+            transition: all 0.3s ease;
+        }
+
+        .node-circle {
+            cursor: pointer;
+            transition: transform 0.2s ease, r 0.2s ease;
+        }
+        .node-circle:hover {
+            transform: scale(1.2);
+        }
+
+        .node-text {
+            font-size: 11px;
+            fill: var(--text-main);
+            cursor: pointer;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .filter-bar {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: #0e1017;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .filter-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-main);
+        }
+
+        .filter-btn.active-filter {
+            background: rgba(0, 255, 102, 0.1);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .sprint-panel {
+            padding: 20px;
+            background: var(--bg-surface);
+        }
+
+        .panel-title {
+            color: var(--accent-blue);
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .workspace-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 100px;
+            line-height: 1.6;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            font-style: italic;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .sprint-board {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .board-column {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            min-height: 150px;
+        }
+
+        .column-header {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--accent-green);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .task-item {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent-blue);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .task-item:hover {
+            border-left-color: var(--accent-green);
+            box-shadow: 0 0 8px rgba(0, 255, 102, 0.1);
+        }
+
+        .task-item.active {
+            border-left-color: var(--accent-green);
+            background: rgba(0, 255, 102, 0.05);
+        }
+
+        .task-text {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            margin-bottom: 5px;
+        }
+
+        .task-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .terminal-output {
+            background: #000;
+            border: 1px solid var(--accent-green);
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 0.85rem;
+            color: var(--accent-green);
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+
+        .terminal-output.active {
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.2);
+        }
+
+        .empty-column {
+            color: var(--text-muted);
+            text-align: center;
+            padding: 30px 10px;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <div class="terminal-header">
+            <div class="window-controls">
+                <div class="control-dot dot-red"></div>
+                <div class="control-dot dot-yellow"></div>
+                <div class="control-dot dot-green"></div>
+            </div>
+            <div class="terminal-title">C:\dev\triage_map.sh</div>
+            <div></div>
+        </div>
+
+        <div class="filter-bar">
+            <button class="filter-btn active-filter" onclick="setFilter('all')">SHOW ALL</button>
+            <button class="filter-btn" onclick="setFilter('active')">ACTIVE CODE</button>
+            <button class="filter-btn" onclick="setFilter('noise')">SYSTEM NOISE</button>
+        </div>
+
+        <div class="visualizer-pane">
+            <svg id="network-svg">
+                <g id="links-group"></g>
+                <g id="nodes-group"></g>
+            </svg>
+        </div>
+
+        <div class="sprint-panel">
+            <div class="panel-title">⚡ Focus Command Lock</div>
+            <div class="workspace-card" id="focus-card">
+                <div class="empty-state">Click an active application node above to lock down your focus pathway.</div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 30px;">📋 ADHD Sprint Board</div>
+            <div class="sprint-board">
+                <div class="board-column">
+                    <div class="column-header">📝 Backlog</div>
+                    <div id="backlog-col" class="empty-column">[ Empty ]</div>
+                </div>
+                <div class="board-column">
+                    <div class="column-header">⚙️ In Progress</div>
+                    <div id="inprogress-col" class="empty-column">[ Empty ]</div>
+                </div>
+                <div class="board-column">
+                    <div class="column-header">✅ Complete</div>
+                    <div id="complete-col" class="empty-column">[ Empty ]</div>
+                </div>
+            </div>
+
+            <div class="terminal-output" id="terminal-output">
+                <div style="color: var(--text-muted);">[ Ready for input ]</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const projectData = [
+            { "name": ".git", "type": "noise", "tech": "Git Repository", "files": 11 },
+            { "name": ".tmp.driveupload", "type": "noise", "tech": "Cache File System", "files": 182 },
+            { "name": "adaptive-tone-engine", "type": "active", "tech": "Python AI", "files": 10 },
+            { "name": "ai-media-ops-console", "type": "active", "tech": "JavaScript / Node", "files": 18 },
+            { "name": "AI_ENGINE_MASTER", "type": "active", "tech": "Git Orchestrator", "files": 26 },
+            { "name": "Apex wsl 2 to hospital work", "type": "active", "tech": "Python / Linux", "files": 43 },
+            { "name": "Dev Workflow for Nvidia Ai.via.kali", "type": "active", "tech": "Python / CUDA", "files": 43 },
+            { "name": "Gordon-v3.2", "type": "active", "tech": "Python Base Engine", "files": 12 },
+            { "name": "JupiterOne", "type": "vault", "tech": "Python Archive", "files": 27 },
+            { "name": "memoryos", "type": "active", "tech": "Python Engine", "files": 78 }
+        ];
+
+        const svg = document.getElementById('network-svg');
+        const linksGroup = document.getElementById('links-group');
+        const nodesGroup = document.getElementById('nodes-group');
+        
+        let currentFilter = 'all';
+        let taskStorage = { backlog: [], inProgress: [], complete: [] };
+
+        function renderGraph() {
+            linksGroup.innerHTML = '';
+            nodesGroup.innerHTML = '';
+
+            const width = svg.clientWidth || 900;
+            const height = 400;
+            
+            const startX = 80;
+            const startY = height / 2;
+            const targetX = width - 240;
+
+            createNodeElement(startX, startY, 'C:\\dev', '#00bcff', 12, false, 'root');
+
+            const visibleProjects = projectData.filter(p => {
+                if (currentFilter === 'all') return true;
+                return p.type === currentFilter;
+            });
+
+            visibleProjects.forEach((proj, idx) => {
+                const total = visibleProjects.length;
+                const spacing = (height - 60) / (total > 1 ? total - 1 : 1);
+                const nodeY = total === 1 ? height / 2 : 30 + (idx * spacing);
+                
+                let color = '#00ff66';
+                if (proj.type === 'noise') color = '#ff0055';
+                if (proj.type === 'vault') color = '#ff9900';
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const d = `M ${startX} ${startY} C ${(startX + targetX)/2} ${startY}, ${(startX + targetX)/2} ${nodeY}, ${targetX} ${nodeY}`;
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'node-link');
+                path.setAttribute('stroke', color);
+                path.setAttribute('opacity', '0.25');
+                linksGroup.appendChild(path);
+
+                createNodeElement(targetX, nodeY, `${proj.name} [${proj.files} items]`, color, 6, true, proj);
+            });
+        }
+
+        function createNodeElement(x, y, label, color, radius, isSelectable, dataObject) {
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', x);
+            circle.setAttribute('cy', y);
+            circle.setAttribute('r', radius);
+            circle.setAttribute('fill', 'transparent');
+            circle.setAttribute('stroke', color);
+            circle.setAttribute('stroke-width', '2');
+            circle.setAttribute('class', 'node-circle');
+
+            const coreDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            coreDot.setAttribute('cx', x);
+            coreDot.setAttribute('cy', y);
+            coreDot.setAttribute('r', radius - 3 > 0 ? radius - 3 : 2);
+            coreDot.setAttribute('fill', color);
+            coreDot.style.pointerEvents = 'none';
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + 15);
+            text.setAttribute('y', y + 4);
+            text.setAttribute('class', 'node-text');
+            text.textContent = label;
+
+            g.appendChild(circle);
+            g.appendChild(coreDot);
+            g.appendChild(text);
+
+            if (isSelectable && dataObject.type === 'active') {
+                circle.onclick = () => selectProject(dataObject);
+            }
+
+            nodesGroup.appendChild(g);
+        }
+
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active-filter'));
+            event.target.classList.add('active-filter');
+            renderGraph();
+        }
+
+        function selectProject(proj) {
+            const card = document.getElementById('focus-card');
+            card.innerHTML = `🟢 LOCATING SYSTEM CORE: ${proj.name}<br><br>Environment Stack: ${proj.tech} | File Count: ${proj.files}<br><br>Status: Ready for task assignment.`;
+            logOutput(`> FOCUS LOCK: ${proj.name}`);
+        }
+
+        function logOutput(text) {
+            const output = document.getElementById('terminal-output');
+            output.classList.add('active');
+            output.innerHTML += `<div>${text}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        window.addEventListener('resize', renderGraph);
+        renderGraph();
+    </script>
+
+</body>
+</html>
