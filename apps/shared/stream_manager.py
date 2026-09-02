@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 """
-Streamlined stream resolution engine.
+Streamlined stream resolution engine with HTTP torrent streaming.
 Handles: YouTube, magnet links, torrent, HLS, direct URLs.
 """
 
@@ -12,6 +13,7 @@ except ImportError:
 
 from yt_dlp import YoutubeDL
 import requests
+from .torrent_stream import TorrentStreamer
 
 
 class StreamManager:
@@ -20,6 +22,7 @@ class StreamManager:
     def __init__(self, debrid_key=None, torrent_dir="/tmp/jptv"):
         self.debrid_key = debrid_key
         self.torrent_dir = torrent_dir
+        self.torrent_streamer = TorrentStreamer(save_path=torrent_dir)
         os.makedirs(torrent_dir, exist_ok=True)
 
     def resolve(self, url):
@@ -30,11 +33,12 @@ class StreamManager:
             return self._resolve_generic(url)
 
     def _resolve_torrent(self, url):
-        """Resolve magnet/torrent using Real-Debrid or libtorrent."""
+        """Resolve magnet/torrent using Real-Debrid, HTTP streaming, or libtorrent."""
         if self.debrid_key:
             return self._debrid_unrestrict(url)
-        elif lt:
-            return self._libtorrent_resolve(url)
+        elif url.startswith("magnet:"):
+            # Use HTTP streaming for immediate playback while downloading
+            return self.torrent_streamer.stream_magnet(url)
         else:
             raise RuntimeError("No torrent backend: install libtorrent or set debrid_key")
 
@@ -50,28 +54,6 @@ class StreamManager:
         resp.raise_for_status()
         data = resp.json()
         return data.get("download") or data.get("streaming") or data
-
-    def _libtorrent_resolve(self, magnet_uri):
-        """libtorrent: resolve magnet → largest file path."""
-        ses = lt.session()
-        params = {
-            "save_path": self.torrent_dir,
-            "storage_mode": lt.storage_mode_t.storage_mode_sparse,
-        }
-        handle = lt.add_magnet_uri(ses, magnet_uri, params)
-        ses.start_dht()
-
-        # Wait for metadata
-        while not handle.has_metadata():
-            time.sleep(0.5)
-
-        info = handle.get_torrent_info()
-        files = info.files()
-        largest_idx = max(
-            range(files.num_files()),
-            key=lambda i: files.file_size(i),
-        )
-        return os.path.join(self.torrent_dir, files.file_path(largest_idx))
 
     def _resolve_generic(self, url):
         """YouTube/HLS/direct URL → playable URL."""
