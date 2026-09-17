@@ -1,282 +1,171 @@
-# 🚀 MemoryOS - Distributed AI & Streaming Intelligence
+MemoryOS - Distributed AI & Streaming Intelligence
+MemoryOS is a distributed intelligence platform designed to orchestrate deep learning inference alongside multi-platform media streaming. It combines DeepSeek-V3, a DuckDB vector memory architecture, and a unified broadcast ecosystem to deliver low-latency inference and decentralized streaming across desktop, mobile (Fire TV), and edge infrastructure.
 
-[![GitHub Stars](https://img.shields.io/github/stars/JupiterIsland/memoryos?style=flat-square)](https://github.com/JupiterIsland/memoryos)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/JupiterIsland/memoryos/pulls)
+Core Architecture
+Jupiter ONE: Desktop Audio Broadcasting Engine
+A self-contained audio playback and extraction engine built on PyQt6 and FFmpeg.
 
-**MemoryOS** is a next-generation distributed intelligence platform combining **DeepSeek-V3 AI**, **DuckDB vector memory**, and **multi-platform streaming** to create a unified broadcast ecosystem across desktop, mobile (Fire TV), and cloud infrastructure.
+Real-time Spectrum Analysis: Low-latency visualization pipeline.
 
----
+Dynamic Stream Extraction: Leverages yt-dlp for URL resolution with seamless fallback to ffplay.
 
-## 🌟 Flagship Features
+Optimized Backend: Utilizes Qt6 Multimedia and FFmpeg for maximum format compatibility and hardware offloading.
 
-### 🎸 **Jupiter ONE - Desktop Audio Broadcasting Engine**  
-A complete, self-contained PyQt6 + FFmpeg audio player with:
-- **Real-time spectrum visualization** (animated neon display)
-- **YouTube stream extraction** via yt-dlp with fallback to ffplay
-- **Qt6 Multimedia + FFmpeg backends** for maximum compatibility
-- **Single-script deployment** — one executable, one signal
+Single-Script Deployment: Engineered for minimal overhead—one executable, one signal.
 
-**Status:** ✅ [Merged in PR #4](https://github.com/JupiterIsland/memoryos/pull/4)
+Fire TV Mobile Client: Kivy/Kotlin Integration
+An enterprise-grade mobile broadcast client engineered for set-top box environments.
 
-```bash
-# Quick start
-python apps/jupiter-tv-desktop-v2/jupiter.py
-```
+Native TorrentService: Decentralized, P2P streaming capabilities.
 
-### 📱 **Fire TV Mobile App - Kivy/Kotlin v1**  
-Enterprise-grade mobile broadcast client featuring:
-- **Native TorrentService** for decentralized streaming
-- **ExoPlayerActivity** for hardware-accelerated playback
-- **Metadata engine** with AI-driven content enrichment
-- **DuckDB MemoryOS backend** for offline-first state management
+Hardware Acceleration: Integrated ExoPlayerActivity for efficient playback.
 
-**Status:** ✅ [Merged in PR #4](https://github.com/JupiterIsland/memoryos/pull/4)
+DuckDB State Management: Offline-first vector memory backend.
 
-### 🧠 **DuckDB-Backed Memory System**
-- **Vector embeddings** for semantic search across streams
-- **Temporal memory** with time-windowed replay
-- **Distributed sync** across devices
-- **Sub-second query latency** at scale
+AI Metadata Engine: Real-time content enrichment via DeepSeek-V3 hooks.
 
----
+DuckDB Vector Memory System
+The data persistence and retrieval layer powering MemoryOS intelligence.
 
-## 📊 Architecture Overview
+Vector Embeddings: Semantic search execution across all indexed streams.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   MemoryOS Ecosystem                    │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  🖥️  JUPITER ONE (Desktop)     📱 Fire TV (Mobile)    │
-│  ├─ PyQt6 Audio Engine        ├─ Kivy Frontend       │
-│  ├─ Spectrum Analyzer         ├─ Kotlin Backend      │
-│  └─ YouTube Stream Resolver   └─ TorrentService      │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│               DuckDB Vector Memory Layer                │
-│  • Semantic search across all content                  │
-│  • Temporal windowing & replay                         │
-│  • Cross-device sync                                   │
-├─────────────────────────────────────────────────────────┤
-│            DeepSeek-V3 AI Intelligence                 │
-│  • Real-time content classification                    │
-│  • AI Director for adaptive streaming                  │
-│  • Recommendation engine                               │
-└─────────────────────────────────────────────────────────┘
-```
+Temporal Memory: Time-windowed replay and state tracking.
 
----
+Distributed Sync: Cross-device state replication.
 
-## 📁 Project Structure
+High-Throughput Querying: Sub-second latency for vector retrieval at scale.
 
-```
+System Diagrams
+GitHub will automatically render the following architecture diagrams.
+
+High-Level Ecosystem Topology
+Code snippet
+graph TD
+    subgraph Clients["Client Layer"]
+        J1["Jupiter ONE (Desktop)<br/>PyQt6 Audio Engine"]
+        FTV["Fire TV (Mobile)<br/>Kivy / Kotlin Backend"]
+    end
+
+    subgraph Memory["DuckDB Vector Memory Layer"]
+        VS["Semantic Search"]
+        TW["Temporal Windowing"]
+        CS["Cross-Device Sync"]
+    end
+
+    subgraph AI["Intelligence Layer"]
+        DS["DeepSeek-V3 Integration"]
+        AD["AI Director"]
+        REC["Recommendation Engine"]
+    end
+
+    Clients <-->|State & Retrieval| Memory
+    Memory <-->|Context & Embeddings| AI
+    Clients <-->|Stream Classification| AI
+Data Flow: Memory to Inference
+Code snippet
+sequenceDiagram
+    participant Client as Jupiter/FireTV
+    participant Mem as DuckDB Engine
+    participant AI as DeepSeek-V3
+    
+    Client->>Mem: Query: "Upbeat electronic music"
+    Mem-->>Client: Return Top K Vector Matches
+    Client->>AI: Send Context & Matches
+    AI-->>Client: Return Stream Classification & Recommendation
+    Client->>Client: Initialize Playback
+Repository Structure
+Plaintext
 memoryos/
 ├── apps/
-│   └── jupiter-tv-desktop-v2/           # 🎸 Desktop App (PR #4)
-│       ├── jupiter.py                   # Full PyQt6 + Audio Engine (336 lines)
-│       ├── demo_play.py                 # Stream resolver CLI
-│       └── README.md                    # Setup & docs
+│   └── jupiter-tv-desktop-v2/           # Desktop App Environment (Merged PR #4)
+│       ├── jupiter.py                   # PyQt6 + Audio Engine Core (336 lines)
+│       ├── demo_play.py                 # Stream resolver CLI tool
+│       └── README.md                    # Environment-specific documentation
 ├── src/
-│   ├── stream_manager.py                # URL → Stream pipeline
-│   ├── memory_engine.py                 # DuckDB vector layer
-│   └── ai_director.py                   # DeepSeek integration
-├── requirements.txt                     # Python dependencies
-└── README.md                            # (This file)
-```
+│   ├── stream_manager.py                # URL to Stream pipeline logic
+│   ├── memory_engine.py                 # DuckDB vector layer implementation
+│   └── ai_director.py                   # DeepSeek API integration and logic
+├── requirements.txt                     # Dependency specifications
+└── README.md                            # Global documentation
+Installation & Deployment
+Desktop Environment (Jupiter ONE)
+Ensure you have Python 3.9+ installed, along with FFmpeg in your system path.
 
----
-
-## 🔧 Installation
-
-### Desktop (Jupiter ONE)
-
-```bash
-# 1. Clone & navigate
+Bash
+# 1. Clone repository
 git clone https://github.com/JupiterIsland/memoryos.git
 cd memoryos
 
-# 2. Create virtual environment
+# 2. Initialize virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# 3. Install core dependencies
 pip install -r requirements.txt
 
-# 4. Launch
+# 4. Launch engine
 python apps/jupiter-tv-desktop-v2/jupiter.py
-```
-
-**Requirements:**
-- Python 3.9+
-- PyQt6 + PyQt6-Multimedia
-- FFmpeg (for audio playback)
-- yt-dlp (YouTube extraction)
-
-### Mobile (Fire TV)
-
-```bash
+Mobile Environment (Fire TV)
+Bash
 cd apps/fire-tv-kotlin/
 ./gradlew assembleRelease
-# Deploy to Fire TV device via adb
-```
-
----
-
-## 🎯 Recent Achievements
-
-### ✅ PR #4: Fire TV Mobile App + Desktop Client (MERGED)
-**Merged 2026-08-06** | Author: @JupiterIsland
-
-**What's Included:**
-- ✨ Full Kivy/Kotlin Fire TV application
-- ✨ Native TorrentService for P2P streaming
-- ✨ ExoPlayer activity for hardware acceleration
-- ✨ Metadata enrichment engine
-- ✨ AI Director stubs (DeepSeek-V3 hooks)
-- ✨ Desktop PyQt6 audio engine with spectrum analyzer
-- ✨ M3U parser & stream resolver
-
-**Scope:** 370 additions across 3 files | 4 commits | 0 conflicts
-
-[View Full PR →](https://github.com/JupiterIsland/memoryos/pull/4)
-
----
-
-## 🎨 Desktop UI Showcase
-
-### Jupiter ONE - Neon Aesthetic
-```
-┌────────────────────────────────────────────────┐
-│ 🚀 JUPITER ONE - YOUR LOCAL BROADCAST ENGINE   │
-├────────────────────────────────────────────────┤
-│ YouTube URL: [Paste URL here...                 │ ▶ LOAD & PLAY
-├────────────────────────────────────────────────┤
-│               🎵 Spectrum Analyzer              │
-│       ████ ███ █████ ██ ████ ███ ██ █ ██      │
-│       Cyan/Magenta/Yellow color cycle           │
-├────────────────────────────────────────────────┤
-│ Status: ▶ Playing: "Song Title..."              │
-├────────────────────────────────────────────────┤
-│ Info Log:                                       │
-│ ✅ Jupiter One initialized                      │
-│ 📡 Ready to broadcast                           │
-│ 🔄 Loading: https://www.youtube.com/...         │
-│ ✅ Loaded: Song Name                            │
-│ ✅ Audio playback started                       │
-└────────────────────────────────────────────────┘
-```
-
-**Color Scheme:** Deep black/purple gradient background with neon cyan (#00ffff), hot pink (#ff1493), and green accents.
-
----
-
-## 🚀 Usage Examples
-
-### Play YouTube Audio
-```python
+# Deploy resulting APK to Fire TV device via adb
+Technical Implementations
+Stream Resolution & Playback
+Python
 from src.stream_manager import resolve_stream
 
-# From CLI
-python apps/jupiter-tv-desktop-v2/demo_play.py "https://www.youtube.com/watch?v=..."
-
-# From Python
+# Resolve YouTube stream data programmatically
 result = resolve_stream("https://www.youtube.com/watch?v=...")
 print(f"Stream URL: {result['url']}")
 print(f"Title: {result['title']}")
-```
-
-### Memory Query
-```python
+Vector Memory Query Execution
+Python
 from src.memory_engine import MemoryOS
 
 mem = MemoryOS()
-# Semantic search across all indexed streams
+# Execute semantic search across indexed streams
 results = mem.semantic_search("upbeat electronic music", top_k=5)
-```
-
-### AI Director
-```python
+Multi-Model AI Director
+Python
 from src.ai_director import AIDirector
 
 director = AIDirector(model="deepseek-v3")
+# Generate next stream based on DuckDB context
 recommendation = director.get_next_stream(current_context)
-```
+Development Roadmap
+[x] Integrate desktop PyQt6 audio engine with spectrum visualization.
 
----
+[x] Deploy Fire TV Kivy/Kotlin mobile client (PR #4).
 
-## 📈 Roadmap
+[x] Implement M3U parsing and native torrent protocols.
 
-- [x] Desktop PyQt6 audio engine with spectrum visualization
-- [x] Fire TV Kivy/Kotlin mobile client
-- [x] M3U parser & torrent integration
-- [x] DuckDB memory backend (v1)
-- [ ] Real-time spectrum capture from audio input
-- [ ] Kubernetes deployment (Edge)
-- [ ] Web dashboard for memory analytics
-- [ ] Multi-user sync & collaboration
-- [ ] Mobile app store release
+[x] Establish DuckDB vector memory backend (v1).
 
----
+[ ] Implement real-time spectrum capture direct from audio input.
 
-## 🤝 Contributing
+[ ] Orchestrate Edge deployment via Kubernetes.
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+[ ] Develop web dashboard for memory analytics and VRAM load.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+[ ] Implement multi-user synchronization layer.
 
----
+Contributing
+We adhere to a standard branching model. To contribute:
 
-## 📝 License
+Fork the repository.
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+Create a feature branch (git checkout -b feature/module-name).
 
----
+Commit changes with clear, descriptive messages.
 
-## 🎓 References & Technologies
+Push to the branch (git push origin feature/module-name).
 
-**Core Stack:**
-- **Frontend:** PyQt6 (Desktop), Kivy (Mobile)
-- **Backend:** Python 3.9+, Kotlin (Android)
-- **AI/ML:** DeepSeek-V3, Embeddings
-- **Storage:** DuckDB (Vector DB), SQLite (Local)
-- **Media:** FFmpeg, yt-dlp, ExoPlayer
-- **Streaming:** P2P Torrents, HTTP/DASH
+Open a Pull Request for review.
 
-**Inspiration:**
-- YouTube-DL architecture
-- Qt ecosystem best practices
-- DuckDB vector search patterns
-- Enterprise mobile app standards
+Please review CONTRIBUTING.md for coding standards and PR templates.
 
----
+License
+MemoryOS is distributed under the MIT License. See LICENSE for detailed information.
 
-## 📞 Contact & Support
-
-- **GitHub Issues:** [Report bugs or request features](https://github.com/JupiterIsland/memoryos/issues)
-- **Pull Requests:** [Contribute code](https://github.com/JupiterIsland/memoryos/pulls)
-- **Discussions:** [Ask questions](https://github.com/JupiterIsland/memoryos/discussions)
-
----
-
-## ⭐ Show Your Support
-
-If MemoryOS helps you, please give it a star! ⭐
-
-```
-  _   _ _____ _____ ___   __   ____    ___  ____    ___
- | | | |  ___|  __ \|  _| / _| / __ \ / _ \/ __ \ / _ \
- | |_| | |_  | |  | | |_ | |_ | |  | | | | | |  | | | | |
- |  _  |  _| | |  | |  _||  _|| |  | | | | | |  | | | | |
- | | | | |__ | |__| | |  | |_ | |__| | |_| | |__| | |_| |
- |_| |_|____||_____/|_|  |___| \____/ \___/ \____/ \___/
-```
-
----
-
-**Made with 🔥 by @JupiterIsland**  
-**Last Updated:** August 2026
+Architected by @JupiterIsland | Carlisle, UK
