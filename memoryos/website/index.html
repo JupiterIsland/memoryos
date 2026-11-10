@@ -3,416 +3,1599 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#000000">
-  <meta name="description" content="RJMedia Ecosystem — Past (Archive), Present (Community), Future (Technology). Music preservation, stories, and open-source innovation.">
-  <title>RJMedia Ecosystem | Remember the Sound • Keep the Connection • Build What's Next</title>
+  <meta name="theme-color" content="#090b10">
+  <meta name="description" content="RJMedia Ecosystem & Digital Liner Notes Vault — 25 years of music preservation, 1,000,883+ YouTube views, 72,366 watch hours, Paul Draper & Mansun Complete Archive, and open-source Topaz Video AI restoration.">
+  <title>RJMedia Ecosystem | Digital Liner Notes, Paul Draper Archive &amp; Remaster Vault</title>
+  <link rel="stylesheet" href="./assets/css/archive.css">
+  <script src="./assets/js/theme.js"></script>
   <style>
-    :root {
-      --black: #000;
-      --white: #fff;
-      --cream: #f4f4f1;
-      --ink: #111;
-      --muted: #666;
-      --accent: #d7d1c5;
-      --width: 1180px;
+    /* Master Hub Layout Enhancements */
+    .hero-master {
+      padding: clamp(2.2rem, 4.5vw, 3.6rem) 0 2.2rem;
+      border-bottom: 2px solid var(--ink);
     }
-    *, *::before, *::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
+    .hero-top-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.95fr;
+      gap: 2rem;
+      align-items: stretch;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 1.5rem;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    .metric-box {
+      background: var(--white);
+      border: 2px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--shadow);
+      padding: 0.95rem 1.05rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .metric-kicker {
+      font-family: monospace;
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .metric-val {
+      font-size: clamp(1.45rem, 2.5vw, 2.05rem);
+      font-weight: 1000;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin: 0.25rem 0;
+    }
+    .metric-sub {
+      font-family: monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    /* 25-Year Story Banner */
+    .story-timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-top: 1.75rem;
+      padding-top: 1.5rem;
+      border-top: 1px dashed var(--rule);
+    }
+    .timeline-step {
+      background: var(--white);
+      border: 1.5px solid var(--ink);
+      padding: 0.85rem 1rem;
+    }
+    .timeline-year {
+      font-family: monospace;
+      font-size: 0.74rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: var(--ink);
+      color: var(--paper);
+      padding: 0.15rem 0.45rem;
+      display: inline-block;
+      margin-bottom: 0.4rem;
+    }
+    .timeline-step h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+    }
+    .timeline-step p {
       margin: 0;
-      background: var(--cream);
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Interactive Liner Notes Split Theatre */
+    .vault-section {
+      padding: 2.5rem 0;
+      border-bottom: 2px solid var(--ink);
+    }
+    .section-header-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 2px solid var(--ink);
+    }
+    .section-header-bar h2 {
+      margin: 0;
+      font-size: clamp(1.65rem, 3.5vw, 2.5rem);
+      font-weight: 1000;
+      letter-spacing: -0.05em;
+      text-transform: uppercase;
+      line-height: 0.95;
+    }
+    .vault-pills-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.55rem;
+      margin-bottom: 1.5rem;
+    }
+    .vault-select-btn {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      background: var(--white);
       color: var(--ink);
-      font: 16px/1.65 "Segoe UI", Arial, Helvetica, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
-    a:hover { text-decoration-thickness: 2px; }
-    a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
-    .wrap { width: min(var(--width), calc(100% - 2rem)); margin-inline: auto; }
-    
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      background: rgba(244, 244, 241, 0.96);
-      border-bottom: 1px solid rgba(17, 17, 17, 0.1);
-      backdrop-filter: blur(10px);
-    }
-    .nav {
+      border: 2px solid var(--ink);
+      cursor: pointer;
+      transition: all 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       min-height: 68px;
+    }
+    .vault-select-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--shadow);
+    }
+    .vault-select-btn.active {
+      background: var(--ink);
+      color: var(--paper);
+      box-shadow: 4px 4px 0 var(--accent);
+    }
+    .vault-select-meta {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-family: monospace;
+      font-size: 0.65rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 0.25rem;
+    }
+    .vault-select-title {
+      font-size: 0.8rem;
+      font-weight: 900;
+      line-height: 1.15;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .theatre-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .sticky-col {
+      position: sticky;
+      top: 84px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .player-card {
+      background: var(--white);
+      border: 2px solid var(--ink);
+      box-shadow: 6px 6px 0 var(--shadow);
+      overflow: hidden;
+    }
+    .player-topbar {
+      background: #090b10;
+      color: #ffffff;
+      padding: 0.6rem 0.95rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-      padding: 0.5rem 0;
+      font-family: monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      gap: 0.5rem;
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-size: 0.82rem;
-      font-weight: 900;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      text-decoration: none;
-    }
-    .brand-mark {
-      width: 10px;
-      height: 10px;
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
       display: inline-block;
-      background: var(--ink);
-      transform: rotate(45deg);
+      margin-right: 6px;
     }
-    .nav-links {
+    .quick-chapters-bar {
+      padding: 0.75rem 0.9rem;
+      background: var(--paper-deep);
+      border-top: 2px solid var(--ink);
+    }
+    .quick-chapters-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+    .ch-chip {
+      font-family: monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.25rem 0.5rem;
+      background: var(--white);
+      color: var(--ink);
+      border: 1.5px solid var(--ink);
+      cursor: pointer;
+    }
+    .ch-chip:hover {
+      background: #fbbf24;
+      color: #090b10;
+    }
+
+    /* Penny Per Watch GPU Fund Card */
+    .gpu-fund-card {
+      background: var(--white);
+      border: 2px solid var(--ink);
+      box-shadow: 6px 6px 0 var(--shadow);
+      padding: 1.2rem 1.35rem;
+    }
+    .gpu-tip-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.55rem;
+      margin: 0.9rem 0;
+    }
+    .tip-card-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.65rem 0.5rem;
+      border: 2px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--shadow);
+      text-decoration: none;
+      font-family: monospace;
+      text-align: center;
+      transition: transform 0.12s ease;
+    }
+    .tip-card-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 5px 5px 0 var(--shadow);
+    }
+    .tip-card-btn.amber { background: #fbbf24; color: #111111; }
+    .tip-card-btn.dark { background: #090b10; color: #ffffff; }
+    .tip-card-btn.green { background: #34d399; color: #090b10; }
+
+    /* Liner Notes Right Panel */
+    .liner-card {
+      background: var(--white);
+      border: 2px solid var(--ink);
+      box-shadow: 6px 6px 0 var(--shadow);
+      padding: clamp(1.2rem, 2.5vw, 1.8rem);
+    }
+    .liner-tabs {
       display: flex;
       flex-wrap: wrap;
       gap: 0.4rem;
+      margin: 1rem 0 1.25rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--rule);
     }
-    .nav-links a {
-      padding: 0.55rem 0.7rem;
-      border: 1px solid transparent;
-      color: var(--muted);
-      font-size: 0.7rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      text-decoration: none;
+    .liner-section {
+      margin-bottom: 1.5rem;
     }
-    .nav-links a:hover, .nav-links a[aria-current="page"] {
-      border-color: var(--ink);
-      color: var(--ink);
-    }
-    
-    .hero {
-      padding: 4rem 0 2rem;
-      border-bottom: 1px solid rgba(17, 17, 17, 0.1);
-    }
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(2.5rem, 8vw, 5rem);
-      line-height: 0.95;
-      letter-spacing: -0.05em;
-      font-weight: 1000;
-      text-transform: uppercase;
-    }
-    .hero-intro {
-      max-width: 700px;
-      margin: 1.5rem 0 0;
-      color: var(--muted);
-      font-size: clamp(1rem, 2vw, 1.2rem);
-    }
-    
-    .section-tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 2px solid rgba(17, 17, 17, 0.1);
-      margin: 3rem 0 0;
-    }
-    .tab-btn {
-      padding: 1rem 1.5rem;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--muted);
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .tab-btn.active {
-      color: var(--ink);
-      border-bottom-color: var(--ink);
-    }
-    .tab-btn:hover {
-      color: var(--ink);
-    }
-    
-    .tab-content {
-      display: none;
-      padding: 3rem 0;
-      animation: fadeIn 0.3s;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .portal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      margin: 2rem 0;
-    }
-    .portal-card {
-      padding: 1.5rem;
-      border: 1px solid rgba(17, 17, 17, 0.1);
-      background: var(--white);
-      display: flex;
-      flex-direction: column;
-    }
-    .portal-card h3 {
-      margin: 0 0 0.75rem;
-      font-size: 1.1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .portal-card p {
-      color: var(--muted);
-      margin: 0.5rem 0;
-      font-size: 0.95rem;
-    }
-    .portal-card p:last-child {
-      margin-top: auto;
-      padding-top: 1rem;
-    }
-    
-    .featured {
-      display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(200px, 1fr);
-      gap: 1.5rem;
-      margin: 2rem 0;
-    }
-    .featured-image {
-      min-height: 300px;
-      background: var(--ink);
-      border: 1px solid rgba(17, 17, 17, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--white);
-      font-size: 0.9rem;
-      overflow: hidden;
-    }
-    .featured-image img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .featured-info {
-      padding: 1.5rem;
-      border: 1px solid rgba(17, 17, 17, 0.1);
-      background: var(--white);
-      display: flex;
-      flex-direction: column;
-    }
-    .featured-info h3 {
-      margin: 0 0 0.75rem;
-      font-size: clamp(1.2rem, 3vw, 1.8rem);
-      text-transform: uppercase;
-      line-height: 1.1;
-    }
-    
-    footer {
-      margin-top: 4rem;
-      padding: 2rem 0 3rem;
-      border-top: 1px solid rgba(17, 17, 17, 0.1);
-    }
-    .footer-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 2rem;
-      margin-bottom: 2rem;
-    }
-    .footer-col h4 {
-      margin: 0 0 1rem;
-      font-size: 0.85rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    .footer-col a {
-      display: block;
-      margin: 0.5rem 0;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-    .footer-col a:hover {
-      color: var(--ink);
-    }
-    .footer-bottom {
-      border-top: 1px solid rgba(17, 17, 17, 0.1);
-      padding-top: 2rem;
+    .liner-section-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 1rem;
-      font-size: 0.85rem;
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+    .section-tag {
+      font-family: monospace;
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.2rem 0.55rem;
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .tldr-box {
+      background: var(--paper);
+      border: 1.5px solid var(--ink);
+      padding: 1rem 1.15rem;
+    }
+    .tldr-box p {
+      margin: 0 0 0.65rem;
+      font-size: 0.95rem;
+    }
+    .tldr-box p:last-child { margin-bottom: 0; }
+    .timeline-rows {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .timeline-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--paper);
+      border: 1.5px solid var(--ink);
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+    .timeline-row:hover {
+      background: var(--accent-bg);
+    }
+    .time-badge {
+      font-family: monospace;
+      font-size: 0.74rem;
+      font-weight: 900;
+      padding: 0.2rem 0.5rem;
+      background: #090b10;
+      color: #fbbf24;
+      white-space: nowrap;
+    }
+    .trivia-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+    }
+    .trivia-box {
+      background: var(--paper);
+      border: 1.5px solid var(--ink);
+      padding: 0.85rem;
+    }
+    .topaz-box {
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      border-left: 6px solid var(--accent);
+      padding: 1rem 1.15rem;
+    }
+    .topaz-params {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+    .topaz-param {
+      background: var(--white);
+      border: 1px solid var(--ink);
+      padding: 0.45rem 0.6rem;
+    }
+    .topaz-param small {
+      display: block;
+      font-family: monospace;
+      font-size: 0.64rem;
+      text-transform: uppercase;
       color: var(--muted);
     }
-    
-    @media (max-width: 800px) {
-      .featured { grid-template-columns: 1fr; }
-      .footer-content { grid-template-columns: 1fr; }
-      .section-tabs { flex-wrap: wrap; }
-      .tab-btn { padding: 0.75rem 1rem; font-size: 0.8rem; }
+    .topaz-param strong {
+      font-family: monospace;
+      font-size: 0.78rem;
+    }
+
+    /* Ecosystem 3-Pillar Grid */
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .pillar-card {
+      background: var(--white);
+      border: 2px solid var(--ink);
+      box-shadow: 6px 6px 0 var(--shadow);
+      padding: 1.4rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Toast notification */
+    .toast-popup {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      z-index: 300;
+      background: #090b10;
+      color: #fbbf24;
+      border: 2px solid #fbbf24;
+      box-shadow: 4px 4px 0 #000000;
+      padding: 0.75rem 1.1rem;
+      font-family: monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      display: none;
+      max-width: 380px;
+    }
+    .toast-popup.show { display: block; }
+
+    @media (max-width: 980px) {
+      .hero-top-grid, .theatre-grid, .pillars-grid { grid-template-columns: 1fr; }
+      .sticky-col { position: static; }
+      .vault-pills-grid { grid-template-columns: repeat(2, 1fr); }
+      .story-timeline { grid-template-columns: repeat(2, 1fr); }
+      .topaz-params { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .metrics-grid, .vault-pills-grid, .story-timeline, .trivia-grid, .gpu-tip-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <header class="topbar">
+
+  <!-- TOP ECOSYSTEM STATUS & ACCESSIBILITY BAR -->
+  <div class="archive-status-bar">
+    <div class="wrap archive-status-inner">
+      <div class="status-badges">
+        <span class="status-pill gold">★ 1,000,883 VERIFIED VIEWS</span>
+        <span class="status-pill">72,366 WATCH HOURS (8.26 YRS)</span>
+        <span class="status-pill">25-YEAR ARCHIVE (1999–2026)</span>
+        <span class="status-pill">£0.00 ADSENSE • 100% FREE</span>
+      </div>
+      <div class="utility-controls">
+        <span style="opacity: 0.75;">READER SIZE:</span>
+        <button type="button" class="util-btn active" data-scale-btn="1" onclick="setArchiveScale(1)">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale(1.12)">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale(1.25)">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">🎬 Cinema Dark</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIFIED MASTER NAVIGATION -->
+  <header class="masthead">
     <div class="wrap nav">
-      <a class="brand" href="./">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span>RJMedia Ecosystem</span>
+      <a class="brand" href="./index.html">
+        <span class="mark" aria-hidden="true"></span>
+        <span>RJMedia Ecosystem &amp; Archive</span>
       </a>
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="#" aria-current="page">Ecosystem</a>
-        <a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">GitHub</a>
+      <nav class="nav-links" aria-label="RJMedia Master Navigation">
+        <a href="#remaster-vault" class="active">Video &amp; Liner Notes</a>
+        <a href="#channel-catalog">Full Catalog (36+)</a>
+        <a href="./pages/index.html">Paul Draper &amp; Mansun Hub</a>
+        <a href="./draper.html">Bio &amp; 2007 Q&amp;A</a>
+        <a href="./pages/draper-news.html">News (16)</a>
+        <a href="./pages/draper-articles.html">Press Scans (14)</a>
+        <a href="./pages/mansun-mp3-vault.html">MP3 Vault (52)</a>
+        <a href="#community-section">Community</a>
+        <a href="./sponsor.html">Transparency</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer" class="nav-cta">☕ Tip £3</a>
       </nav>
     </div>
   </header>
 
-  <main>
-    <section class="hero">
-      <div class="wrap">
-        <h1>RJMedia<br/>Ecosystem</h1>
-        <p class="hero-intro">Past • Present • Future. One unified platform for music preservation, community connection, and open-source innovation. Everything in one place.</p>
+  <main class="wrap">
+    <!-- 1. HERO: 30-SECOND FIRST IMPRESSION + LIVE METRICS + 25-YEAR TIMELINE -->
+    <section class="hero-master" aria-labelledby="hero-heading">
+      <div class="hero-top-grid">
+        <div>
+          <p class="eyebrow">PAST (Archive) • PRESENT (Community) • FUTURE (Open-Source AI)</p>
+          <h1 id="hero-heading">Remember<br>the Sound.</h1>
+          <p class="intro">
+            Built by <strong>Richard John Murray</strong> over 25 years—from a 1999 Yahoo Group and the original <em>pauldraper-music.co.uk</em> archive to over <strong>1,000,883 YouTube views</strong> and <strong>72,366 hours of watch time</strong>. Front-barrier live captures, restored 1990s music documentaries, digital liner notes, and open-source Topaz Video AI pipelines. <strong>Never charged a fan. Forever free.</strong>
+          </p>
+          <div class="hero-actions">
+            <a class="btn" href="#remaster-vault">▶ Open Video &amp; Liner Notes Deck</a>
+            <a class="btn btn-outline" href="./pages/index.html">Explore Paul Draper &amp; Mansun Vault →</a>
+            <a class="btn btn-gold" href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer">☕ Support GPU &amp; Archive (£3)</a>
+            <a class="btn btn-outline" href="https://www.youtube.com/@LiveMusicBandDocumentaries" target="_blank" rel="noopener noreferrer">YouTube Channel ↗</a>
+          </div>
+        </div>
+
+        <aside aria-label="Verified YouTube Channel & Archive Statistics">
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-kicker">01 // Verified Views</span>
+              <div class="metric-val">1,000,883</div>
+              <span class="metric-sub">1M+ Milestone Reached</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-kicker">02 // Watch Time</span>
+              <div class="metric-val">72,366 H</div>
+              <span class="metric-sub">8.26 Years Continuous</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-kicker">03 // Impressions</span>
+              <div class="metric-val">14.35 M</div>
+              <span class="metric-sub">4.53% Avg CTR (11.07% Peak)</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-kicker">04 // YouTube AdSense</span>
+              <div class="metric-val">£0.00</div>
+              <span class="metric-sub">100% Claimed by Publishers</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- 25-Year Narrative Timeline -->
+      <div class="story-timeline" aria-label="25-Year Preservation Timeline">
+        <div class="timeline-step">
+          <span class="timeline-year">1999 — 2005</span>
+          <h3>Yahoo Group &amp; Tape Trading</h3>
+          <p>Started preserving rare live sets, B-sides, radio sessions, and fan community recordings without ever charging a penny.</p>
+        </div>
+        <div class="timeline-step">
+          <span class="timeline-year">2006 — 2012</span>
+          <h3>pauldraper-music.co.uk</h3>
+          <p>Built the definitive Paul Draper &amp; Mansun archive: 16 studio dispatches, 2007 fan Q&amp;As, press scans, and 52 audio rarities.</p>
+        </div>
+        <div class="timeline-step">
+          <span class="timeline-year">2021 — 2025</span>
+          <h3>1,000,000+ YouTube Views</h3>
+          <p>Front-barrier phone captures (Buzzcocks Solfest 226K views) &amp; Topaz Video AI restorations (Peter Green 325K+ views, Smiths 101K views).</p>
+        </div>
+        <div class="timeline-step">
+          <span class="timeline-year">2026 &amp; Beyond</span>
+          <h3>Open-Source AI Ecosystem</h3>
+          <p>Gemini AI digital liner notes, downloadable Topaz JSON blueprints, and a GitHub-forkable archive owned by the community forever.</p>
+        </div>
       </div>
     </section>
 
-    <div class="wrap">
-      <nav class="section-tabs">
-        <button class="tab-btn active" data-tab="past">🔊 Remember the Sound (PAST)</button>
-        <button class="tab-btn" data-tab="present">🤝 Keep the Connection (PRESENT)</button>
-        <button class="tab-btn" data-tab="future">🔧 Build What's Next (FUTURE)</button>
-      </nav>
+    <!-- 2. INTERACTIVE DIGITAL LINER NOTES & REMASTER VAULT -->
+    <section id="remaster-vault" class="vault-section" aria-labelledby="vault-heading">
+      <div class="section-header-bar">
+        <div>
+          <p class="eyebrow">Interactive Video Deck • Clickable [MM:SS] Setlists • Topaz Video AI Specs</p>
+          <h2 id="vault-heading">Digital Liner Notes &amp; Remaster Vault</h2>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="customYtInput" placeholder="Paste any YouTube URL or ID..." style="padding: 0.5rem 0.75rem; border: 2px solid var(--ink); background: var(--white); color: var(--ink); font-family: monospace; font-size: 0.78rem; min-width: 230px;" onkeydown="if(event.key==='Enter') loadCustomVideo()">
+          <button type="button" class="btn" onclick="loadCustomVideo()">Load Video</button>
+        </div>
+      </div>
 
-      <!-- TAB 1: PAST -->
-      <section id="past" class="tab-content active">
-        <h2 style="font-size: 1.8rem; margin: 0 0 0.5rem; text-transform: uppercase;">Remember the Sound</h2>
-        <p style="color: var(--muted); max-width: 700px;">RJMedia Digital Archive preserves rare performances, music documentaries, research, and cultural history.</p>
+      <!-- 10 Featured Liner Notes Selector Pills -->
+      <div class="vault-pills-grid" id="vaultSelectorGrid" role="tablist" aria-label="Featured Remasters with Full Liner Notes">
+        <!-- Populated by JS -->
+      </div>
 
-        <div style="margin-top: 3rem;">
-          <h3 style="font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.5rem;">Featured Collection: Paul Draper & Mansun Archive</h3>
-          
-          <div class="featured">
-            <div class="featured-image">
-              <img src="./assets/images/paulcorner4.jpg" alt="Paul Draper">
+      <!-- Main Split Workspace: Left Player + Penny-Per-Watch GPU Fund | Right Liner Notes Magazine -->
+      <div class="theatre-grid">
+        <!-- Left Column: Sticky Video Player + Transparent Donation Widget -->
+        <div class="sticky-col">
+          <div class="player-card">
+            <div class="player-topbar">
+              <div>
+                <span class="live-dot"></span>
+                <span id="playerBadge">VIDEO ID: _ivgaFkD4Ac</span>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span id="playerStatus" style="color: #fbbf24;">Ready @ 00:00</span>
+                <a id="directYtBtn" href="https://www.youtube.com/watch?v=_ivgaFkD4Ac" target="_blank" rel="noopener noreferrer" style="background: #dc2626; color: #fff; padding: 0.15rem 0.5rem; text-decoration: none;">Watch on YT ↗</a>
+              </div>
             </div>
-            <div class="featured-info">
-              <h3>Paul Draper & Mansun<br/>Complete Archive</h3>
-              <p style="margin: 1rem 0 0;">16 news logs, 11 press scans, 52 audio tracks. Spanning 1996 to 2012 — from the Stripper Vicar era through solo recovery.</p>
-              <p style="margin-top: auto; padding-top: 1rem;"><a href="./pages/index.html" style="font-weight: 700;">Explore Archive →</a></p>
+
+            <div class="yt-frame-wrap">
+              <iframe id="mainYtIframe" src="https://www.youtube-nocookie.com/embed/_ivgaFkD4Ac?rel=0&modestbranding=1" title="RJMedia Archive Video Player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+
+            <div class="quick-chapters-bar">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <span style="font-family: monospace; font-size: 0.72rem; font-weight: 900; text-transform: uppercase;">⚡ Click Timestamp to Seek Video:</span>
+                <button type="button" class="util-btn" style="background: var(--ink); color: var(--paper);" onclick="copyCurrentChapters()">📋 Copy YT Chapters</button>
+              </div>
+              <div class="quick-chapters-list" id="quickChaptersBar"></div>
+            </div>
+          </div>
+
+          <!-- Transparent "Penny Per Watch" GPU & Preservation Fund -->
+          <div class="gpu-fund-card" id="support-ledger">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem;">
+              <div>
+                <span class="status-pill gold" style="font-family: monospace; font-size: 0.68rem;">⚡ PENNY-PER-WATCH HARDWARE REALITY</span>
+                <h3 style="margin: 0.4rem 0 0; font-size: 1.15rem; text-transform: uppercase; letter-spacing: -0.02em;">Why Optional Tips Keep This Archive Alive</h3>
+              </div>
+              <span style="font-family: monospace; font-size: 0.72rem; font-weight: 900; background: #090b10; color: #fbbf24; padding: 0.25rem 0.5rem;">100% FREE</span>
+            </div>
+            <p style="font-size: 0.86rem; color: var(--muted); margin: 0 0 0.75rem;">
+              Record labels claim 100% of YouTube ad revenue on live music &amp; documentaries—even on front-row phone footage filmed personally at the barrier or 14-hour 350W GPU Topaz VHS restorations. There are <strong>zero paywalls</strong> here, ever. If you enjoy a restoration, a coffee helps cover GPU electricity, hosting, and the next tape transfer:
+            </p>
+
+            <div class="gpu-tip-grid">
+              <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer" class="tip-card-btn amber">
+                <strong style="font-size: 0.82rem;">☕ £3 Coffee</strong>
+                <span style="font-size: 0.68rem;">GPU Power Tip</span>
+              </a>
+              <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer" class="tip-card-btn dark">
+                <strong style="font-size: 0.82rem; color: #fbbf24;">📼 £5 VHS Tape</strong>
+                <span style="font-size: 0.68rem;">Sponsor a Transfer</span>
+              </a>
+              <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer" class="tip-card-btn green">
+                <strong style="font-size: 0.82rem;">⚡ Archive Fund</strong>
+                <span style="font-size: 0.68rem;">Any Amount</span>
+              </a>
+            </div>
+
+            <!-- Transparent Ledger & Interactive Sustainability Calculator -->
+            <div style="background: var(--paper); border: 1.5px solid var(--ink); padding: 0.75rem 0.9rem; font-size: 0.78rem;">
+              <div style="display: flex; justify-content: space-between; font-family: monospace; font-weight: 900; margin-bottom: 0.35rem;">
+                <span>📊 TRANSPARENT LEDGER (1,000,883 VIEWS):</span>
+                <span id="calcResultLabel" style="color: var(--accent);">1% @ £2 = £20,017 Pot.</span>
+              </div>
+              <input type="range" id="tipRateSlider" min="0.5" max="2.5" step="0.5" value="1" style="width: 100%; accent-color: #d97706; cursor: pointer;" oninput="updateTipCalculator()">
+              <div style="display: flex; justify-content: space-between; font-family: monospace; font-size: 0.68rem; color: var(--muted); margin-top: 0.25rem;">
+                <span>Web Hosting: £20/mo</span>
+                <span>AI &amp; GPU Render: £100/mo</span>
+                <span>100% Audited &amp; Open</span>
+              </div>
+              <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.65rem;">
+                <button type="button" class="pill" style="font-size: 0.68rem; padding: 0.3rem 0.55rem;" onclick="copyPinnedComment('solfest')">📋 Copy Solfest Pinned Comment</button>
+                <button type="button" class="pill" style="font-size: 0.68rem; padding: 0.3rem 0.55rem;" onclick="copyPinnedComment('docs')">📋 Copy Docs Pinned Comment</button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="portal-grid" style="margin-top: 2rem;">
-          <div class="portal-card">
-            <h3>📰 News & Logs</h3>
-            <p>16 chronological studio dispatches, announcements, and direct updates from 2006–2012.</p>
-            <p><a href="./pages/draper-news.html">Browse News →</a></p>
+        <!-- Right Column: Magazine-Grade Digital Liner Notes -->
+        <article class="liner-card" aria-live="polite">
+          <div style="border-bottom: 2px solid var(--ink); padding-bottom: 0.9rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                <span id="lnCatBadge" class="section-tag">01 // FRONT-ROW RAW CAPTURE</span>
+                <span id="lnYearBadge" class="era-badge">AUG 2021</span>
+                <span id="lnStatsBadge" class="era-badge" style="background: var(--emerald-bg); font-weight: 900;">226,088 VIEWS • 9,410 HRS</span>
+              </div>
+              <button type="button" class="pill" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;" onclick="copyLinerMarkdown()">📝 Copy .MD Notes</button>
+            </div>
+            <h3 id="lnTitle" style="margin: 0; font-size: clamp(1.35rem, 2.5vw, 1.95rem); font-weight: 1000; letter-spacing: -0.04em; text-transform: uppercase; line-height: 1.1;">
+              The Buzzcocks — What Do I Get (Live Solfest 2021)
+            </h3>
+            <p id="lnSubtitle" style="margin: 0.35rem 0 0; font-family: monospace; font-size: 0.78rem; color: var(--muted);">
+              Filmed personally by RJMedia on the front barrier at Solfest 2021, Cumbria • Zero AI Over-Processing • Pure Punk Energy
+            </p>
           </div>
-          <div class="portal-card">
-            <h3>📄 Press & Interviews</h3>
-            <p>High-resolution magazine scans from Melody Maker, Select, Rock Sound, and Uncut. 4 major features.</p>
-            <p><a href="./pages/draper-articles.html">Read Articles →</a></p>
+
+          <!-- Filter Tabs for Liner Notes Sections -->
+          <div class="liner-tabs" role="tablist">
+            <button type="button" class="pill active" data-lntab="all" onclick="setLinerTab('all')">📖 Full Liner Notes</button>
+            <button type="button" class="pill" data-lntab="tldr" onclick="setLinerTab('tldr')">⚡ 60s TL;DR</button>
+            <button type="button" class="pill" data-lntab="setlist" onclick="setLinerTab('setlist')">🎵 Setlist &amp; Timestamps</button>
+            <button type="button" class="pill" data-lntab="trivia" onclick="setLinerTab('trivia')">🎸 Stage Gear &amp; Trivia</button>
+            <button type="button" class="pill" data-lntab="topaz" onclick="setLinerTab('topaz')">🎛️ Topaz AI Pipeline</button>
           </div>
-          <div class="portal-card">
-            <h3>🎵 MP3 Vault</h3>
-            <p>52 tracks: Amsterdam Paradiso 1998 live bootleg, Grind demos, rarities, and unreleased studio work.</p>
-            <p><a href="./pages/mansun-mp3-vault.html">Play Audio →</a></p>
+
+          <!-- Section 01: 60s TL;DR -->
+          <div id="lnSecTldr" class="liner-section">
+            <div class="liner-section-head">
+              <span class="section-tag">01 • 60-SECOND ARCHIVAL TL;DR</span>
+              <span style="font-family: monospace; font-size: 0.72rem; color: var(--muted);">Why This Recording Matters</span>
+            </div>
+            <div id="lnTldrBody" class="tldr-box"></div>
+          </div>
+
+          <!-- Section 02: Interactive Setlist & Timestamps -->
+          <div id="lnSecSetlist" class="liner-section">
+            <div class="liner-section-head">
+              <span class="section-tag">02 • INTERACTIVE SETLIST &amp; TIMESTAMPS</span>
+              <span style="font-family: monospace; font-size: 0.72rem; color: var(--muted);">Click any row to jump player</span>
+            </div>
+            <div id="lnTimelineBody" class="timeline-rows"></div>
+          </div>
+
+          <!-- Section 03: Stage Gear & Archive Trivia -->
+          <div id="lnSecTrivia" class="liner-section">
+            <div class="liner-section-head">
+              <span class="section-tag">03 • VISUAL GEAR SPOTTING &amp; ARCHIVE TRIVIA</span>
+            </div>
+            <div id="lnTriviaBody" class="trivia-grid"></div>
+          </div>
+
+          <!-- Section 04: Topaz Video AI Specs & FFmpeg CLI -->
+          <div id="lnSecTopaz" class="liner-section" style="margin-bottom: 0;">
+            <div class="topaz-box">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <span style="font-family: monospace; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; color: var(--accent);">04 • RESTORATION &amp; HARDWARE REALITY</span>
+                  <h4 id="lnTopazTitle" style="margin: 0.15rem 0 0; font-size: 1rem; text-transform: uppercase;">Pathway 00: Native Barrier Smartphone ISP Capture</h4>
+                </div>
+                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.7rem;" onclick="copyCurrentFfmpeg()">💻 Copy FFmpeg CLI</button>
+              </div>
+              <p id="lnTopazNotes" style="font-size: 0.84rem; color: var(--muted); margin: 0.5rem 0;"></p>
+              <div id="lnTopazParams" class="topaz-params"></div>
+              <pre id="lnFfmpegPre" style="margin: 0.5rem 0 0; padding: 0.65rem; background: #090b10; color: #34d399; font-family: monospace; font-size: 0.72rem; overflow-x: auto; border: 1px solid var(--ink);"></pre>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 3. FULL SEARCHABLE YOUTUBE CHANNEL CATALOG (36+ VERIFIED VIDEOS FROM TABLE DATA.CSV) -->
+    <section id="channel-catalog" class="vault-section" aria-labelledby="catalog-heading">
+      <div class="section-header-bar">
+        <div>
+          <p class="eyebrow">Verified YouTube Analytics Ledger • 1,000,883 Total Views • 72,366 Watch Hours</p>
+          <h2 id="catalog-heading">Searchable Channel Video Archive</h2>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <label for="catalogSort" style="font-family: monospace; font-size: 0.75rem; font-weight: 800; text-transform: uppercase;">Sort By:</label>
+          <select id="catalogSort" onchange="renderCatalogTable()" style="padding: 0.45rem 0.75rem; border: 2px solid var(--ink); background: var(--white); color: var(--ink); font-family: monospace; font-size: 0.76rem; font-weight: 800;">
+            <option value="views">Views (High to Low)</option>
+            <option value="hours">Watch Hours (High to Low)</option>
+            <option value="ctr">Click-Through Rate % (Peak CTR)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top: 1rem;">
+        <div class="search-box">
+          <input type="search" id="catalogSearch" class="search-input" placeholder="Search 36+ videos by artist, song, venue, or year (e.g. Smiths, Peter Green, Mansun, Paul Draper, Buzzcocks, Verve, Jamcod, Everton)..." oninput="renderCatalogTable()" aria-label="Search channel video archive">
+        </div>
+        <div class="filter-pills" id="catalogCatPills" role="group" aria-label="Filter videos by category">
+          <button type="button" class="pill active" data-vcat="all" onclick="setCatalogCategory('all')">All (36)</button>
+          <button type="button" class="pill" data-vcat="docs" onclick="setCatalogCategory('docs')">Rock Docs &amp; Peter Green</button>
+          <button type="button" class="pill" data-vcat="mansun" onclick="setCatalogCategory('mansun')">Mansun &amp; Paul Draper</button>
+          <button type="button" class="pill" data-vcat="indie" onclick="setCatalogCategory('indie')">Smiths / Verve / Indie</button>
+          <button type="button" class="pill" data-vcat="barrier" onclick="setCatalogCategory('barrier')">Front-Row Live Captures</button>
+          <button type="button" class="pill" data-vcat="everton" onclick="setCatalogCategory('everton')">Goodison Park / Everton</button>
+        </div>
+      </div>
+      <div class="result-meta" id="catalogCountMeta">Showing all 36 top archival videos — click ▶ Play in Deck on any row to watch immediately above</div>
+
+      <div class="vault-table-wrap">
+        <table class="vault-table">
+          <thead>
+            <tr>
+              <th>Video / Performance Title</th>
+              <th>Artist / Era</th>
+              <th>Views</th>
+              <th>Watch Hours</th>
+              <th>CTR %</th>
+              <th style="width: 210px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="catalogTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. PAST: THE PAUL DRAPER & MANSUN COMPLETE ARCHIVE PORTAL -->
+    <section id="draper-portal" class="vault-section" aria-labelledby="draper-heading">
+      <div class="section-header-bar">
+        <div>
+          <p class="eyebrow">PAST • Recovered from pauldraper-music.co.uk (2006–2012) • Museum-Grade Collector Edition</p>
+          <h2 id="draper-heading">The Paul Draper &amp; Mansun Complete Archive</h2>
+        </div>
+        <a class="btn" href="./pages/index.html">Enter Full Draper &amp; Mansun Hub →</a>
+      </div>
+
+      <!-- Featured Photography Strip (Clicks open Lightbox) -->
+      <div class="photo-strip" style="padding-top: 0.75rem;">
+        <article class="photo-card">
+          <img src="./assets/images/indexpic.jpg" alt="Paul Draper studio session" onclick="openLightbox('./assets/images/indexpic.jpg', 'Paul Draper — Studio & Live Session Photograph')">
+          <div class="cap">
+            <strong>Studio &amp; Live Session</strong>
+            Recovered portrait from the original <em>pauldraper-music.co.uk</em> masthead.
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/glam_1_big.jpg" alt="Melody Maker Sept 1996 Glam Bam" onclick="openLightbox('./assets/images/glam_1_big.jpg', 'Melody Maker (28 Sept 1996) — Glam Bam Thank You Man!')">
+          <div class="cap">
+            <strong>Melody Maker • Sept 1996</strong>
+            "Glam Bam Thank You Man!" 2-page spread (Tom Sheehan &amp; Ben Stud).
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/taxi_small.jpg" alt="Select / NME June 1996 Taxi The AA" onclick="openLightbox('./assets/images/taxi_small.jpg', 'Select / NME (June 1996) — Taxi! The A.A.! Mansun AKA Bad Boys Inc')">
+          <div class="cap">
+            <strong>'Taxi! The A.A.!' • June 1996</strong>
+            Stove, Paul, and Chad on the road during the early 1996 tour madness.
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/rocksound2000.jpg" alt="Rock Sound Summer 2000 Just For Kix" onclick="openLightbox('./assets/images/rocksound2000.jpg', 'Rock Sound (Summer 2000) — Mansun: Just For Kix (Photos: Anton Corbijn)')">
+          <div class="cap">
+            <strong>Rock Sound • Summer 2000</strong>
+            "Just For Kix" — 4-page Anton Corbijn shoot &amp; Iain Moffat interview.
+          </div>
+        </article>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.15rem; margin-top: 1.5rem;">
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">01 // Biography &amp; Q&amp;A</span>
+            <h3 class="news-title" style="font-size: 1.25rem;">Text Archive &amp; 2007 Q&amp;A</h3>
+            <p style="color: var(--muted); font-size: 0.9rem;">"The Outsider Thing" biography, complete album discography (<em>Grey Lantern</em>, <em>Six</em>, <em>Little Kix</em>, <em>Kleptomania</em>), Komakino production notes, and the 2007 fan Q&amp;A.</p>
+          </div>
+          <div style="margin-top: 1rem;"><a class="btn" href="./draper.html">Read Bio &amp; Q&amp;A →</a></div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">02 // Chronology (2006–2012)</span>
+            <h3 class="news-title" style="font-size: 1.25rem;">16 Studio News Logs</h3>
+            <p style="color: var(--muted); font-size: 0.9rem;">Searchable studio diaries, Wayne Riches &amp; Sweatshop Boys updates, <em>The Culture Show</em> logs, and solo recovery dispatches with instant year filters.</p>
+          </div>
+          <div style="margin-top: 1rem;"><a class="btn" href="./pages/draper-news.html">Browse 16 Logs →</a></div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">03 // Press &amp; Scans</span>
+            <h3 class="news-title" style="font-size: 1.25rem;">5 Features &amp; 14 Scans</h3>
+            <p style="color: var(--muted); font-size: 0.9rem;">High-res magazine spreads from <em>Melody Maker</em> (1996 &amp; Nov 2000), <em>Select</em> (1996), <em>Rock Sound</em> (2000), and <em>Uncut</em> (2006) with full-screen zoom reader.</p>
+          </div>
+          <div style="margin-top: 1rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <a class="btn" href="./pages/draper-articles.html">Articles →</a>
+            <a class="btn btn-outline" href="./pages/press-layout.html">Spread Reader →</a>
           </div>
         </div>
-      </section>
 
-      <!-- TAB 2: PRESENT -->
-      <section id="present" class="tab-content">
-        <h2 style="font-size: 1.8rem; margin: 0 0 0.5rem; text-transform: uppercase;">Keep the Connection</h2>
-        <p style="color: var(--muted); max-width: 700px;">Community stories, practical resources, and discussion spaces. Behind every archive entry is a person.</p>
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">04 // Stream &amp; Bootleg Deck</span>
+            <h3 class="news-title" style="font-size: 1.25rem;">52-Track Audio Vault</h3>
+            <p style="color: var(--muted); font-size: 0.9rem;">Instant 1-click online streaming of Brixton '98, Glastonbury '98, 90s TV broadcasts, Amsterdam Paradiso '98, Draposound &amp; Grind demos + local MP3 file loader.</p>
+          </div>
+          <div style="margin-top: 1rem;"><a class="btn" href="./pages/mansun-mp3-vault.html">Open 52-Track Deck →</a></div>
+        </div>
+      </div>
+    </section>
 
-        <div class="portal-grid" style="margin-top: 2rem;">
-          <div class="portal-card">
-            <h3>🏘️ Community Stories</h3>
-            <p>Personal narratives about housing, connectivity, digital inclusion, and life change.</p>
-            <p style="color: #aaa; font-size: 0.85rem;">Launching Soon</p>
+    <!-- 5. PRESENT & FUTURE: COMMUNITY, ADHD CREATOR PDFS, TOPAZ PRESETS & GITHUB FORK -->
+    <section id="community-section" class="vault-section" style="border-bottom: none;" aria-labelledby="ecosystem-heading">
+      <div class="section-header-bar">
+        <div>
+          <p class="eyebrow">PRESENT (Community &amp; Inclusion) • FUTURE (Open-Source Preservation &amp; Topaz AI)</p>
+          <h2 id="ecosystem-heading">Keep the Connection • Build What's Next</h2>
+        </div>
+        <a class="btn btn-outline" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener noreferrer">⌘ Fork Archive on GitHub ↗</a>
+      </div>
+
+      <div class="pillars-grid">
+        <!-- Pillar 1: Why Staying Connected Matters & Community Help -->
+        <div class="pillar-card">
+          <div>
+            <span class="news-date">PRESENT // RJMEDIA COMMUNITY</span>
+            <h3 class="news-title" style="font-size: 1.35rem;">Why Staying Connected Matters</h3>
+            <p style="font-size: 0.92rem; color: var(--muted);">
+              Behind every archive entry is a person. Like many across the UK, I experienced housing instability while maintaining these archives. AI and open-source workflows helped me stay organised, document music history, and keep building.
+            </p>
+            <p style="font-size: 0.92rem; color: var(--muted);">
+              <strong>Need practical help?</strong> If you are facing housing difficulties, digital exclusion, connectivity challenges, or need help organising information with AI/ADHD workflows, get in touch.
+            </p>
           </div>
-          <div class="portal-card">
-            <h3>💬 Forum & Discussion</h3>
-            <p>Topics: housing, AI, ADHD, music preservation, creator workflows, and open source projects.</p>
-            <p style="color: #aaa; font-size: 0.85rem;">Launching Soon</p>
-          </div>
-          <div class="portal-card">
-            <h3>🤝 Need Help?</h3>
-            <p>Practical support with housing, digital access, connectivity, and information organization.</p>
-            <p><a href="mailto:richardmurray2022@gmail.com">Get in Touch →</a></p>
+          <div style="margin-top: 1.2rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="btn" href="mailto:richardmurray2022@gmail.com">✉ Email Richard</a>
+            <a class="btn btn-outline" href="./sponsor.html">Sponsorship &amp; Impact →</a>
           </div>
         </div>
-      </section>
 
-      <!-- TAB 3: FUTURE -->
-      <section id="future" class="tab-content">
-        <h2 style="font-size: 1.8rem; margin: 0 0 0.5rem; text-transform: uppercase;">Build What's Next</h2>
-        <p style="color: var(--muted); max-width: 700px;">AI systems, metadata automation, and open-source tools. Technology in service of preservation and community.</p>
-
-        <div class="portal-grid" style="margin-top: 2rem;">
-          <div class="portal-card">
-            <h3>🤖 AI & Automation</h3>
-            <p>Archive intelligence notes. AI-assisted cataloguing, preservation metadata, and intelligent discovery tools.</p>
-            <p><a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">View on GitHub →</a></p>
+        <!-- Pillar 2: Printable ADHD-Friendly Creator PDFs & Topaz JSON Presets -->
+        <div class="pillar-card">
+          <div>
+            <span class="news-date">CREATOR LAB // FREE DOWNLOADS</span>
+            <h3 class="news-title" style="font-size: 1.35rem;">Topaz AI Presets &amp; ADHD Action Cards</h3>
+            <p style="font-size: 0.92rem; color: var(--muted);">
+              Download the exact Topaz Video AI JSON restoration profiles and printable ADHD-friendly reference sheets used to build a 1,000,000-view archive:
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0.75rem 0; font-family: monospace; font-size: 0.78rem;">
+              <li style="padding: 0.35rem 0; border-bottom: 1px dotted var(--rule);">📄 <a href="./RJMedia_ADHD_YouTube_Masterplan.pdf" target="_blank" rel="noopener"><strong>RJMedia_ADHD_YouTube_Masterplan.pdf</strong></a></li>
+              <li style="padding: 0.35rem 0; border-bottom: 1px dotted var(--rule);">📄 <a href="./RJMedia_ADHD_Topaz_Infographic.pdf" target="_blank" rel="noopener"><strong>RJMedia_ADHD_Topaz_Infographic.pdf</strong></a></li>
+              <li style="padding: 0.35rem 0; border-bottom: 1px dotted var(--rule);">🎛️ <a href="./presets/Low_Quality_Digital.json" download><strong>Low_Quality_Digital.json</strong> (Iris MQ 2x)</a></li>
+              <li style="padding: 0.35rem 0; border-bottom: 1px dotted var(--rule);">🎛️ <a href="./presets/Fast_1080p_to_4K.json" download><strong>Fast_1080p_to_4K.json</strong> (Proteus v4 2x)</a></li>
+              <li style="padding: 0.35rem 0;">📼 <a href="./presets/VHS_Restoration_Stage1.json" download><strong>VHS_Stage1.json</strong></a> &amp; <a href="./presets/VHS_Restoration_Stage2.json" download><strong>VHS_Stage2.json</strong></a></li>
+            </ul>
           </div>
-          <div class="portal-card">
-            <h3>🔗 Open Source</h3>
-            <p>Docker containers, metadata frameworks, and preservation pipelines. Join the mission on GitHub.</p>
-            <p><a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">Explore Projects →</a></p>
-          </div>
-          <div class="portal-card">
-            <h3>📊 Data & Metadata</h3>
-            <p>Standardized archival formats, structured data, and intelligent systems for cultural preservation.</p>
-            <p><a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">See Architecture →</a></p>
+          <div style="margin-top: 0.75rem;">
+            <a class="btn btn-outline" href="./RJMedia_ADHD_Topaz_Infographic.pdf" target="_blank" rel="noopener">Download Printable PDF Cards ↗</a>
           </div>
         </div>
-      </section>
-    </div>
+
+        <!-- Pillar 3: Community Ownership & Open-Source Forking -->
+        <div class="pillar-card">
+          <div>
+            <span class="news-date">FUTURE // JUPITER ISLAND OPEN SOURCE</span>
+            <h3 class="news-title" style="font-size: 1.35rem;">Fork This Archive (Preserve Your Culture)</h3>
+            <p style="font-size: 0.92rem; color: var(--muted);">
+              Music history shouldn't vanish when a single fan site goes offline. This entire platform—HTML/CSS archival templates, Streamlit app (<code>app.py</code>), Docker containers, and AI metadata scripts—is open-source on GitHub.
+            </p>
+            <p style="font-size: 0.92rem; color: var(--muted);">
+              Fork the repository to deploy your own band archive in 5 minutes on GitHub Pages or Docker.
+            </p>
+          </div>
+          <div style="margin-top: 1.2rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="btn" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener noreferrer">⌘ View GitHub Repo ↗</a>
+            <a class="btn btn-gold" href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener noreferrer">☕ Support Forever-Free Mission</a>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <footer>
-    <div class="wrap">
-      <div class="footer-content">
-        <div class="footer-col">
-          <h4>Archive</h4>
-          <a href="./pages/index.html">Paul Draper & Mansun</a>
-          <a href="./pages/draper-news.html">News Logs</a>
-          <a href="./pages/draper-articles.html">Press & Interviews</a>
-          <a href="./pages/mansun-mp3-vault.html">Audio Vault</a>
-        </div>
-        <div class="footer-col">
-          <h4>Community</h4>
-          <a href="#present">Stories</a>
-          <a href="#present">Forum</a>
-          <a href="mailto:richardmurray2022@gmail.com">Contact</a>
-        </div>
-        <div class="footer-col">
-          <h4>Technology</h4>
-          <a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">Open Source</a>
-          <a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">Jupiter Island</a>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <span>RJMedia Ecosystem © 2026</span>
-        <span>Remember the Sound • Keep the Connection • Build What's Next</span>
-      </div>
+  <!-- UNIFIED FOOTER -->
+  <footer class="wrap">
+    <div>
+      <strong>RJMedia Ecosystem &amp; Digital Archive</strong> • Built by Richard John Murray (1999–2026)<br>
+      <span>One Person • One Archive • 1,000,883+ Views • 72,366 Watch Hours • Forever Free &amp; Open Source</span>
     </div>
+    <nav aria-label="Footer Navigation" style="display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: center; font-family: monospace; font-weight: 800; text-transform: uppercase;">
+      <a href="./index.html">Home Hub</a>
+      <a href="./pages/index.html">Draper Hub</a>
+      <a href="./draper.html">Bio &amp; Q&amp;A</a>
+      <a href="./pages/draper-news.html">News</a>
+      <a href="./pages/draper-articles.html">Press</a>
+      <a href="./pages/mansun-mp3-vault.html">MP3 Vault</a>
+      <a href="./sponsor.html">Sponsorship</a>
+      <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener">Buy Me a Coffee</a>
+    </nav>
   </footer>
 
+  <!-- LIGHTBOX MODAL FOR ARCHIVE PHOTOS -->
+  <div class="lightbox" id="lightboxModal" onclick="if(event.target===this) closeLightbox()">
+    <div class="lightbox-inner">
+      <img id="lightboxImg" src="" alt="">
+      <div class="lightbox-bar">
+        <span id="lightboxCap">Archive Photograph</span>
+        <button type="button" class="lightbox-close" onclick="closeLightbox()">Close [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST POPUP -->
+  <div class="toast-popup" id="toastPopup" role="status" aria-live="polite"></div>
+
   <script>
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tabName = btn.dataset.tab;
-        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabName).classList.add('active');
-        btn.classList.add('active');
+    // =========================================================================
+    // 1. 10 FEATURED DIGITAL LINER NOTES REMASTER EDITIONS
+    // =========================================================================
+    const FEATURED_VAULT = [
+      {
+        id: "buzzcocks-solfest-2021",
+        videoId: "_ivgaFkD4Ac",
+        shortLabel: "Buzzcocks • Solfest '21",
+        title: "The Buzzcocks — What Do I Get (Live Solfest 2021)",
+        subtitle: "Filmed personally by RJMedia on the front barrier at Solfest 2021, Cumbria • Zero AI Over-Processing • Pure Punk Energy",
+        catBadge: "01 // FRONT-ROW RAW CAPTURE",
+        yearBadge: "AUG 2021",
+        statsBadge: "226,088 VIEWS • 9,410 HRS",
+        tldr: [
+          "Captured personally by RJMedia right on the front barrier at Solfest 2021 in Cumbria, this raw, high-energy recording of The Buzzcocks tearing through 'What Do I Get' has become the single most-viewed live performance in the archive with over 226,088 views and 9,410 hours watched.",
+          "Left 100% untouched by artificial smoothing because modern smartphone ISP capture at the barrier already delivers razor-sharp stage presence—capturing Steve Diggle's white denim swagger, Chris Remington's Fender Jazz Bass punch, and Danny Farrant's lime-green sparkle kit."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Front-Barrier View & Air-Raid Siren Walk-On", note: "Solfest painted cosmic whale backdrop and dual Blackstar 4x12 stacks right in front of the lens." },
+          { time: "00:20", seconds: 20, title: "Danny Farrant Walks Out to Green Sparkle Kit", note: "Lime-green sparkle Q Drum Co. kit lit under Cumbria festival stage spots." },
+          { time: "00:47", seconds: 47, title: "Pounding Tom Intro & Crowd Chant", note: "Raw front-row festival audio locks into the beat without limiter pumping." },
+          { time: "01:05", seconds: 65, title: "Chris Remington Bass Entrance (Fender Jazz Bass)", note: "Natural ash Fender Jazz Bass with black block inlays drives the low end." },
+          { time: "01:46", seconds: 106, title: "Steve Diggle Walks Out & Launches 'What Do I Get'", note: "Sunburst Fender Telecaster and classic 1978 Manchester punk urgency." }
+        ],
+        trivia: [
+          { cat: "🎸 Stage Gear", time: "01:46", sec: 106, title: "Steve Diggle's Sunburst Telecaster & Blackstar Rig", detail: "Classic Telecaster bridge pickup bite running through dual Blackstar 4x12 cabinets on stage." },
+          { cat: "🥁 Rhythm Section", time: "00:20", sec: 20, title: "Q Drum Co. Lime Sparkle & Ash Jazz Bass", detail: "Danny Farrant and Chris Remington anchor the post-Pete Shelley Buzzcocks live lineup with ferocious power." },
+          { cat: "📍 Barrier Reality", time: "00:00", sec: 0, title: "Why Zero Topaz Was Needed Here", detail: "When smartphone sensors have good stage light at 1-metre distance, leaving the native grain intact preserves authentic live motion." },
+          { cat: "📈 Archive Milestone", time: "01:05", sec: 65, title: "226,088 Views & +276 Subscribers", detail: "3.33 million thumbnail impressions on YouTube—proving massive demand for raw, honest live music preservation." }
+        ],
+        topaz: {
+          title: "Pathway 00: Native Front-Barrier Smartphone Master (Untouched ISP)",
+          notes: "Zero artificial de-noising applied. Modern smartphone ISP already sharpens luminance edges; running Topaz on clean close-up phone footage creates halos, so the raw bitstream was preserved.",
+          params: [
+            { name: "Capture Source", val: "Front-Barrier Phone" },
+            { name: "Topaz Pass", val: "Bypassed (100% Raw)" },
+            { name: "Audio Stream", val: "Direct PCM/AAC" },
+            { name: "Impressions", val: "3,332,651" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"buzzcocks_solfest_2021_raw.mp4\" -c:v copy -c:a copy \"buzzcocks_what_do_i_get_solfest21_archive.mp4\""
+        }
+      },
+      {
+        id: "peter-green-1997-doc",
+        videoId: "fqVJvjKeW7s",
+        shortLabel: "Peter Green • '97 Doc",
+        title: "Peter Green (Fleetwood Mac) — 1997 Documentary (LSD & Giving Money Away)",
+        subtitle: "1997 UK Broadcast Documentary Restoration • 183,833 Views • 23,493 Watch Hours (+605 Subscribers)",
+        catBadge: "02 // ROCK DOCUMENTARY RESTORATION",
+        yearBadge: "1997 BROADCAST",
+        statsBadge: "183,833 VIEWS • 23,493 HRS",
+        tldr: [
+          "Our #1 documentary by watch time (over 23,492 hours—nearly 2.7 years of continuous viewing!). This deeply moving 1997 UK television documentary chronicles Fleetwood Mac founder Peter Green's genius, the infamous Munich LSD incident, his struggles with mental health, and his decision to give away his wealth.",
+          "Restored from 1990s broadcast tape to clean FHD so a new generation of blues and rock historians can hear Peter Green, Mick Fleetwood, Jeremy Spencer, and Noel Gallagher tell the story in their own words."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Opening & John Mayall's Bluesbreakers Era", note: "Replacing Eric Clapton in 1966 and the birth of the 'Supernatural' Les Paul tone." },
+          { time: "05:10", seconds: 310, title: "Founding Fleetwood Mac & 'Albatross' Global Success", note: "Archival 1968–1969 performance clips and band reflections." },
+          { time: "11:40", seconds: 700, title: "The 1970 Munich Commune & LSD Incident", note: "First-hand accounts of the night in Munich that changed Peter Green's life forever." },
+          { time: "17:20", seconds: 1040, title: "Giving Away the Money & 1970s Hospitalisation", note: "Why Peter felt guilt over rock stardom millions and walked away from the industry." },
+          { time: "21:30", seconds: 1290, title: "1990s Recovery & Return to the Guitar", note: "Candid 1997 interview segments showing Peter's quiet dignity and enduring musical soul." }
+        ],
+        trivia: [
+          { cat: "🎸 Tone Legend", time: "00:00", sec: 0, title: "The Out-of-Phase 1959 Gibson Les Paul ('Greeny')", detail: "Peter's reversed neck pickup magnet created the haunting hollow sustain later owned by Gary Moore and Kirk Hammett." },
+          { cat: "📊 Binge Factor", time: "11:40", sec: 700, title: "23,493 Hours Watched Across 183K Views", detail: "Viewers stay for the entire 25-minute documentary—generating +605 channel subscribers." },
+          { cat: "📼 Broadcast Rescue", time: "05:10", sec: 310, title: "De-interlacing Mixed 1960s Film & 1990s Video", detail: "90s TV docs mix 25i studio interviews with 24p 16mm archive film; QTGMC + Iris MQ keeps both smooth." },
+          { cat: "💬 Companion Film", time: "21:30", sec: 1290, title: "Paired with 'Peter Green: A Hard Road' (90K Views)", detail: "Together, RJMedia's Peter Green restorations have over 325,000 views and 37,000 watch hours." }
+        ],
+        topaz: {
+          title: "Pathway 01: 1990s Broadcast Documentary De-Interlace & FHD Upscale",
+          notes: "50i PAL broadcast source de-interlaced via QTGMC prior to Iris MQ 2x reconstruction. Revert Compression set to 60 to clean archival MPEG-2 broadcast artifacts on interview close-ups.",
+          params: [
+            { name: "AI Model", val: "Iris MQ (iris-2)" },
+            { name: "Scale", val: "2x to 1080p FHD" },
+            { name: "Revert Comp", val: "60" },
+            { name: "Recover Detail", val: "45" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"peter_green_1997_pal_qtgmc.mkv\" -filter_complex \"tvai_up=model=iris-2:scale=2:preblur=-0.10:noise=0.20:details=0.20:halo=0.25:blur=0.15:compression=0.60:blend=0.45:device=0:vram=0.85\" -c:v hevc_nvenc -profile:v main10 -qp 17 -c:a copy \"peter_green_1997_doc_fhd.mp4\""
+        }
+      },
+      {
+        id: "smiths-rockpalast-1984",
+        videoId: "WLU74h889VI",
+        shortLabel: "The Smiths • Rockpalast '84",
+        title: "The Smiths — Live at Rockpalast 1984 (FHD Remaster)",
+        subtitle: "Markthalle Hamburg, Germany (May 4, 1984) • 101,871 Views • 18,666 Watch Hours (+344 Subscribers)",
+        catBadge: "03 // FHD CONCERT REMASTER",
+        yearBadge: "MAY 1984",
+        statsBadge: "101,871 VIEWS • 18,666 HRS",
+        tldr: [
+          "Over 101,871 views and 18,666 hours of watch time! Filmed at the Markthalle in Hamburg for German television's legendary Rockpalast on May 4, 1984—just months after their self-titled debut album—this 71-minute concert captures The Smiths (Morrissey, Johnny Marr, Andy Rourke, Mike Joyce) at their leanest, most electrifying peak.",
+          "Remastered to Full HD to bring out Johnny Marr's intricate Rickenbacker 330/Gibson ES-355 chime, Andy Rourke's melodic bass runs, and Morrissey's gladioli-wielding stage presence."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Hamburg Markthalle Intro & 'Hand in Glove'", note: "Explosive opener as Morrissey takes the stage with hearing aid and gladioli." },
+          { time: "06:15", seconds: 375, title: "This Charming Man", note: "Johnny Marr's cascading high-life guitar arpeggios in crystal-clear German broadcast stereo." },
+          { time: "18:40", seconds: 1120, title: "Still Ill & What Difference Does It Make?", note: "Relentless rhythm section interplay from Mike Joyce and Andy Rourke." },
+          { time: "34:20", seconds: 2060, title: "Heaven Knows I'm Miserable Now (Early Live Performance)", note: "Released as a single that very month in May 1984." },
+          { time: "52:10", seconds: 3130, title: "How Soon Is Now? / Barbarism Begins at Home Encore", note: "Mesmerizing tremolo guitar wall and extended funk-post-punk bass workout." }
+        ],
+        trivia: [
+          { cat: "🎸 Marr's Guitar Arsenal", time: "06:15", sec: 375, title: "Rickenbacker 330, Telecaster & Cherry Gibson ES-355", detail: "Marr switches guitars across the 71-minute set while maintaining studio-grade layered arrangements live." },
+          { cat: "📺 Broadcast History", time: "00:00", sec: 0, title: "WDR Rockpalast Hamburg Markthalle", detail: "German WDR camera crews captured closer, better-lit 1984 footage of The Smiths than almost any UK broadcaster." },
+          { cat: "📊 100K+ Milestone", time: "34:20", sec: 2060, title: "101,871 Views & 1.59M Impressions", detail: "One of the cornerstone full-concert restorations on the RJMedia channel." },
+          { cat: "🎛️ Restoration", time: "52:10", sec: 3130, title: "Preserving 1984 PAL Tube Camera Warmth", detail: "1984 broadcast plumbicon tube cameras have natural highlight roll-off; Dehalo 20 + Proteus keeps strings sharp without harsh ringing." }
+        ],
+        topaz: {
+          title: "Pathway 01: 1984 PAL Broadcast Tube Camera FHD Mastering",
+          notes: "50fps de-interlaced PAL master upscaled to 1080p FHD. Careful de-haloing removes 1980s analog broadcast edge enhancement around stage spotlights.",
+          params: [
+            { name: "AI Model", val: "Iris MQ ➔ Proteus" },
+            { name: "Output", val: "1080p50 FHD" },
+            { name: "Dehalo", val: "22" },
+            { name: "Recover Detail", val: "40" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"smiths_rockpalast_1984_pal.mkv\" -filter_complex \"tvai_up=model=prob-4:scale=2:preblur=-0.10:noise=0.15:details=0.30:halo=0.22:blur=0.20:compression=0.45:blend=0.40:device=0:vram=0.85\" -c:v hevc_nvenc -profile:v main10 -qp 16 -c:a copy \"smiths_rockpalast_1984_fhd.mp4\""
+        }
+      },
+      {
+        id: "peter-green-hard-road",
+        videoId: "ubkpJnoXVeA",
+        shortLabel: "Peter Green • A Hard Road",
+        title: "Peter Green — A Hard Road (Full Archival Documentary)",
+        subtitle: "90,664 Views • 10,038 Watch Hours • +254 Subscribers • 1.51M Impressions",
+        catBadge: "02 // ROCK DOCUMENTARY RESTORATION",
+        yearBadge: "BLUES ARCHIVE",
+        statsBadge: "90,664 VIEWS • 10,038 HRS",
+        tldr: [
+          "With 90,664 views and over 10,037 hours watched, 'Peter Green: A Hard Road' is the essential companion piece to our 1997 Peter Green documentary—tracing his journey from East End London prodigy to the pinnacle of British blues and his long road back to peace.",
+          "Features rare archival photographs, session recollections, and deep context on the recordings of 'Black Magic Woman', 'Oh Well', 'The Green Manalishi', and 'Man of the World'."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "East End Roots & Early Bass/Guitar Bands", note: "Peter Greenbaum's early influences: Hank Marvin, Muddy Waters, B.B. King, and Freddie King." },
+          { time: "07:30", seconds: 450, title: "The Bluesbreakers & 'A Hard Road' (1967)", note: "Recording 'The Supernatural' and earning B.B. King's praise ('He has the sweetest tone I ever heard')." },
+          { time: "14:45", seconds: 885, title: "'Man of the World' & 'The Green Manalishi'", note: "How Peter's final singles with Fleetwood Mac foreshadowed his inner turmoil." },
+          { time: "22:10", seconds: 1330, title: "The Wilderness Years & Splinter Group Revival", note: "Cozy Powell, Nigel Watson, and helping Peter return to live performance in the late 1990s." }
+        ],
+        trivia: [
+          { cat: "👑 B.B. King Quote", time: "07:30", sec: 450, title: "\"The Only One Who Gave Me the Cold Sweats\"", detail: "B.B. King famously stated that Peter Green was the only British guitarist who made him sweat with sheer emotion." },
+          { cat: "📈 10,000+ Hours", time: "14:45", sec: 885, title: "10,037.8 Hours of Community Watch Time", detail: "Over 1.14 years of continuous viewing on this single documentary upload." }
+        ],
+        topaz: {
+          title: "Pathway 01: Archival Documentary Restoration",
+          notes: "Cleaned macroblocking on archival 1960s/1970s film transfers while keeping voiceover audio crystal clear.",
+          params: [
+            { name: "AI Model", val: "Iris MQ" },
+            { name: "Revert Comp", val: "58" },
+            { name: "Improve Detail", val: "22" },
+            { name: "Recover Detail", val: "42" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"peter_green_hard_road.mp4\" -filter_complex \"tvai_up=model=iris-2:scale=2:compression=0.58:details=0.22:blend=0.42:device=0\" -c:v hevc_nvenc -qp 17 -c:a copy \"peter_green_hard_road_fhd.mp4\""
+        }
+      },
+      {
+        id: "verve-london-1993",
+        videoId: "s5gKHgB63Lo",
+        shortLabel: "The Verve • London '93 (VHS)",
+        title: "The Verve — Live in London, 1993 (Restored & Remastered)",
+        subtitle: "Source: 1993 PAL VHS Camcorder Master • 50p Bob Deinterlace • Remastered by RJMedia",
+        catBadge: "03 // PATHWAY 03 VHS RESTORATION",
+        yearBadge: "1993 ARCHIVE",
+        statsBadge: "1080p50 4:3 MASTER",
+        tldr: [
+          "Captured during The Verve's hypnotic early 'A Storm in Heaven' era in London (1993), this rare archive recording showcases a young Richard Ashcroft and guitar alchemist Nick McCabe drenched in cavernous delay and shoegaze feedback before their mainstream 'Urban Hymns' explosion.",
+          "Originally trapped on a degraded 1990s PAL VHS tape suffering from severe analog chroma bleed and low-light club grain, this RJMedia restoration strips away VHS head-switching noise, stabilizes 50fps temporal motion, and recovers stage lighting without waxy AI face artifacts."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Stage Intro & Nick McCabe Ambient Feedback Loop", note: "Swirling Watkins Copicat tape echo and Analogman delay wash over the London club." },
+          { time: "00:48", seconds: 48, title: "Groove Lock — Simon Jones & Peter Salisbury Rhythm Entry", note: "Driving bassline cuts through the VHS audio murk as stage strobes kick in." },
+          { time: "01:42", seconds: 102, title: "Richard Ashcroft Vocal Entry", note: "Close-up camera pan; Iris LQ Pass 1 preserves natural skin texture under heavy red/blue par cans." },
+          { time: "03:15", seconds: 195, title: "Psychedelic Guitar Squall & Peak Crescendo", note: "McCabe pushes the Mesa/Boogie & Roland JC-120 rig into controlled oscillation." },
+          { time: "04:50", seconds: 290, title: "Outro Breakdown & Crowd Reaction", note: "Raw 1993 UK indie club atmosphere preserved in 50fps smooth motion." }
+        ],
+        trivia: [
+          { cat: "🎸 Visual Gear Spotting", time: "01:15", sec: 75, title: "Nick McCabe's Early '93 Shoegaze Rig", detail: "Fender Stratocaster & Gibson Les Paul Custom fed into a Roland Jazz Chorus JC-120 and Watkins Copicat tape echo." },
+          { cat: "📜 Band History Trivia", time: "00:20", sec: 20, title: "Pre-Lawsuit 'Verve' Era", detail: "In 1993 the band still performed simply as 'Verve' before Verve Records forced the addition of 'The' in 1994." },
+          { cat: "🎚️ Audio & Visual Rescue", time: "02:30", sec: 150, title: "Defeating 90s Club Red-Light Bleed", detail: "90s VHS colour bandwidth (~40 TV lines) notoriously smears red stage lights. Chroma realignment + Dehalo 50 tamed the blooming." },
+          { cat: "💬 Archive Era Quote", time: "03:55", sec: 235, title: "On Early London Gigs", detail: "\"We weren't trying to write three-minute pop songs; we wanted to levitate the room.\" — Richard Ashcroft." }
+        ],
+        topaz: {
+          title: "Pathway 03: Two-Stage 1990s PAL VHS Analog Restoration",
+          notes: "Bottom 12px of VHS head-switching tracking static cropped and padded prior to Topaz ingestion. Pass 1 runs Iris LQ at 1x native scale to strip analog ringing; Pass 2 upscales 2x via Proteus v4 with fine 16mm grain injection.",
+          params: [
+            { name: "Pass 1 Model", val: "Iris LQ (1x)" },
+            { name: "Pass 2 Model", val: "Proteus v4 (2x)" },
+            { name: "Revert Comp", val: "70 / 15" },
+            { name: "Dehalo", val: "50 / 15" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"verve_1993_qtgmc_50p.mkv\" -filter_complex \"crop=720:564:0:2,pad=720:576:0:6,tvai_up=model=iris-3:scale=1:preblur=0.20:noise=0.40:details=0.10:halo=0.50:compression=0.70:blend=0.15,tvai_up=model=prob-4:scale=2:w=1440:h=1080:preblur=-0.10:noise=0.05:details=0.40:halo=0.15:blur=0.35:compression=0.15:prenoise=0.004:blend=0.30\" -c:v hevc_nvenc -profile:v main10 -b:v 45M -c:a copy \"verve_london_1993_1080p50.mkv\""
+        }
+      },
+      {
+        id: "mansun-roadhouse-1996",
+        videoId: "SHyclRafWnw",
+        shortLabel: "Mansun • Manchester '96",
+        title: "Mansun — Live at Manchester Roadhouse (21/09/1996 Full 40m Set)",
+        subtitle: "Source: 1996 Handheld Hi8 / VHS Camcorder Bootleg • 40m19s Full Concert Archive",
+        catBadge: "04 // MANSUN & PAUL DRAPER VAULT",
+        yearBadge: "SEPT 1996",
+        statsBadge: "40M FULL CONCERT • 7.4% CTR",
+        tldr: [
+          "Filmed in a sweat-soaked basement at the legendary Manchester Roadhouse on September 21, 1996—just months before their #1 debut album 'Attack of the Grey Lantern' dropped—this 40-minute concert captures Chester's Mansun at peak hunger and theatrical intensity.",
+          "Use the interactive setlist below to jump straight between 1996 singles ('Egg Shaped Fred', 'Stripper Vicar', 'Take It Easy Chicken', 'Wide Open Space') without scrubbing blindly through 40 minutes of footage."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Manchester Roadhouse Basement Intro & Tape Roll", note: "Intimate 200-capacity northern club atmosphere before the band hits the stage." },
+          { time: "01:15", seconds: 75, title: "Take It Easy Chicken", note: "Frenetic opener; Dominic Chad and Paul Draper trade interlocking Britpop-prog guitar riffs." },
+          { time: "06:10", seconds: 370, title: "Egg Shaped Fred", note: "Released just days earlier as an EP; crowd right at the barrier sings every word." },
+          { time: "11:30", seconds: 690, title: "Skin Up Pin Up", note: "Brooding, glam-drenched mid-tempo groove originally featured on the Spawn soundtrack." },
+          { time: "22:20", seconds: 1340, title: "Wide Open Space (Early 1996 Live Arrangement)", note: "Raw, urgent rendition of their signature anthem before it became a global indie classic." },
+          { time: "28:40", seconds: 1720, title: "Stripper Vicar", note: "Theatrical guitar hooks and biting falsetto chorus under low ceiling club lights." },
+          { time: "34:10", seconds: 2050, title: "Moronica & Feedback Finale", note: "Explosive set closer with dual guitar chaos on the cramped Roadhouse stage." }
+        ],
+        trivia: [
+          { cat: "🏛️ Venue History", time: "00:30", sec: 30, title: "The Legendary Manchester Roadhouse", detail: "Located on Newton Street in Manchester's Northern Quarter, the 200-cap basement hosted pivotal early gigs by Mansun, Oasis, Muse, and Elbow." },
+          { cat: "🎸 Visual Gear Spotting", time: "07:15", sec: 435, title: "Dominic Chad's Gibson ES-335 & Paul Draper's Hondo/Fender", detail: "Heavy chorus and trebly overdrive cutting through Marshall stacks in a brick-walled basement." },
+          { cat: "📅 Era Context", time: "22:20", sec: 1340, title: "5 Months Before 'Attack of the Grey Lantern'", detail: "September 1996 marked the exact turning point where Mansun evolved from cult EP band to UK #1 chart contenders." },
+          { cat: "🛠️ Restoration Note", time: "11:30", sec: 690, title: "Stabilizing Low-Light Handheld Hi8 Grain", detail: "Iris LQ Pass 1 tamed severe high-gain camcorder chroma snow while keeping the gritty 90s basement vibe intact." }
+        ],
+        topaz: {
+          title: "Pathway 03: Low-Light 1996 Camcorder Bootleg Pipeline",
+          notes: "Handheld club camcorders boost analog AGC (Auto Gain Control) in dark basements, creating massive chroma snow. Pass 1 cleans color noise at 1x; Pass 2 sharpens edges to 1080p.",
+          params: [
+            { name: "Pass 1 Model", val: "Iris LQ (1x)" },
+            { name: "Pass 2 Model", val: "Proteus v4 (2x)" },
+            { name: "Reduce Noise", val: "40 / 10" },
+            { name: "Recover Detail", val: "25 + Grain 3" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"mansun_roadhouse_96.mkv\" -filter_complex \"tvai_up=model=iris-3:scale=1:preblur=0.15:noise=0.40:details=0.15:halo=0.45:compression=0.65:blend=0.20,tvai_up=model=prob-4:scale=2:w=1440:h=1080:preblur=-0.10:noise=0.10:details=0.35:halo=0.15:blur=0.30:compression=0.20:prenoise=0.003:blend=0.25\" -c:v hevc_nvenc -b:v 40M -c:a copy \"mansun_roadhouse_1996_remaster.mkv\""
+        }
+      },
+      {
+        id: "verve-haigh-hall-1998",
+        videoId: "dSf8-EqTlUU",
+        shortLabel: "The Verve • Haigh Hall '98",
+        title: "The Verve — The Rolling People (Live at Haigh Hall 24.05.98)",
+        subtitle: "Source: May 24, 1998 Wigan Outdoor Broadcast Archive • Restored & Remastered",
+        catBadge: "03 // BROADCAST SD TO 1080P",
+        yearBadge: "MAY 1998",
+        statsBadge: "33,000 HOMECOMING • 1080P",
+        tldr: [
+          "On May 24, 1998, The Verve returned home to Wigan to play in front of 33,000 fans at Haigh Hall—their biggest ever headline concert at the absolute zenith of 'Urban Hymns' mania.",
+          "This fierce performance of 'The Rolling People' captures the band's monumental five-piece wall-of-sound in an outdoor amphitheatre setting, restored using RJMedia's Pathway 01 broadcast de-blocking and detail recovery pipeline."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Haigh Hall Crowd Roar & Acoustic/Slide Intro", note: "33,000 hometown fans in Wigan greet the opening stomp of 'The Rolling People'." },
+          { time: "00:55", seconds: 55, title: "Full Band Explosion & Main Riff", note: "Nick McCabe's scorching overdrive locks in with Simon Tong's rhythm guitar and keyboards." },
+          { time: "02:18", seconds: 138, title: "Chorus Surge — 'Look Out, Here Come The Rolling People'", note: "Wide crane shot over Haigh Hall estate grounds; de-blocking removes MPEG macroblocks in the crowd." },
+          { time: "03:45", seconds: 225, title: "Psychedelic Middle Eight & Slide Guitar Solo", note: "Swirling delay textures and pyrotechnic stage lighting cutting through the Wigan night sky." },
+          { time: "05:15", seconds: 315, title: "Final Climax & Ashcroft Stage Stance", note: "Unstoppable finale from one of the defining British rock gigs of the 1990s." }
+        ],
+        trivia: [
+          { cat: "🏟️ Historic Gig Fact", time: "00:15", sec: 15, title: "33,000 Fans in Wigan", detail: "Haigh Hall was the crowning homecoming show for The Verve, with support from Beck and John Martyn." },
+          { cat: "🎸 Lineup Note", time: "00:55", sec: 55, title: "The Five-Piece 'Urban Hymns' Powerhouse", detail: "Features both Nick McCabe on lead guitar and Simon Tong on second guitar/keyboards, creating a massive stereo live sound." }
+        ],
+        topaz: {
+          title: "Pathway 01: Broadcast SD De-Blocking & Iris MQ Reconstruction",
+          notes: "90s TV broadcast rips suffer from heavy MPEG-2 mosquito noise during fast crowd pans and strobe lights. Iris MQ at 2x strips macroblocks while Recover Original Detail (45) retains natural film grain.",
+          params: [
+            { name: "AI Model", val: "Iris MQ (iris-2)" },
+            { name: "Scale Factor", val: "2x Native" },
+            { name: "Revert Comp", val: "62" },
+            { name: "Recover Detail", val: "45" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"verve_haigh_hall_98.mp4\" -filter_complex \"tvai_up=model=iris-2:scale=2:preblur=-0.15:noise=0.20:details=0.22:halo=0.25:blur=0.18:compression=0.62:prenoise=0.002:blend=0.45\" -c:v hevc_nvenc -qp 16 -c:a copy \"verve_haigh_hall_1998_1080p.mp4\""
+        }
+      },
+      {
+        id: "22-20s-jools-4k",
+        videoId: "0ZQu8Fj1d8o",
+        shortLabel: "22-20s • Jools Holland 4K",
+        title: "22-20s — Such A Fool (Live on Later... with Jools Holland 4K)",
+        subtitle: "Source: Clean Broadcast Master • Pathway 02 Native 2x Upscale to 2160p 4K UHD • 8.58% CTR",
+        catBadge: "03 // PATHWAY 02 FAST HD TO 4K",
+        yearBadge: "JOOLS HOLLAND",
+        statsBadge: "3,179 VIEWS • 4K 2160p",
+        tldr: [
+          "A blistering, Delta-blues-infused garage rock masterclass by British four-piece 22-20s performing 'Such A Fool' live in the studio on 'Later... with Jools Holland'.",
+          "Because studio television broadcasts have high native lighting contrast and clean lenses, RJMedia's Pathway 02 (Proteus v4 Native 2x to 4K) pushes micro-texture on the guitar strings, tweed amplifiers, and close-up vocals to razor-sharp 2160p UHD."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Tremolo Guitar Intro & Slow-Burn Blues Tension", note: "Martin Trimble's vintage hollow-body guitar tone rings out in the Jools studio." },
+          { time: "00:52", seconds: 52, title: "First Verse — 'You're Such A Fool'", note: "Raw, gravelly vocal delivery with crystal-clear 4K studio close-ups." },
+          { time: "01:58", seconds: 118, title: "Explosive Fuzz Breakdown & Organ Swell", note: "The band erupts from hushed blues into ferocious garage-rock distortion." },
+          { time: "02:35", seconds: 155, title: "Scorching Lead Guitar Solo", note: "Blistering bends and feedback captured at high bitrate with zero compression blocking." },
+          { time: "03:20", seconds: 200, title: "Final Studio Crescendo", note: "One of the finest live television performances of the mid-2000s UK rock revival." }
+        ],
+        trivia: [
+          { cat: "🎛️ 4K Pipeline Speed Tip", time: "00:52", sec: 52, title: "Why Native 2x Proteus Beats Rhea Here", detail: "Using Proteus v4 at native 2x avoids the 8K internal oversampling penalty while keeping studio instrument edges tack-sharp." },
+          { cat: "🎸 Gear Spotting", time: "02:35", sec: 155, title: "Vintage Tweed Amps & Hollow-Body Crunch", detail: "Overdriven tube combo amps pushed past breakup give 'Such A Fool' its ferocious dynamic swing." }
+        ],
+        topaz: {
+          title: "Pathway 02: Fast HD to 4K Crisp Studio Pipeline (Proteus v4)",
+          notes: "Designed for high-FPS 4K mastering. Focus Fix and Auto Parameter Estimation are disabled so the GPU executes a pure 2x tensor pass with 50% Original Detail blend.",
+          params: [
+            { name: "AI Model", val: "Proteus v4 (prob-4)" },
+            { name: "Scale Factor", val: "Native 2x (4K)" },
+            { name: "Improve Detail", val: "35" },
+            { name: "Recover Detail", val: "50 + Prenoise 2" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"22_20s_jools_1080p.mp4\" -filter_complex \"tvai_up=model=prob-4:scale=2:preblur=-0.15:noise=0.10:details=0.35:halo=0.05:blur=0.30:compression=0.25:prenoise=0.002:blend=0.50\" -c:v hevc_nvenc -profile:v main10 -qp 16 -c:a copy \"22_20s_such_a_fool_4k.mp4\""
+        }
+      },
+      {
+        id: "kasabian-titp-2004",
+        videoId: "j1kZAP87n08",
+        shortLabel: "Kasabian • T in the Park '04",
+        title: "Kasabian — T In The Park 2004 Performance (Kinross, Scotland)",
+        subtitle: "Source: July 2004 Festival Broadcast Capture • Two-Pass Nyx + Proteus Restoration",
+        catBadge: "03 // TWO-PASS FESTIVAL REMASTER",
+        yearBadge: "JULY 2004",
+        statsBadge: "1080p FESTIVAL MASTER",
+        tldr: [
+          "Filmed in Kinross, Scotland at T in the Park in July 2004—just weeks before their self-titled debut album stormed the UK charts—this performance captures Kasabian breaking out from Leicester cult heroes into festival headliners-in-waiting.",
+          "Festival tent footage combines fast handheld camera whip-pans, smoke machines, and starved broadcast bitrates. RJMedia's Two-Pass Stack (Nyx 1x de-noise followed by Proteus v4 2x upscale) clears the smoke macroblocking while preserving sharp stage detail."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Kinross Festival Tent Intro & Synth Drone", note: "Packed Scottish festival tent anticipation as Sergio Pizzorno triggers the opening analogue synth pulse." },
+          { time: "00:45", seconds: 45, title: "Groove Drop & Tom Meighan Stage Entrance", note: "Baggy-beats meet Krautrock guitar swagger as the crowd surges." },
+          { time: "02:15", seconds: 135, title: "Anthemic Chorus Singalong", note: "Two-Pass Nyx + Proteus keeps fast-moving crowd hands free from MPEG-2 block artifacts." },
+          { time: "04:10", seconds: 250, title: "Sergio Pizzorno Guitar & Synth Breakdown", note: "Heavy electro-rock bassline reverberates across Balado airfield." },
+          { time: "05:50", seconds: 350, title: "Extended Festival Outro & Crowd Bounce", note: "Raw 2004 indie-sleaze energy preserved in crisp HD." }
+        ],
+        trivia: [
+          { cat: "🎪 Festival History", time: "00:45", sec: 45, title: "Summer 2004 Breakout Run", detail: "Summer 2004 saw Kasabian go from living on a farm in Rutland to tearing up T in the Park and Glastonbury." },
+          { cat: "🎛️ Why Two-Pass Was Used", time: "02:15", sec: 135, title: "Taming Festival Stage Smoke in Topaz", detail: "Stage fog + low bitrate creates severe banding. Running Nyx at 1x first smooths DCT blocks before Proteus sharpens." }
+        ],
+        topaz: {
+          title: "Pathway 01B: Two-Pass Stack (Nyx 1x Clean ➔ Proteus v4 2x Upscale)",
+          notes: "First pass runs Nyx at native 1x scale to strip compression blocks in the festival tent smoke; second enhancement runs Proteus v4 at 2x to reconstruct edges.",
+          params: [
+            { name: "Pass 1 Model", val: "Nyx (1x Scale)" },
+            { name: "Pass 2 Model", val: "Proteus v4 (2x)" },
+            { name: "Pass 2 Detail", val: "35" },
+            { name: "Recover Detail", val: "45" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"kasabian_titp_2004.mp4\" -filter_complex \"tvai_up=model=nyx-3:scale=1:noise=0.35:compression=0.40:blend=0.60,tvai_up=model=prob-4:scale=2:preblur=-0.10:noise=0.10:details=0.35:halo=0.10:blur=0.25:compression=0.15:blend=0.45\" -c:v hevc_nvenc -qp 16 -c:a copy \"kasabian_titp_2004_1080p.mp4\""
+        }
+      },
+      {
+        id: "draper-gorilla-2023",
+        videoId: "0gLGp7C4MvY",
+        shortLabel: "Paul Draper • Gorilla '23",
+        title: "Paul Draper — Legacy & Being A Girl (Live @ Manchester Gorilla 2023)",
+        subtitle: "Six 25th Anniversary Tour • Manchester Gorilla (15/03/2023) • 3,443 Views • 11.07% Peak CTR",
+        catBadge: "04 // MANSUN & PAUL DRAPER VAULT",
+        yearBadge: "MARCH 2023",
+        statsBadge: "3,443 VIEWS • 11.07% PEAK CTR",
+        tldr: [
+          "Filmed live at Manchester Gorilla during Paul Draper's 2023 'Six' tour, this 14-minute back-to-back performance of Mansun epics 'Legacy' and 'Being A Girl (Parts 1 & 2)' boasts an extraordinary 11.07% click-through rate on YouTube.",
+          "Connects RJMedia's 25-year Mansun archive directly to the present day—capturing the prog-punk suite transitions of 1998's 'Six' performed live on stage in Manchester."
+        ],
+        timeline: [
+          { time: "00:00", seconds: 0, title: "Atmospheric Intro & 'Legacy' Opening Arpeggios", note: "Soaring guitar intro inside Manchester Gorilla under deep blue stage spots." },
+          { time: "03:45", seconds: 225, title: "'Legacy' Chorus Climax & Guitar Solo", note: "Full-throated Manchester crowd singalong on one of Six's defining emotional centrepieces." },
+          { time: "07:10", seconds: 430, title: "Transition into 'Being A Girl (Part One)'", note: "Explosive tempo shift into the frantic 90s art-punk riff." },
+          { time: "10:15", seconds: 615, title: "'Being A Girl (Part Two)' Prog-Opera Finale", note: "Sweeping mellotron/synth backing and closing acoustic/electric resolution." }
+        ],
+        trivia: [
+          { cat: "💿 Album Context", time: "07:10", sec: 430, title: "Closing Side One of 1998's 'Six'", detail: "'Legacy' and 'Being A Girl' conclude the first half of Mansun's audacious #6-charting 1998 opus." },
+          { cat: "📈 11.07% CTR", time: "00:00", sec: 0, title: "Highest Click-Through Rate in the Draper Live Series", detail: "3,443 views and 140.4 hours watched from dedicated Mansun and Paul Draper collectors." }
+        ],
+        topaz: {
+          title: "Pathway 00: Direct Live Concert Capture",
+          notes: "Filmed live in Manchester on the March 2023 tour run alongside Camp and Furnace Liverpool and Bristol Thekla captures.",
+          params: [
+            { name: "Venue", val: "Manchester Gorilla" },
+            { name: "Tour", val: "Six Tour (Mar 2023)" },
+            { name: "Duration", val: "14m 25s" },
+            { name: "CTR", val: "11.07%" }
+          ],
+          cli: "ffmpeg -hide_banner -i \"paul_draper_gorilla_2023.mp4\" -c:v copy -c:a copy \"paul_draper_legacy_being_a_girl_2023.mp4\""
+        }
+      }
+    ];
+
+    // =========================================================================
+    // 2. FULL 36-VIDEO VERIFIED CHANNEL CATALOG (FROM TABLE DATA.CSV)
+    // =========================================================================
+    const CHANNEL_CATALOG = [
+      { id: "_ivgaFkD4Ac", title: "The Buzzcocks — What Do I Get (Live Solfest 2021)", artist: "The Buzzcocks • Aug 2021", views: 226088, hours: 9410.3, ctr: 4.16, cat: "barrier", vaultIdx: 0 },
+      { id: "MxUaEOaKf6E", title: "Everton 3-2 Crystal Palace: 19th May 2022 Calvert-Lewin Goal", artist: "Goodison Park • May 2022", views: 191629, hours: 1585.6, ctr: 10.00, cat: "everton" },
+      { id: "fqVJvjKeW7s", title: "Peter Green (Fleetwood Mac) — 1997 Documentary (LSD & Giving Money Away)", artist: "Peter Green • 1997 Doc", views: 183833, hours: 23492.7, ctr: 3.36, cat: "docs", vaultIdx: 1 },
+      { id: "WLU74h889VI", title: "The Smiths — Live Rockpalast 1984 FHD (Full Concert)", artist: "The Smiths • May 1984", views: 101871, hours: 18665.9, ctr: 3.53, cat: "indie", vaultIdx: 2 },
+      { id: "ubkpJnoXVeA", title: "Peter Green — A Hard Road (Full Documentary)", artist: "Peter Green • Blues Doc", views: 90664, hours: 10037.8, ctr: 3.92, cat: "docs", vaultIdx: 3 },
+      { id: "GjoSfR70we8", title: "Peter Green UK TV Documentary On His Mental Health 1997 (FHD Edition)", artist: "Peter Green • Jan 2025", views: 50945, hours: 3531.5, ctr: 3.00, cat: "docs" },
+      { id: "BV8JACfZdPI", title: "Editors — An End Has A Start (Live Glastonbury 2023)", artist: "Editors • Jul 2023", views: 30097, hours: 1093.8, ctr: 7.58, cat: "indie" },
+      { id: "nh13Rp9epo8", title: "Stunning Scenes from Goodison Park (19/05/2022 Pitch & Crowd)", artist: "Goodison Park • May 2022", views: 5486, hours: 57.5, ctr: 6.31, cat: "everton" },
+      { id: "HuN2tZwKBGk", title: "The Jesus and Mary Chain — Jamcod (Live Manchester Albert Hall 23/03/2024)", artist: "Jesus & Mary Chain • Mar 2024", views: 5357, hours: 162.0, ctr: 8.31, cat: "barrier" },
+      { id: "RQRncWuvbOg", title: "Still Corners — White Sands", artist: "Still Corners • Apr 2022", views: 3526, hours: 151.3, ctr: 6.61, cat: "indie" },
+      { id: "0gLGp7C4MvY", title: "Paul Draper — Legacy & Being A Girl (Live @ Manchester Gorilla 2023)", artist: "Paul Draper • Mar 2023", views: 3443, hours: 140.4, ctr: 11.07, cat: "mansun", vaultIdx: 9 },
+      { id: "V3E5uCsrQqI", title: "The Buzzcocks — What Do I Get (Live Carlisle 15/07/2022)", artist: "The Buzzcocks • Jul 2022", views: 3321, hours: 123.9, ctr: 4.70, cat: "barrier" },
+      { id: "0ZQu8Fj1d8o", title: "22-20s — Such A Fool (Live on Later... with Jools Holland 4K)", artist: "22-20s • 4K Remaster", views: 3179, hours: 78.5, ctr: 8.58, cat: "indie", vaultIdx: 7 },
+      { id: "Y4d2drz0xxg", title: "RIP John Mayall: Peter Green Joins The Bluesbreakers (Clapton, Noel Gallagher)", artist: "Peter Green & John Mayall", views: 3161, hours: 52.5, ctr: 5.07, cat: "docs" },
+      { id: "4E8nWDWB5T0", title: "XTC — This Is Pop (Full Band Documentary)", artist: "XTC • Documentary", views: 3096, hours: 573.1, ctr: 4.71, cat: "docs" },
+      { id: "XLuVj9nl3hM", title: "The Buzzcocks — Ever Fallen In Love & Harmony In My Head (Live 2022)", artist: "The Buzzcocks • Jul 2022", views: 2953, hours: 114.5, ctr: 5.18, cat: "barrier" },
+      { id: "AIaanOZYz9Y", title: "Who's Wearing The Trousers — Paul Draper Studio Clip", artist: "Paul Draper • Studio", views: 2692, hours: 9.7, ctr: 2.75, cat: "mansun" },
+      { id: "FWwZC8zDDFk", title: "The Jesus and Mary Chain — I Hate Rock 'n' Roll (Live 2022)", artist: "Jesus & Mary Chain • 2022", views: 2670, hours: 79.6, ctr: 4.56, cat: "barrier" },
+      { id: "UdQlkTKcwPc", title: "Mansun — Glastonbury 1998 Full Set (43m Broadcast Archive)", artist: "Mansun • Jun 1998", views: 2501, hours: 118.7, ctr: 5.59, cat: "mansun" },
+      { id: "3Bh9pTWX90A", title: "Still Corners — The Trip", artist: "Still Corners • Apr 2022", views: 2364, hours: 103.3, ctr: 5.88, cat: "indie" },
+      { id: "-3V9Z56XB5s", title: "The Jesus and Mary Chain — Amputation (Live 2022)", artist: "Jesus & Mary Chain • 2022", views: 2150, hours: 63.8, ctr: 5.86, cat: "barrier" },
+      { id: "Zpy44lgNTi4", title: "Mansun — Cancer (Alternative Full-Length Version)", artist: "Mansun • Rarities", views: 2100, hours: 193.4, ctr: 1.67, cat: "mansun" },
+      { id: "QX9hHRRNWZE", title: "Echo & The Bunnymen — The Cutter & The Killing Moon (Live O2 Academy Leeds)", artist: "Echo & The Bunnymen • 2022", views: 1418, hours: 56.5, ctr: 5.80, cat: "barrier" },
+      { id: "ogCUiaaag9I", title: "Paul Draper — Television & Special/Blown It (Live Six Tour 2023)", artist: "Paul Draper • Mar 2023", views: 1345, hours: 52.4, ctr: 7.13, cat: "mansun" },
+      { id: "HnNd6tEWNZM", title: "Paul Draper — Six (Live Liverpool Camp and Furnace 18/03/2023)", artist: "Paul Draper • Mar 2023", views: 1229, hours: 36.2, ctr: 8.94, cat: "mansun" },
+      { id: "jlVLJc27q-U", title: "Mansun — Bobblehat (Dominic Chad Lead Vocal, Glass Orchestra & Extra Section)", artist: "Mansun • Rarities", views: 1168, hours: 23.4, ctr: 3.15, cat: "mansun" },
+      { id: "DwjuKYetqHs", title: "Paul Draper — Serotonin & Cancer (Live Liverpool Camp & Furnace 2023)", artist: "Paul Draper • Mar 2023", views: 1132, hours: 50.0, ctr: 5.70, cat: "mansun" },
+      { id: "GH6ruvPyLoA", title: "Mansun — The Chad Who Loved Me / Ski Jump Nose / Lyrical Trainspotter (Barrowlands '97)", artist: "Mansun • May 1997", views: 1132, hours: 45.1, ctr: 5.27, cat: "mansun" },
+      { id: "YdZBmYkY-oQ", title: "Mansun — Live at Margate Winter Gardens (24/01/1999 Full 79m Concert)", artist: "Mansun • Jan 1999", views: 1070, hours: 161.2, ctr: 5.74, cat: "mansun" },
+      { id: "QZ4V9Jt_hco", title: "Tom Meighan — Fire (Isle of Wight Festival 2024 4K)", artist: "Tom Meighan • 4K Live", views: 932, hours: 18.5, ctr: 4.81, cat: "indie" },
+      { id: "xD9Vq0k5i3U", title: "Mansun — John Peel Session (24/03/1996 Complete Broadcast)", artist: "Mansun • Mar 1996", views: 775, hours: 50.0, ctr: 3.63, cat: "mansun" },
+      { id: "dSf8-EqTlUU", title: "The Verve — The Rolling People (Live at Haigh Hall 24/05/1998)", artist: "The Verve • May 1998", views: 746, hours: 36.2, ctr: 5.74, cat: "indie", vaultIdx: 6 },
+      { id: "R51J3-guiLs", title: "Black Sabbath — Paranoid (1970 Rock of the 70s Yorkshire TV Remaster)", artist: "Black Sabbath • 1970 TV", views: 740, hours: 21.1, ctr: 7.14, cat: "docs" },
+      { id: "Qkn-nlc7zvk", title: "The Smiths — Live at The Haçienda, Manchester (04/02/1983)", artist: "The Smiths • Feb 1983", views: 681, hours: 41.0, ctr: 7.88, cat: "indie" },
+      { id: "SHyclRafWnw", title: "Mansun — Live at Manchester Roadhouse (21/09/1996 Full 40m Set)", artist: "Mansun • Sept 1996", views: 317, hours: 17.6, ctr: 7.40, cat: "mansun", vaultIdx: 5 },
+      { id: "j1kZAP87n08", title: "Kasabian — T In The Park 2004 Performance (Kinross, Scotland)", artist: "Kasabian • Jul 2004", views: 170, hours: 5.8, ctr: 4.02, cat: "indie", vaultIdx: 8 },
+      { id: "s5gKHgB63Lo", title: "The Verve — Live in London, 1993 (Restored & Remastered VHS)", artist: "The Verve • 1993 VHS", views: 144, hours: 3.4, ctr: 3.01, cat: "indie", vaultIdx: 4 }
+    ];
+
+    let currentVaultIdx = 0;
+    let currentCatalogCat = 'all';
+
+    function showToast(msg) {
+      const el = document.getElementById('toastPopup');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => el.classList.remove('show'), 3600);
+    }
+
+    function renderVaultSelector() {
+      const grid = document.getElementById('vaultSelectorGrid');
+      grid.innerHTML = FEATURED_VAULT.map((item, idx) => `
+        <button type="button" class="vault-select-btn ${idx === currentVaultIdx ? 'active' : ''}" onclick="selectFeaturedVault(${idx}, false)">
+          <div class="vault-select-meta">
+            <span>#${String(idx + 1).padStart(2, '0')} • ${item.yearBadge}</span>
+            <span>${item.timeline.length} ch</span>
+          </div>
+          <div class="vault-select-title">${item.shortLabel}</div>
+        </button>
+      `).join('');
+    }
+
+    function selectFeaturedVault(idx, autoplay) {
+      currentVaultIdx = idx;
+      const v = FEATURED_VAULT[idx];
+      renderVaultSelector();
+      setPlayerVideo(v.videoId, 0, autoplay);
+
+      document.getElementById('lnCatBadge').textContent = v.catBadge;
+      document.getElementById('lnYearBadge').textContent = v.yearBadge;
+      document.getElementById('lnStatsBadge').textContent = v.statsBadge;
+      document.getElementById('lnTitle').textContent = v.title;
+      document.getElementById('lnSubtitle').textContent = v.subtitle;
+
+      document.getElementById('lnTldrBody').innerHTML = v.tldr.map(p => `<p>${p}</p>`).join('');
+
+      document.getElementById('quickChaptersBar').innerHTML = v.timeline.map(ch => `
+        <button type="button" class="ch-chip" onclick="seekPlayer('${v.videoId}', ${ch.seconds}, '${ch.time}', '${ch.title.replace(/'/g, "\\'")}')">
+          [${ch.time}] ${ch.title.slice(0, 22)}${ch.title.length > 22 ? '…' : ''}
+        </button>
+      `).join('');
+
+      document.getElementById('lnTimelineBody').innerHTML = v.timeline.map(ch => `
+        <div class="timeline-row" onclick="seekPlayer('${v.videoId}', ${ch.seconds}, '${ch.time}', '${ch.title.replace(/'/g, "\\'")}')">
+          <div style="display: flex; align-items: flex-start; gap: 0.7rem;">
+            <span class="time-badge">▶ ${ch.time}</span>
+            <div>
+              <strong style="display: block; font-size: 0.92rem;">${ch.title}</strong>
+              <span style="font-size: 0.8rem; color: var(--muted);">${ch.note}</span>
+            </div>
+          </div>
+          <a href="https://www.youtube.com/watch?v=${v.videoId}&t=${ch.seconds}s" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="pill" style="font-size: 0.68rem; padding: 0.2rem 0.5rem; text-decoration: none; white-space: nowrap;">YT ↗</a>
+        </div>
+      `).join('');
+
+      document.getElementById('lnTriviaBody').innerHTML = v.trivia.map(t => `
+        <div class="trivia-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <span style="font-family: monospace; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; color: var(--accent);">${t.cat}</span>
+            <button type="button" class="ch-chip" onclick="seekPlayer('${v.videoId}', ${t.sec}, '${t.time}', '${t.title.replace(/'/g, "\\'")}')">[${t.time}] Jump</button>
+          </div>
+          <strong style="display: block; font-size: 0.88rem; margin-bottom: 0.25rem;">${t.title}</strong>
+          <p style="margin: 0; font-size: 0.8rem; color: var(--muted); line-height: 1.4;">${t.detail}</p>
+        </div>
+      `).join('');
+
+      document.getElementById('lnTopazTitle').textContent = v.topaz.title;
+      document.getElementById('lnTopazNotes').textContent = v.topaz.notes;
+      document.getElementById('lnTopazParams').innerHTML = v.topaz.params.map(p => `
+        <div class="topaz-param">
+          <small>${p.name}</small>
+          <strong>${p.val}</strong>
+        </div>
+      `).join('');
+      document.getElementById('lnFfmpegPre').textContent = v.topaz.cli;
+    }
+
+    function setPlayerVideo(videoId, startSec, autoplay) {
+      const iframe = document.getElementById('mainYtIframe');
+      const auto = autoplay ? 1 : 0;
+      const s = Math.max(0, Math.floor(Number(startSec) || 0));
+      iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?start=${s}&autoplay=${auto}&rel=0&modestbranding=1`;
+      document.getElementById('playerBadge').textContent = `VIDEO ID: ${videoId}`;
+      document.getElementById('directYtBtn').href = `https://www.youtube.com/watch?v=${videoId}${s > 0 ? `&t=${s}s` : ''}`;
+    }
+
+    function seekPlayer(videoId, sec, timeLabel, label) {
+      setPlayerVideo(videoId, sec, true);
+      document.getElementById('playerStatus').textContent = `▶ Playing @ ${timeLabel}`;
+      showToast(`Jumping to [${timeLabel}] ${label}`);
+    }
+
+    function setLinerTab(tab) {
+      document.querySelectorAll('[data-lntab]').forEach(b => b.classList.toggle('active', b.dataset.lntab === tab));
+      const map = {
+        tldr: document.getElementById('lnSecTldr'),
+        setlist: document.getElementById('lnSecSetlist'),
+        trivia: document.getElementById('lnSecTrivia'),
+        topaz: document.getElementById('lnSecTopaz')
+      };
+      Object.keys(map).forEach(k => {
+        map[k].style.display = (tab === 'all' || tab === k) ? 'block' : 'none';
       });
+    }
+
+    function loadCustomVideo() {
+      const raw = document.getElementById('customYtInput').value.trim();
+      const match = raw.match(/(?:v=|youtu\.be\/|embed\/|^)([a-zA-Z0-9_-]{11})/);
+      if (!match) {
+        showToast('⚠️ Please enter a valid 11-character YouTube Video ID or URL');
+        return;
+      }
+      setPlayerVideo(match[1], 0, true);
+      document.getElementById('playerStatus').textContent = '▶ Custom Stream Loaded';
+      showToast(`Loaded YouTube Video ID: ${match[1]}`);
+    }
+
+    function copyCurrentChapters() {
+      const v = FEATURED_VAULT[currentVaultIdx];
+      const text = v.timeline.map(c => `${c.time} ${c.title}`).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('📋 Copied YouTube timestamps to clipboard!');
+    }
+
+    function copyCurrentFfmpeg() {
+      const v = FEATURED_VAULT[currentVaultIdx];
+      navigator.clipboard.writeText(v.topaz.cli);
+      showToast('💻 Copied Topaz Video AI FFmpeg CLI command!');
+    }
+
+    function copyLinerMarkdown() {
+      const v = FEATURED_VAULT[currentVaultIdx];
+      const md = `# ${v.title}\n${v.subtitle}\n\n## 60-Second Summary\n${v.tldr.join('\n\n')}\n\n## Interactive Timestamps\n${v.timeline.map(c => `- **${c.time}** ${c.title} — ${c.note}`).join('\n')}\n\n## Topaz Video AI Pipeline\n\`${v.topaz.cli}\``;
+      navigator.clipboard.writeText(md);
+      showToast('📝 Copied Markdown Liner Notes to clipboard!');
+    }
+
+    function updateTipCalculator() {
+      const rate = parseFloat(document.getElementById('tipRateSlider').value);
+      const totalViews = 1000883;
+      const pot = Math.round(totalViews * (rate / 100) * 2);
+      document.getElementById('calcResultLabel').textContent = `${rate}% @ £2 = £${pot.toLocaleString()} Pot.`;
+    }
+
+    function copyPinnedComment(type) {
+      const msg = type === 'solfest'
+        ? `Filmed personally on the front barrier at Solfest! ☕ Record labels claim 100% of YouTube ad revenue on live music (£0.00 reaches this channel). If you enjoyed this front-row capture, even a £3 coffee helps keep the archive alive & 100% free forever: https://buymeacoffee.com/rjmedia`
+        : `☕ Support 25 Years of Music Preservation — Publishers claim 100% of YouTube ad revenue on music documentaries (£0.00 AdSense). Restoring VHS & broadcast tapes in Topaz Video AI takes hours of 350W GPU power. Help fund the next remaster (forever free, never paywalled): https://buymeacoffee.com/rjmedia`;
+      navigator.clipboard.writeText(msg);
+      showToast('📋 Copied YouTube Pinned Comment to clipboard!');
+    }
+
+    function setCatalogCategory(cat) {
+      currentCatalogCat = cat;
+      document.querySelectorAll('#catalogCatPills .pill').forEach(b => b.classList.toggle('active', b.dataset.vcat === cat));
+      renderCatalogTable();
+    }
+
+    function playFromCatalog(videoId, title, vaultIdx) {
+      if (typeof vaultIdx === 'number') {
+        selectFeaturedVault(vaultIdx, true);
+      } else {
+        setPlayerVideo(videoId, 0, true);
+        document.getElementById('playerStatus').textContent = `▶ Playing Archive Stream`;
+      }
+      document.getElementById('remaster-vault').scrollIntoView({ behavior: 'smooth' });
+      showToast(`▶ Now Playing: ${title}`);
+    }
+
+    function renderCatalogTable() {
+      const q = (document.getElementById('catalogSearch').value || '').toLowerCase().trim();
+      const sortBy = document.getElementById('catalogSort').value;
+
+      let filtered = CHANNEL_CATALOG.filter(v => {
+        const matchCat = currentCatalogCat === 'all' || v.cat === currentCatalogCat;
+        const matchQ = !q || v.title.toLowerCase().includes(q) || v.artist.toLowerCase().includes(q) || v.id.toLowerCase().includes(q);
+        return matchCat && matchQ;
+      });
+
+      filtered.sort((a, b) => b[sortBy] - a[sortBy]);
+
+      document.getElementById('catalogCountMeta').textContent = `Showing ${filtered.length} of ${CHANNEL_CATALOG.length} verified archival recordings — click ▶ Play in Deck to load above`;
+
+      const tbody = document.getElementById('catalogTableBody');
+      tbody.innerHTML = filtered.map(v => `
+        <tr>
+          <td>
+            <strong style="display: block; font-size: 0.92rem;">${v.title}</strong>
+            <span style="font-family: monospace; font-size: 0.72rem; color: var(--muted);">ID: ${v.id}</span>
+          </td>
+          <td><span class="era-badge">${v.artist}</span></td>
+          <td style="font-family: monospace; font-weight: 900;">${v.views.toLocaleString()}</td>
+          <td style="font-family: monospace;">${v.hours.toLocaleString()} hrs</td>
+          <td style="font-family: monospace; font-weight: 800; color: var(--accent);">${v.ctr.toFixed(2)}%</td>
+          <td>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+              <button type="button" class="btn" style="padding: 0.35rem 0.65rem; font-size: 0.68rem;" onclick="playFromCatalog('${v.id}', '${v.title.replace(/'/g, "\\'")}', ${typeof v.vaultIdx === 'number' ? v.vaultIdx : 'null'})">
+                ▶ Play in Deck
+              </button>
+              <a class="btn btn-outline" style="padding: 0.35rem 0.55rem; font-size: 0.68rem;" href="https://www.youtube.com/watch?v=${v.id}" target="_blank" rel="noopener noreferrer">YT ↗</a>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openLightbox(src, caption) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightboxImg').alt = caption;
+      document.getElementById('lightboxCap').textContent = caption;
+      document.getElementById('lightboxModal').classList.add('open');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightboxModal').classList.remove('open');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      selectFeaturedVault(0, false);
+      renderCatalogTable();
+      updateTipCalculator();
     });
   </script>
 </body>

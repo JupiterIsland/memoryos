@@ -1,11 +1,12 @@
-name: Deploy Website to GitHub Pages
+name: Deploy RJMedia Archive Website to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master, main ]
     paths:
-      - "website/**"
-      - ".github/workflows/deploy-website.yml"
+      - 'memoryos/website/**'
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -24,14 +25,26 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
+
+      - name: Resolve website directory
+        id: resolve_dir
+        run: |
+          if [ -d "memoryos/website" ]; then
+            echo "site_dir=memoryos/website" >> $GITHUB_OUTPUT
+          else
+            echo "site_dir=website" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'website'
+          path: ${{ steps.resolve_dir.outputs.site_dir }}
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

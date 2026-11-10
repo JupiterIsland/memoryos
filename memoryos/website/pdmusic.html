@@ -6,30 +6,39 @@
   <meta name="theme-color" content="#f4f4f1">
   <meta name="description" content="Paul Draper & Mansun Digital Archive — The master gateway to news logs, press articles, magazine spreads, and the MP3 bootleg vault.">
   <title>Paul Draper &amp; Mansun Archive Hub | RJMedia Digital Archive</title>
-  <link rel="stylesheet" href="./archive.css">
+  <link rel="stylesheet" href="./assets/css/archive.css">
+  <script src="./assets/js/theme.js"></script>
 </head>
 <body>
   <div class="archive-status-bar">
     <div class="wrap archive-status-inner">
       <span>RJMEDIA DIGITAL ARCHIVE • PAUL DRAPER &amp; MANSUN COLLECTION</span>
-      <span>16 NEWS LOGS • 11 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+      <div class="utility-controls">
+        <span>16 NEWS LOGS • 12 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+        <button type="button" class="util-btn" data-scale-btn="1" onclick="setArchiveScale('1')">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale('1.12')">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale('1.25')">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">☾ Cinema Dark</button>
+      </div>
     </div>
   </div>
   <header class="masthead">
     <div class="wrap nav">
-      <a class="brand" href="./pd music.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
+      <a class="brand" href="./pages/index.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
       <nav class="nav-links" aria-label="Paul Draper Archive Navigation">
-        <a href="./pd music.html" class="active">Archive Hub</a>
-        <a href="./draper-news.html">News (16)</a>
-        <a href="./draper-articles.html">Articles (4)</a>
-        <a href="./press-layout.html">Press Spreads</a>
-        <a href="./mansun-mp3-vault.html">MP3 &amp; Stream Vault (52)</a>
+        <a href="./index.html">← RJMedia Hub</a>
+        <a href="./pages/index.html" class="active">Archive Hub</a>
+        <a href="./draper.html">Bio &amp; 2007 Q&amp;A</a>
+        <a href="./pages/draper-news.html">News (16)</a>
+        <a href="./pages/draper-articles.html">Articles (5)</a>
+        <a href="./pages/press-layout.html">Press Spreads</a>
+        <a href="./pages/mansun-mp3-vault.html">MP3 Vault (52)</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener" class="nav-cta">☕ Tip £3</a>
       </nav>
     </div>
   </header>
 
   <main class="wrap">
-    <!-- HERO SECTION -->
     <section class="hero">
       <div>
         <p class="eyebrow">Digital Liner Notes • Live Music Preservation • Collector Archive</p>
@@ -37,36 +46,35 @@
         <p class="intro">Welcome to the definitive archival gateway for Mansun and Paul Draper. Preserving rare news logs, original magazine spreads, unreleased studio demos, and live bootlegs with a museum-grade collector's approach.</p>
       </div>
       <div class="corner-sketch" title="Paul Draper portrait sketch">
-        <img src="./images/paulcorner4.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper sketch" onclick="openLightbox('./images/paulcorner4.jpg', 'Paul Draper — Original site portrait sketch')">
+        <img src="./assets/images/paulcorner4.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper sketch" onclick="openLightbox('./assets/images/paulcorner4.jpg', 'Paul Draper — Original site portrait sketch')">
       </div>
     </section>
 
-    <!-- VISIBLE PHOTOGRAPHY STRIP -->
     <section aria-label="Featured Archive Photographs">
       <div class="photo-strip">
         <article class="photo-card">
-          <img src="./images/indexpic.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper live studio session" onclick="openLightbox('./images/indexpic.jpg', 'Paul Draper — Live studio session photograph')">
+          <img src="./assets/images/indexpic.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper live studio session" onclick="openLightbox('./assets/images/indexpic.jpg', 'Paul Draper — Live studio session photograph')">
           <div class="cap">
             <strong>Studio &amp; Live Session</strong>
             Paul Draper on guitar and vocals (indexpic.jpg).
           </div>
         </article>
         <article class="photo-card">
-          <img src="./images/glam_1_big.jpg" onerror="this.classList.add('img-missing')" alt="Melody Maker Glam Bam" onclick="openLightbox('./images/glam_1_big.jpg', 'Melody Maker (28 Sept 1996) — Glam Bam Thank You Man!')">
+          <img src="./assets/images/glam_1_big.jpg" onerror="this.classList.add('img-missing')" alt="Melody Maker Glam Bam" onclick="openLightbox('./assets/images/glam_1_big.jpg', 'Melody Maker (28 Sept 1996) — Glam Bam Thank You Man!')">
           <div class="cap">
             <strong>Melody Maker • Sept 1996</strong>
             "Glam Bam Thank You Man!" feature spread.
           </div>
         </article>
         <article class="photo-card">
-          <img src="./images/taxi_small.jpg" onerror="this.classList.add('img-missing')" alt="Taxi The A.A." onclick="openLightbox('./images/taxi_small.jpg', 'Mansun — Taxi! The A.A.! feature cover')">
+          <img src="./assets/images/taxi_small.jpg" onerror="this.classList.add('img-missing')" alt="Taxi The A.A." onclick="openLightbox('./assets/images/taxi_small.jpg', 'Mansun — Taxi! The A.A.! feature cover')">
           <div class="cap">
             <strong>'Taxi! The A.A.!' • 1996</strong>
             Stove, Paul, and Chad on the road in early 1996.
           </div>
         </article>
         <article class="photo-card">
-          <img src="./images/rocksound2000.jpg" onerror="this.classList.add('img-missing')" alt="Rock Sound 2000 Just For Kix" onclick="openLightbox('./images/rocksound2000.jpg', 'Rock Sound (2000) — Mansun: Just For Kix')">
+          <img src="./assets/images/rocksound2000.jpg" onerror="this.classList.add('img-missing')" alt="Rock Sound 2000 Just For Kix" onclick="openLightbox('./assets/images/rocksound2000.jpg', 'Rock Sound (2000) — Mansun: Just For Kix')">
           <div class="cap">
             <strong>Rock Sound • 2000</strong>
             "Just For Kix" — Anton Corbijn photographic feature.
@@ -75,15 +83,12 @@
       </div>
     </section>
 
-    <!-- ARCHIVE PORTALS GRID (4 MAIN SECTIONS) -->
     <section style="padding: 3rem 0;">
       <h2 style="font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--ink);">
         Explore the Archive Sections
       </h2>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.75rem;">
-        
-        <!-- Portal 1: News -->
         <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <span class="news-date">01 // Chronology</span>
@@ -93,11 +98,10 @@
             </p>
           </div>
           <div style="margin-top: 1.5rem;">
-            <a class="btn" href="./draper-news.html">Open News Feed (16) →</a>
+            <a class="btn" href="./pages/draper-news.html">Open News Feed (16) →</a>
           </div>
         </div>
 
-        <!-- Portal 2: Articles -->
         <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <span class="news-date">02 // Press Vault</span>
@@ -107,11 +111,10 @@
             </p>
           </div>
           <div style="margin-top: 1.5rem;">
-            <a class="btn" href="./draper-articles.html">Browse Articles (4) →</a>
+            <a class="btn" href="./pages/draper-articles.html">Browse Articles (5) →</a>
           </div>
         </div>
 
-        <!-- Portal 3: Press Spreads (Magazine Scans) -->
         <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <span class="news-date">03 // Visual Spreads</span>
@@ -121,11 +124,10 @@
             </p>
           </div>
           <div style="margin-top: 1.5rem;">
-            <a class="btn" href="./press-layout.html">Open Press Spreads →</a>
+            <a class="btn" href="./pages/press-layout.html">Open Press Spreads →</a>
           </div>
         </div>
 
-        <!-- Portal 4: MP3 & Stream Vault -->
         <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <span class="news-date">04 // Audio Archive</span>
@@ -135,23 +137,21 @@
             </p>
           </div>
           <div style="margin-top: 1.5rem;">
-            <a class="btn" href="./mansun-mp3-vault.html">Open Audio Vault (52) →</a>
+            <a class="btn" href="./pages/mansun-mp3-vault.html">Open Audio Vault (52) →</a>
           </div>
         </div>
 
-      </div>
-    </section>
-
-    <!-- ECOSYSTEM FOOTER LINK BAR -->
-    <section style="padding: 2.5rem 0; border-top: 1px solid var(--rule); margin-bottom: 2rem;">
-      <div style="background: var(--black); color: var(--white); padding: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
-        <div>
-          <span style="font-family: monospace; font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; display: block; margin-bottom: 0.4rem; color: #aaaaaa;">Part of the RJMedia Ecosystem</span>
-          <h3 style="margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: -0.02em;">Past • Present • Future</h3>
-        </div>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-          <a class="btn btn-outline" href="https://jupiterisland.github.io/rjmedia-liner-notes/" target="_blank" rel="noopener" style="background: var(--white); color: var(--black);">Main Digital Archive ↗</a>
-          <a class="btn btn-outline" href="https://github.com/JupiterIsland" target="_blank" rel="noopener" style="background: transparent; color: var(--white); border-color: #666;">GitHub / Jupiter Island ↗</a>
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">05 // Text Archive</span>
+            <h3 class="news-title">Biography, Discography &amp; 2007 Q&amp;A</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              Recovered from the 2007 <em>pauldraper-music.co.uk</em> site: "Mansun: The Outsider Thing", full album tracklists, Komakino production diary, and the fan Q&amp;A.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./draper.html">Read Bio &amp; 2007 Q&amp;A →</a>
+          </div>
         </div>
       </div>
     </section>
@@ -159,15 +159,15 @@
     <footer>
       <div>RJMedia / Paul Draper &amp; Mansun Master Archive Hub</div>
       <div>
-        <a href="./draper-news.html">News</a> ·
-        <a href="./draper-articles.html">Articles</a> ·
-        <a href="./press-layout.html">Press Spreads</a> ·
-        <a href="./mansun-mp3-vault.html">MP3 Vault</a>
+        <a href="./index.html">← Back to RJMedia Hub</a> ·
+        <a href="./pages/draper-news.html">News</a> ·
+        <a href="./pages/draper-articles.html">Articles</a> ·
+        <a href="./pages/press-layout.html">Press Spreads</a> ·
+        <a href="./pages/mansun-mp3-vault.html">MP3 Vault</a>
       </div>
     </footer>
   </main>
 
-  <!-- Lightbox Modal -->
   <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
     <div class="lightbox-inner">
       <img id="lightboxImg" src="" alt="">

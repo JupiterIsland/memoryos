@@ -7,12 +7,19 @@
   <meta name="description" content="Paul Draper & Mansun Digital Archive — The definitive gateway to news logs, press articles, magazine spreads, and 52 MP3 bootleg tracks.">
   <title>Paul Draper &amp; Mansun Archive Hub | RJMedia Digital Archive</title>
   <link rel="stylesheet" href="../assets/css/archive.css">
+  <script src="../assets/js/theme.js"></script>
 </head>
 <body>
   <div class="archive-status-bar">
     <div class="wrap archive-status-inner">
       <span>RJMEDIA DIGITAL ARCHIVE • PAUL DRAPER &amp; MANSUN COLLECTION</span>
-      <span>16 NEWS LOGS • 11 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+      <div class="utility-controls">
+        <span>16 NEWS LOGS • 12 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+        <button type="button" class="util-btn" data-scale-btn="1" onclick="setArchiveScale('1')">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale('1.12')">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale('1.25')">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">☾ Cinema Dark</button>
+      </div>
     </div>
   </div>
 
@@ -20,12 +27,14 @@
     <div class="wrap nav">
       <a class="brand" href="./index.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
       <nav class="nav-links" aria-label="Paul Draper Archive Navigation">
-        <a href="../index.html" style="text-decoration: underline; color: var(--muted);">← Back to RJMedia Hub</a>
+        <a href="../index.html">← RJMedia Hub</a>
         <a href="./index.html" class="active">Archive Hub</a>
+        <a href="../draper.html">Bio &amp; 2007 Q&amp;A</a>
         <a href="./draper-news.html">News (16)</a>
-        <a href="./draper-articles.html">Articles (4)</a>
+        <a href="./draper-articles.html">Articles (5)</a>
         <a href="./press-layout.html">Press Spreads</a>
-        <a href="./mansun-mp3-vault.html">MP3 &amp; Stream Vault (52)</a>
+        <a href="./mansun-mp3-vault.html">MP3 Vault (52)</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener" class="nav-cta">☕ Tip £3</a>
       </nav>
     </div>
   </header>
@@ -138,6 +147,20 @@
           </div>
           <div style="margin-top: 1.5rem;">
             <a class="btn" href="./mansun-mp3-vault.html">Open Audio Vault (52) →</a>
+          </div>
+        </div>
+
+        <!-- Portal 5: Biography & 2007 Q&A -->
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">05 // Text Archive</span>
+            <h3 class="news-title">Biography, Discography &amp; 2007 Q&amp;A</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              Recovered from the 2007 <em>pauldraper-music.co.uk</em> site: "Mansun: The Outsider Thing", full album tracklists, Komakino production diary at Parr Street Studios, and the fan Q&amp;A.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="../draper.html">Read Bio &amp; 2007 Q&amp;A →</a>
           </div>
         </div>
 

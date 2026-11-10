@@ -7,23 +7,33 @@
   <meta name="description" content="Paul Draper & Mansun Online Stream & MP3 Bootleg Vault — Instant internet streaming of live concerts, demos, rarities, plus local MP3 playback.">
   <title>Mansun & Paul Draper — Online Stream & MP3 Vault | RJMedia Digital Archive</title>
   <link rel="stylesheet" href="../assets/css/archive.css">
+  <script src="../assets/js/theme.js"></script>
 </head>
 <body>
   <div class="archive-status-bar">
     <div class="wrap archive-status-inner">
       <span>RJMEDIA DIGITAL ARCHIVE • PAUL DRAPER &amp; MANSUN COLLECTION</span>
-      <span>16 NEWS LOGS • 11 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+      <div class="utility-controls">
+        <span>16 NEWS LOGS • 12 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+        <button type="button" class="util-btn" data-scale-btn="1" onclick="setArchiveScale('1')">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale('1.12')">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale('1.25')">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">☾ Cinema Dark</button>
+      </div>
     </div>
   </div>
   <header class="masthead">
     <div class="wrap nav">
       <a class="brand" href="./index.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
       <nav class="nav-links" aria-label="Paul Draper Archive Navigation">
-        <a href="./index.html" class="">Archive Hub</a>
-        <a href="./draper-news.html" class="">News (16)</a>
-        <a href="./draper-articles.html" class="">Articles (4)</a>
-        <a href="./press-layout.html" class="">Press Spreads</a>
-        <a href="./mansun-mp3-vault.html" class="active">MP3 &amp; Stream Vault (52)</a>
+        <a href="../index.html">← RJMedia Hub</a>
+        <a href="./index.html">Archive Hub</a>
+        <a href="../draper.html">Bio &amp; 2007 Q&amp;A</a>
+        <a href="./draper-news.html">News (16)</a>
+        <a href="./draper-articles.html">Articles (5)</a>
+        <a href="./press-layout.html">Press Spreads</a>
+        <a href="./mansun-mp3-vault.html" class="active">MP3 Vault (52)</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener" class="nav-cta">☕ Tip £3</a>
       </nav>
     </div>
   </header>

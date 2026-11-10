@@ -7,6 +7,7 @@
   <meta name="description" content="Paul Draper & Mansun Magazine Spreads — High-resolution scans from Melody Maker, Select, Rock Sound, and Uncut with immersive full-screen page reader.">
   <title>Magazine Spreads & Press Scans | Paul Draper Archive</title>
   <link rel="stylesheet" href="../assets/css/archive.css">
+  <script src="../assets/js/theme.js"></script>
   <style>
     .press-reader {
       display: grid;
@@ -95,7 +96,13 @@
   <div class="archive-status-bar">
     <div class="wrap archive-status-inner">
       <span>RJMEDIA DIGITAL ARCHIVE • PAUL DRAPER &amp; MANSUN COLLECTION</span>
-      <span>16 NEWS LOGS • 11 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+      <div class="utility-controls">
+        <span>16 NEWS LOGS • 12 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+        <button type="button" class="util-btn" data-scale-btn="1" onclick="setArchiveScale('1')">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale('1.12')">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale('1.25')">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">☾ Cinema Dark</button>
+      </div>
     </div>
   </div>
 
@@ -103,12 +110,14 @@
     <div class="wrap nav">
       <a class="brand" href="./index.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
       <nav class="nav-links" aria-label="Paul Draper Archive Navigation">
-        <a href="../index.html" style="text-decoration: underline; color: var(--muted);">← Back to RJMedia Hub</a>
+        <a href="../index.html">← RJMedia Hub</a>
         <a href="./index.html">Archive Hub</a>
+        <a href="../draper.html">Bio &amp; 2007 Q&amp;A</a>
         <a href="./draper-news.html">News (16)</a>
-        <a href="./draper-articles.html">Articles (4)</a>
+        <a href="./draper-articles.html">Articles (5)</a>
         <a href="./press-layout.html" class="active">Press Spreads</a>
-        <a href="./mansun-mp3-vault.html">MP3 &amp; Stream Vault (52)</a>
+        <a href="./mansun-mp3-vault.html">MP3 Vault (52)</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener" class="nav-cta">☕ Tip £3</a>
       </nav>
     </div>
   </header>
@@ -216,7 +225,34 @@
         </div>
       </article>
 
-      <!-- Feature 4: Uncut December 2006 -->
+      <!-- Feature 4: Melody Maker Nov 1 2000 -->
+      <article class="press-article" id="mm2000">
+        <h3>1 NOVEMBER 2000 • MELODY MAKER (3-PAGE TOUR FEATURE)</h3>
+        <div class="press-meta">
+          <span><strong>"I've Still Got Clean Pants On!"</strong></span>
+          <span>—</span>
+          <span>Mansun On The Road (Little Kix Era)</span>
+        </div>
+        <p style="color: var(--muted); margin: 0 0 1.5rem;">
+          Recovered 3-page Melody Maker tour feature from the Grey House Mansun Press Archive. Click any page to inspect in full screen.
+        </p>
+        <div class="press-pages">
+          <div class="press-page" onclick="openFullscreen('../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_1.jpg', 'Melody Maker (Nov 1, 2000) — Page 1')">
+            <img src="../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_1.jpg" alt="Melody Maker Nov 1 2000 Page 1">
+            <p style="padding: 0.5rem; background: var(--white); margin: 0; font-size: 0.8rem; color: var(--muted);">Page 1 — Opening Spread</p>
+          </div>
+          <div class="press-page" onclick="openFullscreen('../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_2.jpg', 'Melody Maker (Nov 1, 2000) — Page 2')">
+            <img src="../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_2.jpg" alt="Melody Maker Nov 1 2000 Page 2">
+            <p style="padding: 0.5rem; background: var(--white); margin: 0; font-size: 0.8rem; color: var(--muted);">Page 2 — Interview</p>
+          </div>
+          <div class="press-page" onclick="openFullscreen('../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_3.jpg', 'Melody Maker (Nov 1, 2000) — Page 3')">
+            <img src="../draper/assets/images/Melody%20Maker%201_11_2000%20_%20Grey%20House_files/mm_nov1_7_3.jpg" alt="Melody Maker Nov 1 2000 Page 3">
+            <p style="padding: 0.5rem; background: var(--white); margin: 0; font-size: 0.8rem; color: var(--muted);">Page 3 — Finale</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- Feature 5: Uncut December 2006 -->
       <article class="press-article" id="uncut2006">
         <h3>DECEMBER 2006 • UNCUT MAGAZINE</h3>
         <div class="press-meta">
