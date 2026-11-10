@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f4f1">
+  <meta name="description" content="Paul Draper & Mansun Digital Archive — The master gateway to news logs, press articles, magazine spreads, and the MP3 bootleg vault.">
+  <title>Paul Draper &amp; Mansun Archive Hub | RJMedia Digital Archive</title>
+  <link rel="stylesheet" href="./assets/css/archive.css">
+  <script src="./assets/js/theme.js"></script>
+</head>
+<body>
+  <div class="archive-status-bar">
+    <div class="wrap archive-status-inner">
+      <span>RJMEDIA DIGITAL ARCHIVE • PAUL DRAPER &amp; MANSUN COLLECTION</span>
+      <div class="utility-controls">
+        <span>16 NEWS LOGS • 12 PRESS SCANS • 52 STREAM &amp; MP3 TRACKS</span>
+        <button type="button" class="util-btn" data-scale-btn="1" onclick="setArchiveScale('1')">A</button>
+        <button type="button" class="util-btn" data-scale-btn="1.12" onclick="setArchiveScale('1.12')">A+</button>
+        <button type="button" class="util-btn" data-scale-btn="1.25" onclick="setArchiveScale('1.25')">A++</button>
+        <button type="button" class="util-btn" data-theme-toggle onclick="toggleArchiveTheme()">☾ Cinema Dark</button>
+      </div>
+    </div>
+  </div>
+  <header class="masthead">
+    <div class="wrap nav">
+      <a class="brand" href="./pages/index.html"><span class="mark" aria-hidden="true"></span> RJMedia / Paul Draper Archive</a>
+      <nav class="nav-links" aria-label="Paul Draper Archive Navigation">
+        <a href="./index.html">← RJMedia Hub</a>
+        <a href="./pages/index.html" class="active">Archive Hub</a>
+        <a href="./draper.html">Bio &amp; 2007 Q&amp;A</a>
+        <a href="./pages/draper-news.html">News (16)</a>
+        <a href="./pages/draper-articles.html">Articles (5)</a>
+        <a href="./pages/press-layout.html">Press Spreads</a>
+        <a href="./pages/mansun-mp3-vault.html">MP3 Vault (52)</a>
+        <a href="https://buymeacoffee.com/rjmedia" target="_blank" rel="noopener" class="nav-cta">☕ Tip £3</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Digital Liner Notes • Live Music Preservation • Collector Archive</p>
+        <h1>Paul Draper<br>&amp; Mansun Hub.</h1>
+        <p class="intro">Welcome to the definitive archival gateway for Mansun and Paul Draper. Preserving rare news logs, original magazine spreads, unreleased studio demos, and live bootlegs with a museum-grade collector's approach.</p>
+      </div>
+      <div class="corner-sketch" title="Paul Draper portrait sketch">
+        <img src="./assets/images/paulcorner4.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper sketch" onclick="openLightbox('./assets/images/paulcorner4.jpg', 'Paul Draper — Original site portrait sketch')">
+      </div>
+    </section>
+
+    <section aria-label="Featured Archive Photographs">
+      <div class="photo-strip">
+        <article class="photo-card">
+          <img src="./assets/images/indexpic.jpg" onerror="this.classList.add('img-missing')" alt="Paul Draper live studio session" onclick="openLightbox('./assets/images/indexpic.jpg', 'Paul Draper — Live studio session photograph')">
+          <div class="cap">
+            <strong>Studio &amp; Live Session</strong>
+            Paul Draper on guitar and vocals (indexpic.jpg).
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/glam_1_big.jpg" onerror="this.classList.add('img-missing')" alt="Melody Maker Glam Bam" onclick="openLightbox('./assets/images/glam_1_big.jpg', 'Melody Maker (28 Sept 1996) — Glam Bam Thank You Man!')">
+          <div class="cap">
+            <strong>Melody Maker • Sept 1996</strong>
+            "Glam Bam Thank You Man!" feature spread.
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/taxi_small.jpg" onerror="this.classList.add('img-missing')" alt="Taxi The A.A." onclick="openLightbox('./assets/images/taxi_small.jpg', 'Mansun — Taxi! The A.A.! feature cover')">
+          <div class="cap">
+            <strong>'Taxi! The A.A.!' • 1996</strong>
+            Stove, Paul, and Chad on the road in early 1996.
+          </div>
+        </article>
+        <article class="photo-card">
+          <img src="./assets/images/rocksound2000.jpg" onerror="this.classList.add('img-missing')" alt="Rock Sound 2000 Just For Kix" onclick="openLightbox('./assets/images/rocksound2000.jpg', 'Rock Sound (2000) — Mansun: Just For Kix')">
+          <div class="cap">
+            <strong>Rock Sound • 2000</strong>
+            "Just For Kix" — Anton Corbijn photographic feature.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section style="padding: 3rem 0;">
+      <h2 style="font-size: 1.3rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--ink);">
+        Explore the Archive Sections
+      </h2>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.75rem;">
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">01 // Chronology</span>
+            <h3 class="news-title">News Archive</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              The complete surviving chronological log of dispatches, studio diaries, track title announcements, and direct collaborator updates from 2006 to 2012. Includes instant search and year filters.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./pages/draper-news.html">Open News Feed (16) →</a>
+          </div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">02 // Press Vault</span>
+            <h3 class="news-title">Articles &amp; Interviews</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              Recovered music press features, Q&amp;As, and in-depth magazine transcripts covering the release of <em>Attack of the Grey Lantern</em>, <em>Six</em>, <em>Little Kix</em>, and Paul's solo evolution.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./pages/draper-articles.html">Browse Articles (5) →</a>
+          </div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">03 // Visual Spreads</span>
+            <h3 class="news-title">Magazine Scans</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              High-resolution print scans of full magazine spreads from <em>Melody Maker</em>, <em>Select</em>, and <em>Rock Sound</em>. View them page-by-page in our immersive full-screen reader.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./pages/press-layout.html">Open Press Spreads →</a>
+          </div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">04 // Audio Archive</span>
+            <h3 class="news-title">MP3 &amp; Stream Vault</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              52 catalogued tracks featuring the Amsterdam Paradiso 1998 concert, Grind demos, Steve Heaton tapes, Unreleased tracks like <em>South Of The Painted Hall</em>, and 1-click YouTube stream embeds.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./pages/mansun-mp3-vault.html">Open Audio Vault (52) →</a>
+          </div>
+        </div>
+
+        <div class="news-item" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="news-date">05 // Text Archive</span>
+            <h3 class="news-title">Biography, Discography &amp; 2007 Q&amp;A</h3>
+            <p style="color: var(--muted); font-size: 0.98rem;">
+              Recovered from the 2007 <em>pauldraper-music.co.uk</em> site: "Mansun: The Outsider Thing", full album tracklists, Komakino production diary, and the fan Q&amp;A.
+            </p>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <a class="btn" href="./draper.html">Read Bio &amp; 2007 Q&amp;A →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div>RJMedia / Paul Draper &amp; Mansun Master Archive Hub</div>
+      <div>
+        <a href="./index.html">← Back to RJMedia Hub</a> ·
+        <a href="./pages/draper-news.html">News</a> ·
+        <a href="./pages/draper-articles.html">Articles</a> ·
+        <a href="./pages/press-layout.html">Press Spreads</a> ·
+        <a href="./pages/mansun-mp3-vault.html">MP3 Vault</a>
+      </div>
+    </footer>
+  </main>
+
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <div class="lightbox-inner">
+      <img id="lightboxImg" src="" alt="">
+      <div class="lightbox-bar">
+        <span id="lightboxCap"></span>
+        <button type="button" class="lightbox-close" onclick="closeLightbox(event, true)">Close [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openLightbox(src, caption) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightboxCap').textContent = caption || src;
+      document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox(e, force) {
+      if (force || e.target.id === 'lightbox') {
+        document.getElementById('lightbox').classList.remove('open');
+      }
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeLightbox(e, true);
+    });
+  </script>
+</body>
+</html>
