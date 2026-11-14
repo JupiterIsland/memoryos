@@ -63,3 +63,9 @@ Filming on a phone at the front barrier creates four specific challenges: **Vari
   "Recover Original Detail": 60,
   "Add Noise": 2
 }}
+```
+"""
+
+
+if __name__ == "__main__":
+    print(generate_buzzcocks_liner_notes())
