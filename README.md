@@ -106,7 +106,7 @@ python -B server.py --host 127.0.0.1 --port 5000 --db QuietAdvisorDB.sqlite
 python -B apps\quiet_advisor_ui\server.py --port 8765 --db QuietAdvisorDB.sqlite
 ```
 
-> **🐧 Linux / Ubuntu / WSL2 Engineers:** Run the exact same commands inside `~/memoryos` using `python3 -B` and forward slashes (`python3 -B seed_gamer_showcase.py && python3 -B tests/run_gamer_hardware_tests.py`).
+> **🐧 Linux / Ubuntu / WSL2 Engineers:** Run the exact same commands inside `~/memoryos` using `python3 -B` (`python3 -B seed_gamer_showcase.py && python3 -B tests/run_gamer_hardware_tests.py`), and launch the Dual-Brain Aider Agent natively in bash via `./start-aider-amd.sh`.
 
 ---
 
