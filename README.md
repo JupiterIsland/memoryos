@@ -113,6 +113,7 @@ python -B apps\quiet_advisor_ui\server.py --port 8765 --db QuietAdvisorDB.sqlite
 ## 📂 Repository Documentation Map
 
 * **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Complete `v0.1.0-preview` release notes & feature breakdown
+* **[docs/proof-pack/AMD_ZEN_STUDIO_AND_RYZEN_AI_NOTES.md](docs/proof-pack/AMD_ZEN_STUDIO_AND_RYZEN_AI_NOTES.md)** — Sharp 5-part technical engineering notes (`0.092ms` Zen 3 kernel, 3-Tier Ryzen AI NPU stack, £2,000 laptop shootout & 6-suite verification)
 * **[INSTALL.md](INSTALL.md)** — Brand-new user installation & setup guide
 * **[VALIDATION_SUMMARY.md](VALIDATION_SUMMARY.md)** — Static analysis, bug-fix log & hostile validation report
 * **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** — Release verification & tagging checklist
