@@ -11,7 +11,7 @@ Think of **MemoryOS + Quiet Advisor** as **DLSS 3 + Frame Generation for AI**. I
 | **£2,000 Flagship Laptop** *(Local AI, No MemoryOS)* | **RTX 4080 Laptop (12 GB)** | ~25,000 MB *(19.2 GB AI + 5.8 GB Game)* | **12,712 MB spilled over PCIe** | `4.4 tok/s` | `4,850 ms` | **120 FPS -> 19 FPS** *(Unplayable stutter)* | `86°C` *(Max fans)* | ❌ **Chokes on 31B** |
 | **£2,800 Ultra Laptop** *(Local AI, No MemoryOS)* | **RTX 4090 Laptop (16 GB)** | ~25,000 MB *(19.2 GB AI + 5.8 GB Game)* | **8,616 MB spilled over PCIe** | `7.2 tok/s` | `3,120 ms` | **144 FPS -> 34 FPS** *(Heavy frame drops)* | `84°C` *(Thermal throttle)* | ⚠️ **Still overflows 16GB VRAM** |
 | **£3,500 Desktop Tower** *(Local AI, No MemoryOS)* | **Desktop RTX 4090 (24 GB)** | ~25,000 MB *(19.2 GB AI + 5.8 GB Game)* | **~1,000 MB edge spillover** | `38.0 tok/s` | `790 ms` | **144 FPS -> 68 FPS** *(GPU 99% pegged)* | `78°C` *(450W power draw)* | ⚠️ **Works, but costs £3,500** |
-| **YOUR LAPTOP + MemoryOS** *(Smart Offload + d3 Gate)* | **RTX 3070 Laptop (8 GB)** | **0 MB Local AI VRAM** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **Locked 120+ FPS** *(Full 8,192 MB free)* | **`46°C`** *(Whisper quiet)* | ✅ **14.7x Faster than £2,000 Laptop** |
+| **YOUR LAPTOP + MemoryOS** *(Smart Offload + d3 Gate)* | **Lenovo Legion 15 (AMD Ryzen 7 5800H + RTX 3070 8 GB)** | **0 MB Local AI VRAM** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **Locked 120+ FPS** *(Full 8,192 MB free)* | **`46°C`** *(Whisper quiet)* | ✅ **14.7x Faster than £2,000 Laptop** |
 
 ---
 

@@ -15,8 +15,8 @@
 Most developers and PC gamers do not have a £3,500 workstation with 24 GB–48 GB of dedicated GPU VRAM. When you try to run modern 27-Billion or 31-Billion parameter models locally alongside a game, video editor, or desktop workflow—even on a **£2,000+ gaming laptop (RTX 4080 12GB / RTX 4090 16GB)**—the model overflows VRAM into system RAM over the PCIe bus. Framerates collapse from **120 FPS down to 19 FPS**, inference crawls at **4.4 tokens/sec**, and GPU temperatures spike to **86°C**.
 
 **MemoryOS v0.1 (`The Quiet Advisor`)** solves this by acting as **DLSS 3 + Smart Frame Skipping for AI**:
-1. **CPU Frame-Skip Gate (`d3`)**: Screens out static or paused video/game frames on the CPU in **2.70 ms** (`16.2%` of a single 60 FPS frame budget), burning **0 GPU power** and **0 cloud tokens** on unchanged screens.
-2. **Multi-Model AMD Token Lab Offload**: Dynamically routes heavy workloads across **5 specialized models** (`Gemma-4-31B-IT`, `Qwen3.8-27B`, `d3`, `MiniCPM5-2B`, and `DeepSeek-V4.1-Flash`) on AMD's datacenter cluster—keeping **100% of your local GPU VRAM (`8,192 MB` on an RTX 3070 Laptop GPU)** free for high-FPS rendering.
+1. **AMD Ryzen CPU Frame-Skip Gate (`d3`)**: Screens out static or paused video/game frames on the **AMD Ryzen 7 5800H CPU** in **2.70 ms** (`16.2%` of a single 60 FPS frame budget), burning **0 GPU power** and **0 cloud tokens** on unchanged screens.
+2. **Multi-Model AMD Token Lab Offload**: Dynamically routes heavy workloads across **5 specialized models** (`Gemma-4-31B-IT`, `Qwen3.8-27B`, `d3`, `MiniCPM5-2B`, and `DeepSeek-V4.1-Flash`) on AMD's datacenter cluster—keeping **100% of your local GPU VRAM (`8,192 MB` on a Lenovo Legion 15 — AMD Ryzen 7 5800H + RTX 3070 8 GB)** free for high-FPS rendering.
 3. **Closed-Loop Self-Healing (`Quiet Advisor`)**: Continuously monitors SQLite telemetry (`QuietAdvisorDB.sqlite`) for context bloat, VRAM spikes, model thrashing, and timeout risks—surfacing 1-click optimizations that automatically tune `.env` and reload from **20 PCIe NVMe Quick-Save Checkpoints** in **2.85 ms**.
 
 ---
@@ -51,16 +51,16 @@ Most developers and PC gamers do not have a £3,500 workstation with 24 GB–48 
 
 ---
 
-## 📊 Benchmark: Your 8GB RTX 3070 Laptop vs. a £2,000+ Gaming Laptop
+## 📊 Benchmark: Lenovo Legion 15 (AMD Ryzen 7 5800H + RTX 3070 8GB) vs. a £2,000+ Gaming Laptop
 
 Full benchmark suite available in [tests/run_gamer_hardware_tests.py](tests/run_gamer_hardware_tests.py) and [docs/proof-pack/GAMER_LAPTOP_BENCHMARK.md](docs/proof-pack/GAMER_LAPTOP_BENCHMARK.md):
 
-| Gaming Rig / Laptop Tier | Graphics Card (VRAM) | VRAM Spillover (`Gemma-31B` + Game) | AI Speed (`tok/s`) | Avg `31B` Ping | In-Game FPS Impact | GPU Temp | Verdict |
+| Gaming Rig / Laptop Tier | CPU & Graphics Card (VRAM) | VRAM Spillover (`Gemma-31B` + Game) | AI Speed (`tok/s`) | Avg `31B` Ping | In-Game FPS Impact | GPU Temp | Verdict |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **£2,000 Flagship Laptop** *(Local AI, No MemoryOS)* | **RTX 4080 Laptop (12 GB)** | **12.7 GB spilled over PCIe** | `4.4 tok/s` | `4,850 ms` | **120 FPS -> 19 FPS** *(Heavy stutter)* | `86°C` | ❌ **Chokes on 31B** |
 | **£2,800 Ultra Laptop** *(Local AI, No MemoryOS)* | **RTX 4090 Laptop (16 GB)** | **8.6 GB spilled over PCIe** | `7.2 tok/s` | `3,120 ms` | **144 FPS -> 34 FPS** *(PCIe bottleneck)* | `84°C` | ⚠️ **Overflows 16GB VRAM** |
-| **YOUR LAPTOP + MemoryOS** *(AMD Token Lab + d3 Gate)* | **RTX 3070 Laptop (8 GB)** | **0 MB Spillover (`0 MB` AI VRAM)** | **`64.5 tok/s`** | **`465 ms`** | **Locked 120+ FPS** *(Full 8 GB free)* | **`46°C`** | ✅ **14.7x Faster & Cool** |
-| **Minimum Spec With MemoryOS** *(Entry Gamer Tier)* | **RTX 3050 (6 GB) or Ryzen Radeon 780M iGPU** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **0% GPU Penalty** (`2.7ms` CPU gate) | `48°C` | ✅ **£550 Laptop Runs 31B** |
+| **YOUR LAPTOP + MemoryOS** *(AMD Token Lab + d3 Gate)* | **Lenovo Legion 15 (AMD Ryzen 7 5800H + RTX 3070 8 GB)** | **0 MB Spillover (`0 MB` AI VRAM)** | **`64.5 tok/s`** | **`465 ms`** | **Locked 120+ FPS** *(Full 8 GB free)* | **`46°C`** | ✅ **14.7x Faster & Cool** |
+| **Minimum Spec With MemoryOS** *(Entry Gamer Tier)* | **AMD Ryzen Radeon 780M iGPU or RTX 3050 (6 GB)** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **0% GPU Penalty** (`2.7ms` Ryzen CPU gate) | `48°C` | ✅ **£550 Laptop Runs 31B** |
 
 ---
 
@@ -91,3 +91,5 @@ python -B apps\quiet_advisor_ui\server.py --port 8765 --db QuietAdvisorDB.sqlite
 # 4. Launch the Dual-Brain AMD Aider Coding Agent (Gemma-4-31B-IT + Qwen3.8-27B)
 powershell -ExecutionPolicy Bypass -File .\Start-AiderAMD.ps1
 ```
+
+> **🐧 Linux / Ubuntu / WSL2 Engineers:** Run the exact same commands inside `~/memoryos` using `python3 -B` and forward slashes (`python3 -B seed_gamer_showcase.py && python3 -B tests/run_gamer_hardware_tests.py`).
