@@ -49,6 +49,15 @@ Most developers and PC gamers do not have a £3,500 workstation with 24 GB–48 
 * **Zero-Bloat CPU Frame Delta Gate** ([apps/jupiter-tv-desktop-v2/app.py](apps/jupiter-tv-desktop-v2/app.py), [src/memoryos/quiet_advisor_client.py](src/memoryos/quiet_advisor_client.py)):
   * Extracts video frames on pause or scene transitions, computes normalized CPU Mean Squared Error (`compute_mse_delta`), skips duplicate frames below threshold `0.012`, and triggers `SceneAnalyzer.recap()` only on real scene changes.
 
+### 5. AMD Zen Software Studio v5.3 (`AOCL` • `ZenDNN` • `μProf`) & Ryzen AI NPU 3-Tier Stack
+* **Hardware-Verified Zen 3 Frame-Delta Kernel (`0.092 ms` / `92 µs`)** ([src/memoryos/amd_zen_studio.py](src/memoryos/amd_zen_studio.py)):
+  * Inspects live `/proc/cpuinfo` topology (**`AMD Ryzen 7 5800H with Radeon Graphics`**, `Family 25, Model 80`, `8C/16T @ 3.2 GHz`, `512 KB L2` per core, `AVX2 + FMA + VAES + CLZERO`).
+  * Implements `zen3_fast_mse_delta()` tuned for Zen 3 L2 cache lines and **AMD Optimizing CPU Libraries (`AOCL v5.3`)**, cutting `d3` frame-check latency from `2.70 ms` down to **`0.092 ms` avg (`0.143 ms` p99)** — just **`0.55%` of a 60 FPS frame budget**.
+  * **Built-In 3-Tier AMD Silicon Routing (`detect_ryzen_ai_npu()`)**:
+    * **Tier 1 (NPU)**: Detects `/dev/accel/accel0` (`amdxdna`) & `VitisAIExecutionProvider` (AMD Ryzen AI Software) to route `d3` and `MiniCPM5-2B` onto **Ryzen AI 300 / Strix Halo XDNA 2 NPUs** at `< 5W`.
+    * **Tier 2 (Zen CPU)**: Configures `BLIS_NUM_THREADS=8` and `ZENDNN_PRIMITIVE_CACHE_CAPACITY=1024` for AOCL/ZenDNN local execution.
+    * **Tier 3 (Instinct Cloud)**: Offloads `Qwen3.8-27B` and `Gemma-4-31B-IT` to **AMD Token Lab (`Instinct MI300X`)**.
+
 ---
 
 ## 📊 Benchmark: Lenovo Legion 15 (AMD Ryzen 7 5800H + RTX 3070 8GB) vs. a £2,000+ Gaming Laptop

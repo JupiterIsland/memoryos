@@ -29,6 +29,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import subprocess
 from apps.quiet_advisor_ui.api import get_dashboard_state
+from memoryos.amd_zen_studio import profile_d3_on_zen3
 from memoryos.quiet_advisor_client import compute_mse_delta
 
 
@@ -225,5 +226,6 @@ if __name__ == "__main__":
         "suite_3_2000gbp_laptop_shootout": run_suite_3_gamer_laptop_comparison(),
         "suite_4_nvme_quicksave_chaos_recovery": run_suite_4_chaos_recovery_test(),
         "suite_5_live_router_ping": run_suite_5_live_http_api_test(),
+        "suite_6_amd_zen_studio_and_ryzen_ai_npu": profile_d3_on_zen3(),
     }
     print(json.dumps(results, indent=2))

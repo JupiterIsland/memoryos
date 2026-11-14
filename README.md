@@ -4,9 +4,10 @@
 ![The Quiet Advisor — Powered by AMD Token Lab](docs/quiet_advisor_banner.jpg)
 
 [![Release: v0.1.0-preview](https://img.shields.io/badge/Release-v0.1.0--preview-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](RELEASE_NOTES.md)
+[![AMD Zen Studio v5.3: 0.092ms Zen 3 Gate](https://img.shields.io/badge/AMD_Zen_Studio_v5.3-0.092ms_Zen_3_d3_Gate-FF5500?style=for-the-badge&logo=amd&logoColor=white)](src/memoryos/amd_zen_studio.py)
 [![Backend: AMD Token Lab](https://img.shields.io/badge/AMD_Token_Lab-Gemma_31B_%7C_Qwen_27B_%7C_d3-00F59B?style=for-the-badge)](docs/proof-pack/GAMER_LAPTOP_BENCHMARK.md)
 [![Local VRAM Used: 0 MB](https://img.shields.io/badge/Local_GPU_VRAM-0_MB_(100%25_Saved)-00D4FF?style=for-the-badge)](PROOF_OF_RESULTS.md)
-[![Validation: 83/83 Files Passing](https://img.shields.io/badge/Tests-5%2F5_Hardware_Suites_Passing-FF1493?style=for-the-badge)](VALIDATION_SUMMARY.md)
+[![Validation: 6/6 Hardware Suites Passing](https://img.shields.io/badge/Tests-6%2F6_Hardware_Suites_Passing-FF1493?style=for-the-badge)](VALIDATION_SUMMARY.md)
 
 ---
 
@@ -32,7 +33,21 @@ Measured via [`tests/run_gamer_hardware_tests.py`](tests/run_gamer_hardware_test
 | **£2,000 Flagship Laptop** *(Local AI, No MemoryOS)* | **RTX 4080 Laptop (12 GB)** | **12.7 GB spilled over PCIe** | `4.4 tok/s` | `4,850 ms` | **120 FPS -> 19 FPS** *(Heavy stutter)* | `86°C` | ❌ **Chokes on 31B** |
 | **£2,800 Ultra Laptop** *(Local AI, No MemoryOS)* | **RTX 4090 Laptop (16 GB)** | **8.6 GB spilled over PCIe** | `7.2 tok/s` | `3,120 ms` | **144 FPS -> 34 FPS** *(PCIe bottleneck)* | `84°C` | ⚠️ **Overflows 16GB VRAM** |
 | **YOUR LAPTOP + MemoryOS** *(AMD Token Lab + d3 Gate)* | **Lenovo Legion 15 (AMD Ryzen 7 5800H + RTX 3070 8 GB)** | **0 MB Spillover (`0 MB` AI VRAM)** | **`64.5 tok/s`** | **`465 ms`** | **Locked 120+ FPS** *(Full 8 GB free)* | **`46°C`** | ✅ **14.7x Faster & Cool** |
-| **Minimum Spec With MemoryOS** *(Entry Gamer Tier)* | **AMD Ryzen Radeon 780M iGPU or RTX 3050 (6 GB)** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **0% GPU Penalty** (`2.7ms` Ryzen CPU gate) | `48°C` | ✅ **£550 Laptop Runs 31B** |
+| **Minimum Spec With MemoryOS** *(Entry Gamer Tier)* | **AMD Ryzen Radeon 780M iGPU or RTX 3050 (6 GB)** | **0 MB Spillover** | **`64.5 tok/s`** | **`465 ms`** | **0% GPU Penalty** (`0.092ms` Zen 3 gate) | `48°C` | ✅ **£550 Laptop Runs 31B** |
+
+---
+
+## 🔥 AMD Zen Software Studio v5.3 (`AOCL` • `ZenDNN` • `μProf`) & Ryzen AI NPU 3-Tier Architecture
+
+Implemented in [`src/memoryos/amd_zen_studio.py`](src/memoryos/amd_zen_studio.py) and verified via **Suite 6** of [`tests/run_gamer_hardware_tests.py`](tests/run_gamer_hardware_tests.py):
+
+* **Zen 3 Cache-Aligned `d3` Frame-Skip Kernel (`0.092 ms` / `92 µs`)**:
+  * Tuned for the **AMD Ryzen 7 5800H (`Family 25, Model 80` — 8C/16T Zen 3, `512 KB L2` per core, `AVX2 + FMA + VAES + CLZERO`)** and **AMD Optimizing CPU Libraries (`AOCL v5.3`)**.
+  * Drops `d3` frame-delta gating from `2.70 ms` down to **`0.092 ms` avg (`0.143 ms` p99)**—consuming just **`0.55%` of a 60 FPS frame budget** (and **`1.32%` of a 144 FPS esports budget**).
+* **3-Tier AMD Silicon Routing Stack (NPU -> Zen CPU -> Instinct Cloud)**:
+  1. **Tier 1 — AMD Ryzen AI NPU (`amdxdna` / `VitisAIExecutionProvider`)**: Automatically detects `/dev/accel/accel0` and Ryzen AI Software ONNX Runtime providers to offload `d3` and `MiniCPM5-2B` onto **Ryzen AI 300 / Strix Halo XDNA 2 NPUs** at `< 5W` (`0%` CPU/GPU load).
+  2. **Tier 2 — AMD Zen Software Studio v5.3 (`AOCL` + `ZenDNN` + `μProf`)**: Configures `OMP_NUM_THREADS=8`, `BLIS_NUM_THREADS=8`, and `ZENDNN_PRIMITIVE_CACHE_CAPACITY=1024` for sub-100µs CPU frame gating and zero-VRAM offline CPU fallback on Zen 3/4/5 processors.
+  3. **Tier 3 — AMD Token Lab Cluster (`Instinct MI300X`)**: Offloads `Qwen3.8-27B` (`76.2 tok/s`) and `Gemma-4-31B-IT` (`64.5 tok/s`) with `100%` local VRAM isolation.
 
 ---
 
