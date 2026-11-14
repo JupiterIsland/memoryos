@@ -72,9 +72,36 @@ $env:TOKENLAB_BASE_URL = $apiBase
 $env:TOKENLAB_API_BASE = $apiBase
 $env:TOKENLAB_MODEL = $resolvedModel
 
-# 5. Check if Aider is installed
+# 5. Ensure PATH includes ~/.local/bin and Python Scripts, and auto-install Aider if missing
+$extraPaths = @(
+    (Join-Path $HOME ".local\bin"),
+    (Join-Path $env:LOCALAPPDATA "Programs\Python\Python313\Scripts"),
+    (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\Scripts"),
+    (Join-Path $env:APPDATA "Python\Python313\Scripts"),
+    (Join-Path $env:APPDATA "Python\Python312\Scripts")
+)
+foreach ($p in $extraPaths) {
+    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) {
+        $env:PATH = "$p;$env:PATH"
+    }
+}
+
 if (-not (Get-Command aider -ErrorAction SilentlyContinue)) {
-    Write-Error "ERROR: Aider is not installed. Install with: pip install aider-chat"
+    Write-Host "`nAider is not installed yet. Installing Aider automatically via aider-install..." -ForegroundColor Yellow
+    python -m pip install --upgrade aider-install
+    $localBin = Join-Path $HOME ".local\bin"
+    if ($env:PATH -notlike "*$localBin*") {
+        $env:PATH = "$localBin;$env:PATH"
+    }
+    aider-install
+    if (-not (Get-Command aider -ErrorAction SilentlyContinue)) {
+        Write-Host "Falling back to direct pip install aider-chat..." -ForegroundColor Yellow
+        python -m pip install --upgrade aider-chat
+    }
+}
+
+if (-not (Get-Command aider -ErrorAction SilentlyContinue)) {
+    Write-Error "ERROR: Aider installation could not be found on PATH. Run: python -m pip install aider-install; aider-install"
     exit 1
 }
 
