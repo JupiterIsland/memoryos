@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  # MemoryOS: Memory orchestration + routing engine
+  memoryos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memoryos-router
+    image: memoryos:latest
+    command: python -m memoryos.cli init --path /app/memory
+    environment:
+      - TOKENLAB_API_KEY=${TOKENLAB_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./memory:/app/memory
+      - ./tlb_hot_cache:/app/tlb_hot_cache
+      - ./checkpoints:/app/checkpoints
+      - ./graph:/app/graph
+      - ${DATASET_PATH:-./data}:/app/data:ro
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    labels:
+      - "app=memoryos"
+      - "service=router"
+
+  # Quiet Advisor: SQLite logging + detector cards
+  quiet-advisor-db:
+    image: sqlite:latest
+    container_name: quiet-advisor-sqlite
+    volumes:
+      - ./quiet_advisor.db:/data/quiet_advisor.sqlite
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    labels:
+      - "app=quiet-advisor"
+      - "service=database"
+
+  # MCP Server: Multi-model AI collaboration hub
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memoryos-mcp
+    image: memoryos:latest
+    command: python -m memoryos.mcp_server start_mcp_server
+    environment:
+      - TOKENLAB_API_KEY=${TOKENLAB_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5000:5000"  # MCP Gateway
+    volumes:
+      - ./memory:/app/memory
+      - ./tlb_hot_cache:/app/tlb_hot_cache
+      - ./checkpoints:/app/checkpoints
+      - ./graph:/app/graph
+    depends_on:
+      - quiet-advisor-db
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "app=memoryos"
+      - "service=mcp"
+
+  # Jupiter Desktop Bridge: Event relay + scene detection
+  jupiter-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jupiter-scene-bridge
+    image: memoryos:latest
+    command: python -m memoryos.browser_app sync_command
+    environment:
+      - TOKENLAB_API_KEY=${TOKENLAB_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MEMORYOS_CLI_DIR=/app/memory
+      - BROWSER_CONTEXT_FILE=/app/browser_context.md
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./memory:/app/memory
+      - ./browser_context.md:/app/browser_context.md
+    depends_on:
+      - memoryos
+      - mcp-server
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    labels:
+      - "app=jupiter"
+      - "service=bridge"
+
+  # Optional: Riva Voice Server (NVIDIA speech AI)
+  riva-server:
+    image: nvcr.io/nvidia/riva/riva-server:2.14.0
+    container_name: riva-speech
+    ports:
+      - "50051:50051"
+    environment:
+      - RIVA_SPEECH_API_ENABLED=true
+      - RIVA_TTS_ENABLED=true
+      - RIVA_ASR_ENABLED=true
+    volumes:
+      - riva-model-cache:/opt/riva/cache
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    labels:
+      - "app=memoryos"
+      - "service=voice"
+    profiles:
+      - gpu  # Only start if docker-compose -f docker-compose.yml --profile gpu up
+
+  # Optional: TensorBoard for monitoring inference latency + memory stats
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: memoryos-tensorboard
+    command: tensorboard --logdir=/logs --host=0.0.0.0 --port=6006
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./tensorboard_logs:/logs
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    labels:
+      - "app=memoryos"
+      - "service=monitoring"
+    profiles:
+      - monitoring
+
+networks:
+  memoryos-net:
+    driver: bridge
+
+volumes:
+  riva-model-cache:
+    driver: local

@@ -1,0 +1,42 @@
+# Lean MemoryOS Router - No torch, opencv, or vision workloads
+# Target: ~150MB image size
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Minimal runtime dependencies (no build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy lean requirements (router only)
+COPY requirements-router.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools && \
+    pip install --no-cache-dir -r requirements-router.txt
+
+# Copy application
+COPY . .
+
+# Create data directories
+RUN mkdir -p \
+    /app/memory/timeline \
+    /app/memory/heatstream \
+    /app/tlb_hot_cache \
+    /app/checkpoints \
+    /app/graph
+
+# Environment
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ROUTER_HOST=0.0.0.0 \
+    ROUTER_PORT=5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
+
+# Start FastAPI router server
+ENTRYPOINT ["python", "server.py"]

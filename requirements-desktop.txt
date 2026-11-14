@@ -1,0 +1,7 @@
+# Service 2: jupiter-desktop (The Client — Lightweight PyQt6 + CPU OpenCV MSE Delta, zero Torch)
+PyQt6>=6.6.0
+opencv-python-headless>=4.9.0.80
+numpy>=1.26.4
+Pillow>=10.3.0
+requests>=2.32.3
+python-dotenv>=1.0.1

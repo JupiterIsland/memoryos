@@ -1,0 +1,45 @@
+{
+  "cpu": {
+    "architecture": "x86_64",
+    "instruction_set_extensions": [
+      "AVX2"
+    ]
+  },
+  "domains": [
+    "transcription"
+  ],
+  "engine": "executorch-asr",
+  "extension_type": "engine",
+  "gpu": {
+    "make": "Nvidia",
+    "framework": "CUDA",
+    "minimum_driver_version": "12040",
+    "targets": [
+      "7.5",
+      "8.0",
+      "8.9",
+      "9.0",
+      "10.0",
+      "12.0"
+    ]
+  },
+  "manifest_version": "4",
+  "name": "executorch-asr-win-x86_64-nvidia-cuda128-avx2",
+  "platform": "win",
+  "supported_model_formats": [
+    "pte"
+  ],
+  "target_libraries": [
+    {
+      "name": "whisper_engine_executorch_cuda.node",
+      "type": "whisper_engine",
+      "version": "0.0.1"
+    },
+    {
+      "name": "liblmstudio_bindings_cuda12.node",
+      "type": "liblmstudio",
+      "version": "0.2.26"
+    }
+  ],
+  "version": "0.0.8"
+}

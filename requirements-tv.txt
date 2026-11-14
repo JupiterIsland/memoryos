@@ -1,0 +1,3 @@
+# Jupiter TV Desktop Client Requirements (Service 2: jupiter-desktop — PyQt6 + headless CPU cv2, zero Torch)
+# For Optional Heavy Local GPU Processing (Torch/Whisper/yt-dlp): pip install -r requirements-vision-worker.txt
+-r requirements-desktop.txt

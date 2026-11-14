@@ -1,29 +1,20 @@
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Distribution / packaging
+*.egg-info/
+memory/
+.env
+.env.*
+.env-backups/
+.tokenlab-rotations.log
+.last-rotation
+!.env.example
+apex-env/
+pyqt6-6.11.0/
 build/
 dist/
-*.egg-info/
-pip-wheel-metadata/
-
-# Virtual environments
-.venv
-venv/
-.env
-
-# IDE/editor settings
-.vscode/
 .idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Keep project memory files tracked
-# memory/
+.vscode/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db

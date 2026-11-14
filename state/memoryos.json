@@ -1,0 +1,11 @@
+{
+  "initialized_at": 1735689600.0,
+  "version": "0.2.0",
+  "tlb_cache": "./tlb/",
+  "temporal_graph": "./graph/",
+  "checkpoint_dir": "./checkpoints/",
+  "memory_blocks_total": 5,
+  "hot_blocks_count": 5,
+  "monitoring_active": true,
+  "last_index_build": 1735689600.0
+}

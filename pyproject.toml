@@ -1,25 +1,32 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "memoryos"
-version = "0.1.0"
-description = "Institutional decision memory CLI"
+version = "0.2.0"
+description = "A tiered memory engine for local AI. TLB + Temporal Graph + NVMe checkpoints."
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "PyQt6>=6.0.0",
-]
-
-[project.optional-dependencies]
-desktop = [
-    "PyQtWebEngine>=6.0.0",
-]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["memoryos*"]
+license = {text = "MIT"}
+keywords = ["ai", "memory", "local-first", "nvidia", "amd"]
 
 [project.scripts]
 memoryos = "memoryos.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "black>=23.0", "mypy>=1.0"]
+
+[project.entry-points."memoryos.modules"]
+heat_stream = "memoryos.core.heat_stream:MemoryHeatStream"
+browser_app = "memoryos.browser_app:ContextSyncBridge"
+
+[tool.setuptools]
+package-dir = {memoryos = "src/memoryos"}
+
+[tool.setuptools.packages.find]
+include = ["memoryos*"]
+exclude = []
+
+[tool.setuptools.package-data]
+memoryos = ["*.json", "*.md", "*.txt"]

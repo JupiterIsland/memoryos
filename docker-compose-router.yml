@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  memoryos-router:
+    build:
+      context: .
+      dockerfile: Dockerfile-router
+    container_name: memoryos-router
+    image: memoryos-router:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - TOKENLAB_API_KEY=${TOKENLAB_API_KEY}
+      - TOKENLAB_BASE_URL=${TOKENLAB_BASE_URL:-https://api.tokenlab.amd.com/v1}
+      - MEMORYOS_DIR=/app/memory
+      - QUIET_ADVISOR_DB=/app/QuietAdvisorDB.sqlite
+      - ROUTER_HOST=0.0.0.0
+      - ROUTER_PORT=5000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./memory:/app/memory
+      - ./QuietAdvisorDB.sqlite:/app/QuietAdvisorDB.sqlite
+    restart: unless-stopped

@@ -1,0 +1,11 @@
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python>=4.9.0.80
+numpy>=1.26.4
+Pillow>=10.3.0
+requests>=2.32.3
+pydantic>=2.8.2
+tqdm>=4.66.4
+basicsr>=1.4.0
+realesrgan>=0.3.0
+tensorboard>=2.14.0

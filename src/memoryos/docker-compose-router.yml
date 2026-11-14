@@ -1,0 +1,43 @@
+# Lightweight docker-compose: only the router (no torch, no vision)
+version: '3.8'
+
+services:
+  # MemoryOS Router: Token Lab d3 routing + Quiet Advisor DB
+  memoryos-router:
+    build:
+      context: .
+      dockerfile: Dockerfile-router
+    container_name: memoryos-router
+    image: memoryos-router:latest
+    ports:
+      - "5000:5000"  # FastAPI /api/route endpoint
+    environment:
+      - TOKENLAB_API_KEY=${TOKENLAB_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MEMORYOS_DIR=/app/memory
+      - QUIET_ADVISOR_DB=/app/memory/quiet_advisor.db
+      - ROUTER_HOST=0.0.0.0
+      - ROUTER_PORT=5000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./memory:/app/memory
+      - ./tlb_hot_cache:/app/tlb_hot_cache
+      - ./checkpoints:/app/checkpoints
+      - ./graph:/app/graph
+    networks:
+      - memoryos-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "app=memoryos"
+      - "service=router"
+
+networks:
+  memoryos-net:
+    driver: bridge
+
+volumes:

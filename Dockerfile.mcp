@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project
+COPY . /app
+
+# Install MemoryOS
+RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create working directories
+RUN mkdir -p /app/tlb_hot_cache /app/graph /app/checkpoints /app/audio
+
+# Copy pre-loaded memories
+COPY tlb_hot_cache/memory_index.json /app/tlb_hot_cache/ || true
+
+# Expose MCP server port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "from memoryos.mcp_server import start_mcp_server; start_mcp_server()" || exit 1
+
+# Start MCP server
+CMD ["python", "-c", "from memoryos.mcp_server import start_mcp_server; import time; server = start_mcp_server(); time.sleep(999999)"]

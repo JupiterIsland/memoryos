@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  jupiter-desktop:
+    build:
+      context: .
+      dockerfile: apps/jupiter-tv-desktop-v2/Dockerfile
+    container_name: jupiter-tv-desktop
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - jupiter-cache:/root/.cache/jupiter-tv
+    network_mode: host
+
+  jupiter-mobile:
+    build:
+      context: .
+      dockerfile: apps/jupiter-tv-mobile/Dockerfile
+    container_name: jupiter-tv-mobile
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - jupiter-cache:/root/.cache/jupiter-tv
+    network_mode: host
+
+volumes:
+  jupiter-cache:

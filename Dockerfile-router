@@ -1,0 +1,31 @@
+# Lean MemoryOS Router - No torch, opencv-python, or yt-dlp
+# Target size: ~150MB
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-router.txt .
+RUN pip install --no-cache-dir -r requirements-router.txt
+
+COPY schema.sql server.py ./
+COPY quiet_advisor_detectors.py quiet_advisor_scheduler.py ./
+COPY src ./src
+COPY apps/quiet_advisor_ui ./apps/quiet_advisor_ui
+
+RUN mkdir -p /app/memory/checkpoints /app/tlb_hot_cache /app/graph
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ROUTER_HOST=0.0.0.0 \
+    ROUTER_PORT=5000 \
+    QUIET_ADVISOR_DB=/app/QuietAdvisorDB.sqlite
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')" || exit 1
+
+ENTRYPOINT ["python", "server.py"]

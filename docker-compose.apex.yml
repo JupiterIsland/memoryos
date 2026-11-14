@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  apex-core:
+    build:
+      context: .
+      dockerfile: docker/apex/Dockerfile
+    container_name: apex-metal-inference
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_CUDA_LAUNCH_BLOCKING=1
+      - TRANSFORMERS_CACHE=/app/models
+      - MEMORYOS_TLB_CACHE=/app/tlb_hot_cache
+      - MEMORYOS_TEMP_GRAPH=/app/graph
+      - MEMORYOS_CHECKPOINT_DIR=/nvme/checkpoints
+    volumes:
+      # GPU access
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      
+      # Storage tiers
+      - apex-models:/app/models
+      - apex-hot-cache:/app/tlb_hot_cache
+      - apex-graph:/app/graph
+      - apex-nvme:/nvme/checkpoints
+      - apex-mram:/app/.cache/mrameda
+    networks:
+      - apex-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Optional: Temporal Graph Database for MemoryOS integration
+  temporal-graph:
+    image: redis:7-alpine
+    container_name: apex-temporal-graph
+    ports:
+      - "6379:6379"
+    volumes:
+      - apex-redis:/data
+    networks:
+      - apex-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+networks:
+  apex-network:
+    driver: bridge
+
+volumes:
+  apex-models:
+    driver: local
+  apex-hot-cache:
+    driver: local
+  apex-graph:
+    driver: local
+  apex-nvme:
+    driver: local
+  apex-mram:
+    driver: local
+  apex-redis:
+    driver: local

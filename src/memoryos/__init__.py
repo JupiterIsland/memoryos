@@ -1,0 +1,51 @@
+"""MemoryOS core routing, Quiet Advisor persistence, and NVMe detector package."""
+
+from .quiet_advisor_db import (
+    DEFAULT_DB_PATH,
+    QUIET_ADVISOR_SQLITE_PATH,
+    SCHEMA_SQL,
+    QuietAdvisorDB,
+    acknowledge_card_sync,
+    get_routing_advice_sync,
+    log_routed_inference,
+    record_routed_inference_sync,
+    row_to_inference_log,
+)
+from .router import (
+    MODEL_PROFILES,
+    ROUTING_CRITERIA,
+    compute_frame_delta,
+    evaluate_insight_with_d3,
+    gatekeep_frame_with_d3,
+    mse_to_frame_delta,
+    route_quiet_advisor_d3,
+    route_task,
+    route_to_gemma,
+    router_to_gemma,
+    select_model_with_d3,
+    write_atomic_checkpoint,
+)
+
+__all__ = [
+    "DEFAULT_DB_PATH",
+    "QUIET_ADVISOR_SQLITE_PATH",
+    "SCHEMA_SQL",
+    "QuietAdvisorDB",
+    "row_to_inference_log",
+    "log_routed_inference",
+    "record_routed_inference_sync",
+    "acknowledge_card_sync",
+    "get_routing_advice_sync",
+    "MODEL_PROFILES",
+    "ROUTING_CRITERIA",
+    "write_atomic_checkpoint",
+    "select_model_with_d3",
+    "compute_frame_delta",
+    "mse_to_frame_delta",
+    "gatekeep_frame_with_d3",
+    "route_to_gemma",
+    "router_to_gemma",
+    "route_task",
+    "route_quiet_advisor_d3",
+    "evaluate_insight_with_d3",
+]

@@ -1,16 +1,26 @@
 {
-  "decisions": [
+  "records": [
+    {
+      "id": "ADR-0002",
+      "title": "Fixed",
+      "date": "2026-08-13",
+      "status": "accepted",
+      "filepath": "memory\\decisions\\ADR-0002-fixed.md",
+      "type": "decision"
+    },
     {
       "id": "ADR-0001",
       "title": "Use Docker",
       "date": "2026-07-28",
       "status": "accepted",
       "tags": "[]",
+      "impact": "",
       "time_saved": "N/A",
       "cost_impact": "N/A",
       "risk_reduction": "N/A",
       "strategic_value": "N/A",
-      "filepath": "memory/decisions/ADR-0001-use-docker.md"
+      "filepath": "memory\\decisions\\ADR-0001-use-docker.md",
+      "type": "decision"
     }
   ]
 }

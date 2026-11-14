@@ -1,0 +1,4 @@
+# MemoryOS Default Service Requirements (Service 1: memoryos-router — ~150MB, zero Torch/OpenCV)
+# For Desktop UI client: pip install -r requirements-desktop.txt
+# For Optional Local Heavy GPU Worker: pip install -r requirements-vision-worker.txt
+-r requirements-router.txt

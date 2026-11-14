@@ -1,0 +1,16 @@
+[
+  [
+    "en",
+    {
+      "langKey": "en",
+      "displayName": "ExecuTorch ASR (CUDA)",
+      "description": "ExecuTorch transcription engine for Nvidia CUDA",
+      "releaseNotes": [
+        {
+          "version": "0.0.8",
+          "releaseNotes": "ExecuTorch ASR engine for LM Studio transcription.\n"
+        }
+      ]
+    }
+  ]
+]
