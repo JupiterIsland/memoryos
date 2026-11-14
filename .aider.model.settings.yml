@@ -1,0 +1,20 @@
+- name: openai/Gemma-4-31B-IT
+  edit_format: architect
+  editor_model_name: openai/Qwen3.8-27B
+  editor_edit_format: editor-diff
+  weak_model_name: openai/MiniCPM5-2B
+  use_repo_map: true
+  send_undo_reply: true
+
+- name: openai/Qwen3.8-27B
+  edit_format: diff
+  editor_edit_format: editor-diff
+  weak_model_name: openai/MiniCPM5-2B
+  use_repo_map: true
+  send_undo_reply: true
+
+- name: openai/DeepSeek-V4.1-Flash
+  edit_format: diff
+  editor_edit_format: editor-diff
+  weak_model_name: openai/MiniCPM5-2B
+  use_repo_map: true

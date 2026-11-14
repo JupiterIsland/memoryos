@@ -130,18 +130,26 @@ $coreFiles = if ($Files) {
 }
 
 # 8. Launch Aider in Dual-Brain Architect Mode with fast surgical diff editing (--editor-edit-format editor-diff)
+$settingsArgs = @()
+if (Test-Path (Join-Path $repoRoot ".aider.model.settings.yml")) {
+    $settingsArgs += @("--model-settings-file", ".aider.model.settings.yml")
+}
+if (Test-Path (Join-Path $repoRoot ".aider.model.metadata.json")) {
+    $settingsArgs += @("--model-metadata-file", ".aider.model.metadata.json")
+}
+
 if ($SingleModel) {
     Write-Host "`nLaunching Single-Model Aider with openai/$EditorModel (diff mode)..." -ForegroundColor Cyan
     if ($Task) {
-        aider --model "openai/$EditorModel" --edit-format diff --no-show-model-warnings --yes-always --message $Task @coreFiles
+        aider --model "openai/$EditorModel" --edit-format diff @settingsArgs --no-show-model-warnings --yes-always --message $Task @coreFiles
     } else {
-        aider --model "openai/$EditorModel" --edit-format diff --no-show-model-warnings @coreFiles
+        aider --model "openai/$EditorModel" --edit-format diff @settingsArgs --no-show-model-warnings @coreFiles
     }
 } else {
     Write-Host "`nLaunching Dual-Brain Aider Architect (Gemma-4-31B-IT Architect + Qwen3.8-27B Surgical Diff Editor)..." -ForegroundColor Cyan
     if ($Task) {
-        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" --no-show-model-warnings --yes-always --message $Task @coreFiles
+        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" @settingsArgs --no-show-model-warnings --yes-always --message $Task @coreFiles
     } else {
-        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" --no-show-model-warnings @coreFiles
+        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" @settingsArgs --no-show-model-warnings @coreFiles
     }
 }
