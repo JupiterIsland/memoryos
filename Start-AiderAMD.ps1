@@ -8,6 +8,7 @@ param(
     [string]$WeakModel = "MiniCPM5-2B",
     [switch]$SingleModel,
     [string]$Task = "",
+    [string[]]$Files = @(),
     [switch]$Verbose
 )
 
@@ -117,29 +118,30 @@ if (-not (Get-Command aider -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# 7. Core MemoryOS v1.0 files to attach to Aider's working context
-$coreFiles = @(
-    "src/memoryos/router.py",
-    "src/memoryos/server.py",
-    "src/memoryos/quiet_advisor_client.py",
-    "apps/quiet_advisor_ui/api.py",
-    "apps/quiet_advisor_ui/server.py",
-    "apps/jupiter-tv-desktop-v2/app.py"
-) | Where-Object { Test-Path (Join-Path $repoRoot $_) }
+# 7. Optional target files (if none specified, attach the 3 primary runtime files)
+$coreFiles = if ($Files) {
+    $Files | Where-Object { Test-Path (Join-Path $repoRoot $_) }
+} else {
+    @(
+        "apps/quiet_advisor_ui/server.py",
+        "src/memoryos/router.py",
+        "src/memoryos/server.py"
+    ) | Where-Object { Test-Path (Join-Path $repoRoot $_) }
+}
 
-# 8. Launch Aider in Dual-Brain Architect Mode (Gemma-4-31B-IT + Qwen3.8-27B + MiniCPM5-2B)
+# 8. Launch Aider in Dual-Brain Architect Mode with fast surgical diff editing (--editor-edit-format editor-diff)
 if ($SingleModel) {
-    Write-Host "`nLaunching Single-Model Aider with openai/$EditorModel..." -ForegroundColor Cyan
+    Write-Host "`nLaunching Single-Model Aider with openai/$EditorModel (diff mode)..." -ForegroundColor Cyan
     if ($Task) {
-        aider --model "openai/$EditorModel" --no-show-model-warnings --yes-always --message $Task @coreFiles
+        aider --model "openai/$EditorModel" --edit-format diff --no-show-model-warnings --yes-always --message $Task @coreFiles
     } else {
-        aider --model "openai/$EditorModel" --no-show-model-warnings @coreFiles
+        aider --model "openai/$EditorModel" --edit-format diff --no-show-model-warnings @coreFiles
     }
 } else {
-    Write-Host "`nLaunching Dual-Brain Aider Architect (Gemma-4-31B-IT Architect + Qwen3.8-27B Editor)..." -ForegroundColor Cyan
+    Write-Host "`nLaunching Dual-Brain Aider Architect (Gemma-4-31B-IT Architect + Qwen3.8-27B Surgical Diff Editor)..." -ForegroundColor Cyan
     if ($Task) {
-        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --weak-model "openai/$WeakModel" --no-show-model-warnings --yes-always --message $Task @coreFiles
+        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" --no-show-model-warnings --yes-always --message $Task @coreFiles
     } else {
-        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --weak-model "openai/$WeakModel" --no-show-model-warnings @coreFiles
+        aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" --no-show-model-warnings @coreFiles
     }
 }
