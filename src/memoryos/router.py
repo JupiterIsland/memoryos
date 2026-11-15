@@ -69,6 +69,9 @@ DO_MODEL_MAP: Dict[str, str] = {
     "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
     "DeepSeek-V4.1-Flash": os.getenv("DO_LONG_CONTEXT_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"),
     "MiniCPM5-2B": os.getenv("DO_FAST_MODEL", "meta-llama/Llama-3.1-8B-Instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "DO_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
 }
 
 
@@ -117,6 +120,13 @@ MODEL_PROFILES: Dict[str, Dict[str, Any]] = {
         "supports_vision": True,
         "max_context": 262144,
     },
+    "apex_moe_mega": {
+        "model": "meta-models/Muse-Spark-Open-816B-A42B-NVFP4",
+        "supports_vision": True,
+        "max_context": 1048576,  # 1M context window (provider-dependent)
+        "experimental": True,
+        "note": "Remote experimental tier; requires a provider hosting Muse Spark Open (e.g., vLLM, Modal, Fireworks, OpenRouter). NVFP4/MXFP4 is a serving-backend weight format.",
+    },
 }
 
 ROUTING_CRITERIA: Dict[str, str] = {
@@ -124,6 +134,7 @@ ROUTING_CRITERIA: Dict[str, str] = {
     "long_context": "Very large logs, transcripts, or multi-document synthesis",
     "vision_heavy": "Image/video frame analysis or deep multimodal reasoning",
     "balanced_code": "Code generation, debugging, refactoring, or structured JSON tasks",
+    "apex_moe_mega": "Massive multi-document architecture, 1M context synthesis, or complex multimodal MoE reasoning",
 }
 
 DEFAULT_QUIET_ADVISOR_CRITERIA: Dict[str, str] = {
@@ -532,6 +543,8 @@ TASK_TYPE_TO_TIER: Dict[str, str] = {
     "heavy_architecture": "balanced_code",
     "vision_heavy": "vision_heavy",
     "vision_ui_parse": "vision_heavy",
+    "apex_moe_mega": "apex_moe_mega",
+    "massive_context": "apex_moe_mega",
 }
 
 
