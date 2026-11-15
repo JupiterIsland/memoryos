@@ -432,11 +432,52 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=45) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data["choices"][0]["message"]["content"], ""
-        except urllib.error.HTTPError as exc:
-            return "", f"HTTP {exc.code}: {exc.reason}"
+        except Exception as exc:
+            # Automatic fallback to AMD Token Lab Anthropic-compatible /v1/messages
+            if "tokenlab.amd.com" in base_url:
+                anth_text, anth_err = self._call_anthropic_messages(base_url, clean_key, model, prompt)
+                if not anth_err:
+                    return anth_text, ""
+                return "", f"{exc} | /v1/messages: {anth_err}"
+            return "", str(exc)
+
+    def _call_anthropic_messages(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        prompt: str,
+    ) -> tuple[str, str]:
+        """Call AMD Token Lab Anthropic-compatible /v1/messages endpoint."""
+        url = f"{base_url.rstrip('/')}/messages"
+        payload = json.dumps({
+            "model": model,
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+                "User-Agent": "JupiterStudio/0.2",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                parts = [
+                    blk.get("text", "")
+                    for blk in data.get("content", [])
+                    if isinstance(blk, dict) and blk.get("type") == "text"
+                ]
+                return "".join(parts).strip(), ""
         except Exception as exc:
             return "", str(exc)
 
