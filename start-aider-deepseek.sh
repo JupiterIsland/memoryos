@@ -15,6 +15,9 @@ fi
 
 export OPENAI_API_KEY="${TOKENLAB_API_KEY:-}"
 export OPENAI_API_BASE="${TOKENLAB_BASE_URL:-https://api.tokenlab.amd.com/v1}"
+export PYTHONIOENCODING="utf-8"
+export LANG="${LANG:-C.UTF-8}"
+export LC_ALL="${LC_ALL:-C.UTF-8}"
 
 echo "=========================================================="
 echo "  Aider Coding Agent — DeepSeek-V4.1-Flash Mode"

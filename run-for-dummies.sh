@@ -20,7 +20,13 @@ else
   echo "[1/4] Found .env configuration."
 fi
 
-export MEMORYOS_DEFAULT_MODEL="Gemma-4-31B-IT"
+if [[ -f .env ]]; then
+  set -a
+  source <(tr -d '\r' < .env)
+  set +a
+fi
+
+export MEMORYOS_DEFAULT_MODEL="${MEMORYOS_DEFAULT_MODEL:-Gemma-4-31B-IT}"
 
 if [[ ! -f QuietAdvisorDB.sqlite ]]; then
   echo "[2/4] Seeding showcase database (50 inferences, 7 cards, 20 checkpoints)..."
@@ -34,4 +40,4 @@ python3 -B -c "from src.memoryos.router import get_cloud_provider_status; s = ge
 
 echo "[4/4] Starting Quiet Advisor Dashboard at http://127.0.0.1:8765 ..."
 echo "      Press Ctrl+C to stop."
-exec python3 -B apps/quiet_advisor_ui/server.py --host 127.0.0.1 --port 8765 --db QuietAdvisorDB.sqlite --no-browser
+exec python3 -B apps/quiet_advisor_ui/server.py --host 127.0.0.1 --port 8765 --db "${QUIET_ADVISOR_DB:-QuietAdvisorDB.sqlite}" --no-browser

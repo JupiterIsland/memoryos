@@ -108,11 +108,13 @@ NVIDIA_MODEL_MAP: Dict[str, str] = {
 def _is_configured_key(key: str, *placeholders: str) -> bool:
     """Return True when an API key env var holds a non-placeholder credential."""
     cleaned = (key or "").strip()
-    return bool(
-        cleaned
-        and cleaned not in placeholders
-        and cleaned not in {"tl-offline", "do-offline", "nv-offline"}
-    )
+    if not cleaned:
+        return False
+    if cleaned in placeholders or cleaned in {"tl-offline", "do-offline", "nv-offline"}:
+        return False
+    if "your-" in cleaned or "-here" in cleaned:
+        return False
+    return True
 
 
 def _get_tokenlab_credentials() -> tuple[str, str]:

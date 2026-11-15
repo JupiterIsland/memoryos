@@ -20,7 +20,7 @@ if (-not (Test-Path ".env") -and (Test-Path ".env.example")) {
     Write-Host "[1/4] Found .env configuration." -ForegroundColor Green
 }
 
-$env:MEMORYOS_DEFAULT_MODEL = "Gemma-4-31B-IT"
+if (-not $env:MEMORYOS_DEFAULT_MODEL) { $env:MEMORYOS_DEFAULT_MODEL = "Gemma-4-31B-IT" }
 
 if (-not (Test-Path "QuietAdvisorDB.sqlite")) {
     Write-Host "[2/4] Seeding showcase database (50 inferences, 7 cards, 20 checkpoints)..." -ForegroundColor Cyan
@@ -34,4 +34,5 @@ python -B -c "from src.memoryos.router import get_cloud_provider_status; s = get
 
 Write-Host "[4/4] Opening Quiet Advisor Dashboard at http://127.0.0.1:8765 ..." -ForegroundColor Green
 Write-Host "      Press Ctrl+C in this window to stop the server." -ForegroundColor DarkGray
-python -B apps\quiet_advisor_ui\server.py --host 127.0.0.1 --port 8765 --db QuietAdvisorDB.sqlite
+$dbPath = if ($env:QUIET_ADVISOR_DB) { $env:QUIET_ADVISOR_DB } else { "QuietAdvisorDB.sqlite" }
+python -B apps\quiet_advisor_ui\server.py --host 127.0.0.1 --port 8765 --db $dbPath

@@ -1,4 +1,4 @@
-﻿# Start-AiderDeepSeek.ps1
+# Start-AiderDeepSeek.ps1
 # Launch Aider powered by DeepSeek-V4.1-Flash (AMD Token Lab / Local Ollama)
 param(
     [string]$Task = "",
