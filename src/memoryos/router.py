@@ -69,7 +69,9 @@ DO_MODEL_MAP: Dict[str, str] = {
     "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
     "DeepSeek-V4.1-Flash": os.getenv("DO_LONG_CONTEXT_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"),
     "MiniCPM5-2B": os.getenv("DO_FAST_MODEL", "meta-llama/Llama-3.1-8B-Instruct"),
-    "Meta-Muse-Spark-Open": os.getenv("DO_APEX_MOE_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "DO_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
 }
 
 
@@ -119,10 +121,11 @@ MODEL_PROFILES: Dict[str, Dict[str, Any]] = {
         "max_context": 262144,
     },
     "apex_moe_mega": {
-        "model": "Meta-Muse-Spark-Open",
+        "model": "meta-models/Muse-Spark-Open-816B-A42B-NVFP4",
         "supports_vision": True,
-        "max_context": 1048576,  # 1 Million token context window
-        "architecture": "816B MoE (42B active) MXFP4 on AMD Instinct MI350X/MI355X",
+        "max_context": 1048576,  # 1M context window (provider-dependent)
+        "experimental": True,
+        "note": "Remote experimental tier; requires a provider hosting Muse Spark Open (e.g., vLLM, Modal, Fireworks, OpenRouter). NVFP4/MXFP4 is a serving-backend weight format.",
     },
 }
 
