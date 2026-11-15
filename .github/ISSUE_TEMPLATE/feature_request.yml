@@ -1,0 +1,86 @@
+name: Feature Request
+description: Propose an idea, optimization, or enhancement for MemoryOS.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature for MemoryOS!
+        MemoryOS is designed around a multi-tier memory architecture and hardware-aware routing.
+        Please specify the architectural tier scope for your proposal to help us design and route the implementation.
+
+  - type: input
+    id: feature-title
+    attributes:
+      label: Feature Title
+      description: "A concise summary of the proposed feature or capability."
+      placeholder: "e.g., Speculative pre-fetching for Warm Tier Temporal Graph"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architectural-tier-scope
+    attributes:
+      label: Architectural Tier Scope
+      description: "Select the architectural tier(s) in scope for this proposal."
+      multiple: true
+      options:
+        - "Tier 1: Hot Memory Tier (GPU VRAM / TLB Hot Cache)"
+        - "Tier 2: Warm Memory Tier (CPU RAM / Temporal Graph Engine)"
+        - "Tier 3: Cold Memory Tier (NVMe Quick-Save Checkpoints & Persistence)"
+        - "Compute: AMD Ryzen AI NPU Tier (XDNA / Sub-5W Edge Routing)"
+        - "Compute: AMD Zen CPU Optimization Tier (AOCL / ZenDNN / d3 Frame-Skip Gating)"
+        - "Compute: AMD Token Lab Cluster Tier (Instinct MI300X Multi-Model Offload)"
+        - "Telemetry: Quiet Advisor Telemetry & Self-Healing Tier (SQLite & 1-Click Fixes)"
+        - "Application: Jupiter TV & Streaming Engine Tier (Desktop / Mobile)"
+        - "Tooling: Dual-Brain Coding Agent & CLI Infrastructure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem or Motivation
+      description: "What problem does this solve, or what workflow does it improve?"
+      placeholder: "Describe the pain point, bottleneck, or missing capability..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution & Architectural Design
+      description: "Detailed description of the feature and how it impacts the selected architectural tier(s)."
+      placeholder: "Explain how this feature should work, including expected interfaces or data flows..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives Considered
+      description: "What other approaches or workarounds did you consider?"
+      placeholder: "Describe alternative designs or why existing mechanisms are insufficient..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: "Any benchmarks, diagrams, hardware dependencies, or references."
+      placeholder: "Additional details, links, or hardware requirements..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      description: "Please confirm the following before submitting:"
+      options:
+        - label: "I have searched existing issues and feature requests to avoid duplicates."
+          required: true
+        - label: "I have clearly identified the architectural tier scope affected by this feature."
+          required: true

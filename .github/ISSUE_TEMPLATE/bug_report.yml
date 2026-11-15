@@ -1,0 +1,122 @@
+name: Bug Report
+description: Report a defect, error, or unexpected behavior in MemoryOS.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue with MemoryOS!
+        Please fill out this form as completely as possible to help us diagnose and reproduce the problem.
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug or unexpected behavior.
+      placeholder: Describe what happened and why it is incorrect...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed, step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Run command '...'
+        2. Set configuration parameter '...'
+        3. Execute '...'
+        4. See error output
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: Describe the expected behavior or output...
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Hardware & Environment Specifications
+        MemoryOS is hardware-aware. Accurate hardware details are essential for reproducing latency, VRAM, and routing issues.
+
+  - type: input
+    id: gpu-model
+    attributes:
+      label: GPU Model
+      description: "Your dedicated or integrated GPU model (e.g., NVIDIA GeForce RTX 3070 Laptop, AMD Radeon 780M, AMD Instinct MI300X)."
+      placeholder: "e.g., NVIDIA GeForce RTX 3070 Laptop"
+    validations:
+      required: true
+
+  - type: input
+    id: vram-mb
+    attributes:
+      label: VRAM (MB)
+      description: "Total dedicated GPU video memory in megabytes (e.g., 8192 for 8 GB, 12288 for 12 GB, 16384 for 16 GB, or 0 for iGPU/CPU-only)."
+      placeholder: "e.g., 8192"
+    validations:
+      required: true
+
+  - type: input
+    id: cpu
+    attributes:
+      label: CPU
+      description: "Your CPU processor model and core count (e.g., AMD Ryzen 7 5800H Zen 3 8C/16T, Intel Core i7-13700H)."
+      placeholder: "e.g., AMD Ryzen 7 5800H (8C/16T Zen 3)"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System (OS)
+      description: "Operating system and runtime environment (e.g., Windows 11 23H2, WSL2 Ubuntu 22.04, Native Linux)."
+      placeholder: "e.g., Windows 11 Pro 23H2 / WSL2 Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: memoryos-version
+    attributes:
+      label: MemoryOS Version / Commit
+      description: "The version of MemoryOS or git commit SHA you are running."
+      placeholder: "e.g., v0.1.0-preview (or git rev-parse --short HEAD)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs-and-tracebacks
+    attributes:
+      label: Relevant Logs & Error Tracebacks
+      description: "Please paste any console logs, terminal output, or stack traces."
+      render: shell
+      placeholder: "Paste console output or Python stack traces here..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: "Any extra information, active Quiet Advisor cards, or environment details."
+      placeholder: "Additional details, related issues, or screenshots..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      description: "Please confirm the following before submitting:"
+      options:
+        - label: "I have searched existing issues and verified this is not a duplicate."
+          required: true
+        - label: "I have included all required hardware fields (GPU model, VRAM MB, CPU, OS)."
+          required: true
