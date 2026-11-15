@@ -50,6 +50,52 @@ tl_client = (
     else None
 )
 
+# Initialize isolated client for DigitalOcean Serverless Inference (AMD Instinct MI300X)
+do_client = (
+    OpenAI(
+        api_key=(
+            os.getenv("DO_MODEL_ACCESS_KEY")
+            or os.getenv("DIGITALOCEAN_INFERENCE_KEY")
+            or "do-offline"
+        ),
+        base_url=os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
+    )
+    if OpenAI is not None
+    else None
+)
+
+DO_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("DO_VISION_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
+    "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("DO_LONG_CONTEXT_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"),
+    "MiniCPM5-2B": os.getenv("DO_FAST_MODEL", "meta-llama/Llama-3.1-8B-Instruct"),
+}
+
+
+def get_cloud_provider_status() -> Dict[str, Any]:
+    """Return configuration & readiness status for AMD Token Lab and DigitalOcean MI300X."""
+    tl_key = os.getenv("TOKENLAB_API_KEY", "").strip()
+    do_key = (
+        os.getenv("DO_MODEL_ACCESS_KEY", "").strip()
+        or os.getenv("DIGITALOCEAN_INFERENCE_KEY", "").strip()
+    )
+    do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
+    return {
+        "amd_tokenlab": {
+            "configured": bool(tl_key and tl_key != "tl-your-tokenlab-key-here"),
+            "base_url": os.getenv("TOKENLAB_BASE_URL", "https://api.tokenlab.amd.com/v1"),
+            "hardware": "AMD Instinct Cloud (Token Lab)",
+        },
+        "digitalocean_mi300x": {
+            "configured": bool(do_key and do_key != "do-ai-your-model-access-key-here"),
+            "droplet_api_configured": bool(do_token and do_token != "dop_v1_your-digitalocean-api-token-here"),
+            "base_url": os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
+            "hardware": "DigitalOcean Serverless Inference (AMD Instinct MI300X)",
+            "ssh_key_fingerprint": "75:f4:ca:fb:d4:b3:03:b4:34:8b:d2:68:f7:a4:95:dc",
+            "model_map": DO_MODEL_MAP,
+        },
+    }
+
 MODEL_PROFILES: Dict[str, Dict[str, Any]] = {
     "fast_light": {
         "model": "MiniCPM5-2B",
@@ -489,6 +535,65 @@ TASK_TYPE_TO_TIER: Dict[str, str] = {
 }
 
 
+def _invoke_remote_chat(
+    client: Any,
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+) -> tuple[str, Dict[str, int]]:
+    """Invoke an OpenAI-compatible chat completion endpoint and normalize usage."""
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+    content = response.choices[0].message.content
+    usage = getattr(response, "usage", None)
+    usage_dict = {
+        "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+        "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+        "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
+    }
+    return content, usage_dict
+
+
+def _build_offline_payload(
+    prompt_text: str,
+    total_chars: int,
+    target_model: str,
+    routing_policy: str,
+    error_fallback: bool = False,
+) -> tuple[str, Dict[str, int]]:
+    """Build deterministic structured analysis JSON when offline or unconfigured."""
+    est_prompt = max(16, total_chars // 4)
+    summary_line = prompt_text.splitlines()[0][:120]
+    short_line = prompt_text.splitlines()[0][:90]
+    if error_fallback:
+        caption = f"Token Lab {target_model} visual analysis: {short_line}"
+        tags = ["tokenlab-vlm", "gemma-31b", "remote-offload"]
+    else:
+        caption = f"Token Lab {target_model} analysis ({routing_policy}): {short_line}"
+        tags = ["tokenlab-vlm", target_model.lower(), routing_policy]
+    content = json.dumps(
+        {
+            "label": "Analyzed Segment",
+            "summary": summary_line,
+            "caption": caption,
+            "objects": ["keyframe-subject", "foreground-focus", "ambient-lighting"],
+            "mood": "cinematic",
+            "lighting": "high-contrast studio",
+            "tags": tags,
+        }
+    )
+    return content, {
+        "prompt_tokens": est_prompt,
+        "completion_tokens": 36,
+        "total_tokens": est_prompt + 36,
+    }
+
+
 def route_task(
     prompt_text: str,
     tlb_context: Optional[str] = None,
@@ -505,9 +610,10 @@ def route_task(
     context_tokens_provided: int = 8192,
     log_to_advisor: bool = True,
     db_path: Optional[Path] = None,
+    cloud_provider: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Auto-route a prompt through Quiet Advisor preferences + d3 -> Token Lab model,
+    Auto-route a prompt through Quiet Advisor preferences + d3 -> Token Lab / DigitalOcean MI300X,
     blocking local VRAM paths when vram_thrashing_penalty > 1.0, log to QuietAdvisorDB,
     and persist an atomic JSON checkpoint.
     """
@@ -571,54 +677,79 @@ def route_task(
     error_flag = False
     error_message = None
     api_key = os.getenv("TOKENLAB_API_KEY", "").strip()
-    if tl_client is not None and api_key and gpu_id == "tokenlab-remote":
+    do_api_key = (
+        os.getenv("DO_MODEL_ACCESS_KEY", "").strip()
+        or os.getenv("DIGITALOCEAN_INFERENCE_KEY", "").strip()
+    )
+    do_model = DO_MODEL_MAP.get(target_model, target_model)
+
+    if gpu_id == "tokenlab-remote" and cloud_provider == "digitalocean" and do_client is not None and do_api_key:
         try:
-            response = tl_client.chat.completions.create(
-                model=target_model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+            content, usage_dict = _invoke_remote_chat(
+                do_client, do_model, messages, temperature, max_tokens
             )
             latency_ms = (time.perf_counter() - t0) * 1000.0
-            content = response.choices[0].message.content
-            usage = getattr(response, "usage", None)
-            usage_dict = {
-                "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
-                "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
-                "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
-            }
+            gpu_id = "do-mi300x-remote"
+            routing_policy = "digitalocean_mi300x_direct"
+            target_model = do_model
         except Exception as exc:
             latency_ms = (time.perf_counter() - t0) * 1000.0
             error_flag = True
             error_message = str(exc)
-            est_prompt = max(16, total_chars // 4)
-            content = json.dumps(
-                {
-                    "label": "Analyzed Segment",
-                    "summary": prompt_text.splitlines()[0][:120],
-                    "caption": f"Token Lab {target_model} visual analysis: {prompt_text.splitlines()[0][:90]}",
-                    "objects": ["keyframe-subject", "foreground-focus", "ambient-lighting"],
-                    "mood": "cinematic",
-                    "lighting": "high-contrast studio",
-                    "tags": ["tokenlab-vlm", "gemma-31b", "remote-offload"],
-                }
+            content, usage_dict = _build_offline_payload(
+                prompt_text, total_chars, target_model, routing_policy, error_fallback=True
             )
-            usage_dict = {"prompt_tokens": est_prompt, "completion_tokens": 36, "total_tokens": est_prompt + 36}
+    elif gpu_id == "tokenlab-remote" and tl_client is not None and api_key:
+        try:
+            content, usage_dict = _invoke_remote_chat(
+                tl_client, target_model, messages, temperature, max_tokens
+            )
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+        except Exception as exc:
+            if do_client is not None and do_api_key:
+                try:
+                    content, usage_dict = _invoke_remote_chat(
+                        do_client, do_model, messages, temperature, max_tokens
+                    )
+                    latency_ms = (time.perf_counter() - t0) * 1000.0
+                    gpu_id = "do-mi300x-remote"
+                    routing_policy = "digitalocean_mi300x_failover"
+                    target_model = do_model
+                except Exception as do_exc:
+                    latency_ms = (time.perf_counter() - t0) * 1000.0
+                    error_flag = True
+                    error_message = f"TokenLab: {exc} | DigitalOcean: {do_exc}"
+                    content, usage_dict = _build_offline_payload(
+                        prompt_text, total_chars, target_model, routing_policy, error_fallback=True
+                    )
+            else:
+                latency_ms = (time.perf_counter() - t0) * 1000.0
+                error_flag = True
+                error_message = str(exc)
+                content, usage_dict = _build_offline_payload(
+                    prompt_text, total_chars, target_model, routing_policy, error_fallback=True
+                )
+    elif gpu_id == "tokenlab-remote" and not api_key and do_client is not None and do_api_key:
+        try:
+            content, usage_dict = _invoke_remote_chat(
+                do_client, do_model, messages, temperature, max_tokens
+            )
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+            gpu_id = "do-mi300x-remote"
+            routing_policy = "digitalocean_mi300x_primary"
+            target_model = do_model
+        except Exception as exc:
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+            error_flag = True
+            error_message = str(exc)
+            content, usage_dict = _build_offline_payload(
+                prompt_text, total_chars, target_model, routing_policy, error_fallback=True
+            )
     else:
         latency_ms = max(18.0, (time.perf_counter() - t0) * 1000.0 + (240.0 if gpu_id == "local-rtx3070" else 42.0))
-        est_prompt = max(16, total_chars // 4)
-        content = json.dumps(
-            {
-                "label": "Analyzed Segment",
-                "summary": prompt_text.splitlines()[0][:120],
-                "caption": f"Token Lab {target_model} analysis ({routing_policy}): {prompt_text.splitlines()[0][:90]}",
-                "objects": ["keyframe-subject", "foreground-focus", "ambient-lighting"],
-                "mood": "cinematic",
-                "lighting": "high-contrast studio",
-                "tags": ["tokenlab-vlm", target_model.lower(), routing_policy],
-            }
+        content, usage_dict = _build_offline_payload(
+            prompt_text, total_chars, target_model, routing_policy, error_fallback=False
         )
-        usage_dict = {"prompt_tokens": est_prompt, "completion_tokens": 36, "total_tokens": est_prompt + 36}
 
     result: Dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
