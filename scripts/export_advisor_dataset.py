@@ -11,6 +11,47 @@ DB_PATH = REPO_ROOT / "QuietAdvisorDB.sqlite"
 OUT_PATH = REPO_ROOT / "memory" / "datasets" / "jupiter_advisor_train.jsonl"
 
 
+SYSTEM_PROMPT = "You are Jupiter-Advisor, a hardware-aware AI optimization assistant."
+
+
+def _make_example(user_prompt: str, assistant_reply: str) -> dict:
+    return {
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": assistant_reply},
+        ]
+    }
+
+
+def _recommend_for_inference(row: sqlite3.Row) -> str:
+    provided = int(row["context_tokens_provided"] or 0)
+    used = int(row["context_tokens_used"] or 0)
+    vram_mb = int(row["gpu_memory_used_mb"] or 0)
+    error_flag = bool(row["error_flag"])
+    model_id = str(row["model_id"] or "unknown")
+    gpu_id = str(row["gpu_id"] or "unknown")
+
+    advice = []
+    if error_flag:
+        advice.append(
+            f"Inference error on {model_id} ({gpu_id}). Switch to /v1/messages failover or enable automatic Token Lab <-> MI300X fallback."
+        )
+    if provided > 0 and used / provided < 0.25:
+        advice.append(
+            f"Context utilization is low ({used}/{provided} tokens, {100.0 * used / provided:.1f}%). Trim system/history padding to cut latency and grant usage."
+        )
+    if vram_mb > 6500:
+        advice.append(
+            f"Local VRAM high ({vram_mb} MB on {gpu_id}). Offload 27B/31B models to tokenlab-remote or enable MEMORYOS_QUANT_MODE=4bit."
+        )
+    if not advice:
+        advice.append(
+            f"Healthy route on {gpu_id} with {model_id} ({used}/{provided} tokens, {row['total_latency_ms']:.1f} ms). Keep d3 auto-routing enabled."
+        )
+    return " ".join(advice)
+
+
 def export_dataset(db_path: Path = DB_PATH, out_path: Path = OUT_PATH) -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     records = []
@@ -20,29 +61,42 @@ def export_dataset(db_path: Path = DB_PATH, out_path: Path = OUT_PATH) -> int:
         conn.row_factory = sqlite3.Row
         try:
             cards = conn.execute(
-                "SELECT detector_type, title, description, recommendation FROM advisor_cards"
+                "SELECT detector_type, title, subtitle, description, recommended_action, action_value "
+                "FROM quiet_advisor_cards"
             ).fetchall()
             for c in cards:
-                records.append({
-                    "messages": [
-                        {"role": "system", "content": "You are Jupiter-Advisor, a hardware-aware AI optimization assistant."},
-                        {"role": "user", "content": f"Detector: {c['detector_type']}\nIssue: {c['title']}\nDetails: {c['description']}"},
-                        {"role": "assistant", "content": str(c["recommendation"] or "Apply Quiet Advisor optimization.")},
-                    ]
-                })
-        except Exception:
-            pass
+                action = str(c["recommended_action"] or "Apply Quiet Advisor optimization.")
+                if c["action_value"]:
+                    action = f"{action} (target: {c['action_value']})"
+                records.append(
+                    _make_example(
+                        f"Detector: {c['detector_type']}\nIssue: {c['title']}\nSummary: {c['subtitle'] or ''}\nDetails: {c['description']}",
+                        action,
+                    )
+                )
+
+            inferences = conn.execute(
+                "SELECT model_id, context_tokens_provided, context_tokens_used, total_latency_ms, "
+                "gpu_id, gpu_memory_used_mb, error_flag FROM memoryos_inference_log"
+            ).fetchall()
+            for inf in inferences:
+                prompt = (
+                    f"Telemetry sample -> model={inf['model_id']}, gpu={inf['gpu_id']}, "
+                    f"context={inf['context_tokens_used']}/{inf['context_tokens_provided']}, "
+                    f"latency_ms={inf['total_latency_ms']}, vram_mb={inf['gpu_memory_used_mb']}, "
+                    f"error={bool(inf['error_flag'])}. What should Quiet Advisor recommend?"
+                )
+                records.append(_make_example(prompt, _recommend_for_inference(inf)))
         finally:
             conn.close()
 
     if not records:
-        records.append({
-            "messages": [
-                {"role": "system", "content": "You are Jupiter-Advisor, a hardware-aware AI optimization assistant."},
-                {"role": "user", "content": "VRAM usage exceeded 85% while gaming."},
-                {"role": "assistant", "content": "Offload heavy 31B inference to remote cloud and enable MEMORYOS_QUANT_MODE=8bit."},
-            ]
-        })
+        records.append(
+            _make_example(
+                "VRAM usage exceeded 85% while gaming.",
+                "Offload heavy 31B inference to remote cloud and enable MEMORYOS_QUANT_MODE=8bit.",
+            )
+        )
 
     with out_path.open("w", encoding="utf-8") as f:
         for r in records:
