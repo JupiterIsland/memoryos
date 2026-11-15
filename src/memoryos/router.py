@@ -66,6 +66,24 @@ do_client = (
     else None
 )
 
+# Initialize isolated client for NVIDIA NIM / Brev OpenAI-compatible inference
+nv_client = (
+    OpenAI(
+        api_key=(
+            os.getenv("NVIDIA_API_KEY")
+            or os.getenv("NVIDIA_NIM_API_KEY")
+            or "nv-offline"
+        ),
+        base_url=(
+            os.getenv("NVIDIA_BASE_URL")
+            or os.getenv("BREV_INFERENCE_URL")
+            or "https://integrate.api.nvidia.com/v1"
+        ),
+    )
+    if OpenAI is not None
+    else None
+)
+
 DO_MODEL_MAP: Dict[str, str] = {
     "Gemma-4-31B-IT": os.getenv("DO_VISION_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
     "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
@@ -76,6 +94,16 @@ DO_MODEL_MAP: Dict[str, str] = {
     ),
 }
 
+NVIDIA_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("NV_VISION_MODEL", "meta/llama-3.3-70b-instruct"),
+    "Qwen3.8-27B": os.getenv("NV_CODE_MODEL", "qwen/qwen2.5-coder-32b-instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("NV_LONG_CONTEXT_MODEL", "meta/llama-3.3-70b-instruct"),
+    "MiniCPM5-2B": os.getenv("NV_FAST_MODEL", "qwen/qwen2.5-7b-instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "NV_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
+}
+
 
 def _is_configured_key(key: str, *placeholders: str) -> bool:
     """Return True when an API key env var holds a non-placeholder credential."""
@@ -83,7 +111,7 @@ def _is_configured_key(key: str, *placeholders: str) -> bool:
     return bool(
         cleaned
         and cleaned not in placeholders
-        and cleaned not in {"tl-offline", "do-offline"}
+        and cleaned not in {"tl-offline", "do-offline", "nv-offline"}
     )
 
 
@@ -107,6 +135,20 @@ def _get_do_credentials() -> tuple[str, str]:
     base_url = (
         os.getenv("DO_INFERENCE_BASE_URL", "").strip()
         or "https://inference.do-ai.run/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _get_nvidia_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for NVIDIA NIM / Brev OpenAI-compatible endpoints."""
+    key = (
+        os.getenv("NVIDIA_API_KEY", "").strip()
+        or os.getenv("NVIDIA_NIM_API_KEY", "").strip()
+    )
+    base_url = (
+        os.getenv("NVIDIA_BASE_URL", "").strip()
+        or os.getenv("BREV_INFERENCE_URL", "").strip()
+        or "https://integrate.api.nvidia.com/v1"
     ).rstrip("/")
     return key, base_url
 
@@ -137,8 +179,9 @@ def _http_post_json(
 
 
 def get_cloud_provider_status() -> Dict[str, Any]:
-    """Return configuration & readiness status for AMD Token Lab and DigitalOcean MI300X."""
+    """Return configuration & readiness status for AMD Token Lab, NVIDIA NIM/Brev, and DigitalOcean MI300X."""
     tl_key, tl_base = _get_tokenlab_credentials()
+    nv_key, nv_base = _get_nvidia_credentials()
     do_key, do_base = _get_do_credentials()
     do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
     transport = "openai_sdk+urllib_fallback" if OpenAI is not None else "urllib_stdlib"
@@ -152,6 +195,16 @@ def get_cloud_provider_status() -> Dict[str, Any]:
             "systemone_url": f"{tl_base}/systemone",
             "transport": transport,
             "hardware": "AMD Instinct Cloud (Token Lab)",
+        },
+        "nvidia_brev": {
+            "configured": _is_configured_key(
+                nv_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+            ),
+            "base_url": nv_base,
+            "brev_org_id": os.getenv("BREV_ORG_ID", "").strip() or None,
+            "transport": transport,
+            "hardware": "NVIDIA NIM / Brev Cloud",
+            "model_map": NVIDIA_MODEL_MAP,
         },
         "digitalocean_mi300x": {
             "configured": _is_configured_key(do_key, "do-ai-your-model-access-key-here"),
@@ -945,87 +998,75 @@ def route_task(
     has_tl_key = _is_configured_key(
         api_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
     )
+    nv_api_key, nv_base = _get_nvidia_credentials()
+    has_nv_key = _is_configured_key(
+        nv_api_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+    )
+    nv_model = NVIDIA_MODEL_MAP.get(target_model, target_model)
     do_api_key, do_base = _get_do_credentials()
     has_do_key = _is_configured_key(do_api_key, "do-ai-your-model-access-key-here")
     do_model = DO_MODEL_MAP.get(target_model, target_model)
 
-    if gpu_id == "tokenlab-remote" and cloud_provider == "digitalocean" and has_do_key:
-        try:
-            content, usage_dict = _invoke_remote_chat(
-                do_client,
-                do_model,
-                messages,
-                temperature,
-                max_tokens,
-                base_url=do_base,
-                api_key=do_api_key,
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            gpu_id = "do-mi300x-remote"
-            routing_policy = "digitalocean_mi300x_direct"
-            target_model = do_model
-        except Exception as exc:
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            error_flag = True
-            error_message = str(exc)
-            content, usage_dict = _build_offline_payload(
-                prompt_text, total_chars, target_model, routing_policy, error_fallback=True
-            )
-    elif gpu_id == "tokenlab-remote" and has_tl_key:
-        try:
-            content, usage_dict = _invoke_tokenlab_chat(
-                target_model, messages, temperature, max_tokens
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-        except Exception as exc:
+    remote_candidates = []
+    if gpu_id == "tokenlab-remote":
+        if cloud_provider == "digitalocean":
             if has_do_key:
-                try:
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", "digitalocean_mi300x_direct", do_model))
+        elif cloud_provider in ("nvidia", "brev"):
+            if has_nv_key:
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", "nvidia_brev_direct", nv_model))
+        else:
+            if has_tl_key:
+                remote_candidates.append(("tokenlab", "TokenLab", "tokenlab-remote", routing_policy, target_model))
+            if has_nv_key:
+                nv_policy = "nvidia_brev_failover" if has_tl_key else "nvidia_brev_primary"
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", nv_policy, nv_model))
+            if has_do_key:
+                do_policy = "digitalocean_mi300x_failover" if (has_tl_key or has_nv_key) else "digitalocean_mi300x_primary"
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", do_policy, do_model))
+
+    if remote_candidates:
+        provider_errors = []
+        succeeded = False
+        for prov_key, label, cand_gpu_id, cand_policy, cand_model in remote_candidates:
+            try:
+                if prov_key == "tokenlab":
+                    content, usage_dict = _invoke_tokenlab_chat(
+                        cand_model, messages, temperature, max_tokens
+                    )
+                elif prov_key == "nvidia":
+                    content, usage_dict = _invoke_remote_chat(
+                        nv_client,
+                        cand_model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        base_url=nv_base,
+                        api_key=nv_api_key,
+                    )
+                else:
                     content, usage_dict = _invoke_remote_chat(
                         do_client,
-                        do_model,
+                        cand_model,
                         messages,
                         temperature,
                         max_tokens,
                         base_url=do_base,
                         api_key=do_api_key,
                     )
-                    latency_ms = (time.perf_counter() - t0) * 1000.0
-                    gpu_id = "do-mi300x-remote"
-                    routing_policy = "digitalocean_mi300x_failover"
-                    target_model = do_model
-                except Exception as do_exc:
-                    latency_ms = (time.perf_counter() - t0) * 1000.0
-                    error_flag = True
-                    error_message = f"TokenLab: {exc} | DigitalOcean: {do_exc}"
-                    content, usage_dict = _build_offline_payload(
-                        prompt_text, total_chars, target_model, routing_policy, error_fallback=True
-                    )
-            else:
                 latency_ms = (time.perf_counter() - t0) * 1000.0
-                error_flag = True
-                error_message = str(exc)
-                content, usage_dict = _build_offline_payload(
-                    prompt_text, total_chars, target_model, routing_policy, error_fallback=True
-                )
-    elif gpu_id == "tokenlab-remote" and not has_tl_key and has_do_key:
-        try:
-            content, usage_dict = _invoke_remote_chat(
-                do_client,
-                do_model,
-                messages,
-                temperature,
-                max_tokens,
-                base_url=do_base,
-                api_key=do_api_key,
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            gpu_id = "do-mi300x-remote"
-            routing_policy = "digitalocean_mi300x_primary"
-            target_model = do_model
-        except Exception as exc:
+                gpu_id = cand_gpu_id
+                routing_policy = cand_policy
+                target_model = cand_model
+                succeeded = True
+                break
+            except Exception as exc:
+                provider_errors.append(f"{label}: {exc}" if len(remote_candidates) > 1 else str(exc))
+
+        if not succeeded:
             latency_ms = (time.perf_counter() - t0) * 1000.0
             error_flag = True
-            error_message = str(exc)
+            error_message = " | ".join(provider_errors)
             content, usage_dict = _build_offline_payload(
                 prompt_text, total_chars, target_model, routing_policy, error_fallback=True
             )
