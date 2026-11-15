@@ -18,7 +18,11 @@ from src.memoryos.router import route_task
 
 
 async def main() -> None:
-    print("=== 1. MULTI-MODEL AUTO-ROUTER (d3 -> Token Lab) ===")
+    print("=== 0. DASHBOARD MODULE IMPORT (DASHBOARD_HTML syntax) ===")
+    import apps.quiet_advisor_ui.server as dashboard_server  # noqa: F401
+    print(f"  apps.quiet_advisor_ui.server imported OK ({len(dashboard_server.DASHBOARD_HTML)} bytes HTML)")
+
+    print("\n=== 1. MULTI-MODEL AUTO-ROUTER (d3 -> Token Lab) ===")
     res_fast = route_task(
         "Reply with the single word: OK",
         save_checkpoint=True,

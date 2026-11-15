@@ -269,14 +269,22 @@ function renderState(state) {
   document.getElementById("dbMeta").textContent = `DB: ${state.db_path} | Updated: ${new Date(state.generated_at).toLocaleTimeString()}`;
 
   const t = state.telemetry;
-  const avgLat = t.avg_latency_ms || 0;
-  const fps = avgLat > 0 ? (1000 / avgLat).toFixed(1) : "0.0";
-  const vramSaved = t.local_vram_saved_pct ?? 100;
+
+  // Game-side GPU health (matches MEMORYOS_FOR_DUMMIES.md §4)
+  const vramSaved = t.local_vram_saved_pct ?? 0;
+  const offloaded = t.remote_offload_count ?? 0;
+  const totalInf  = t.total_inferences ?? 0;
+  const infPerSec = (t.avg_latency_ms && t.avg_latency_ms > 0.001)
+                    ? Math.min(1000 / t.avg_latency_ms, 9999).toFixed(1)
+                    : "0.0";
+  const gpuStatus = totalInf > 0 && offloaded === totalInf ? "GPU FREE" : "GPU PARTIAL";
+
   const liveBadgesEl = document.getElementById("liveBadges");
   if (liveBadgesEl) {
     liveBadgesEl.innerHTML = `
-      <div class="badge-live">FPS: 120+ (${esc(fps)} inf/s)</div>
+      <div class="badge-live">${esc(gpuStatus)}</div>
       <div class="badge-live">VRAM SAVED: ${esc(vramSaved)}%</div>
+      <div class="badge-live">INF/s: ${esc(infPerSec)}</div>
     `;
   }
   const tl = state.tokenlab || {};

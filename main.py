@@ -14,12 +14,18 @@ def main():
     print("JUPITER TV - VIDEO AI ENGINE")
     print("="*60 + "\n")
     
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        device = "cpu"
+
     # Create pipeline
     config = {
         "scene_threshold": 0.3,
         "upscale_factor": 4,
-        "device": "cuda",  # or "cpu"
-        "fp16": True,
+        "device": device,
+        "fp16": device == "cuda",
     }
     
     pipeline = VideoProcessingPipeline(config)
