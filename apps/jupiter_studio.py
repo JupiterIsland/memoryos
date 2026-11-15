@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -361,11 +361,19 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
             if target.startswith("cloud:"):
                 model_name = target.split(":", 1)[1]
-                res = route_task(prompt, forced_model=model_name, save_checkpoint=False, log_to_advisor=False)
+                content, err = self._call_openai_compat(
+                    base_url=os.getenv("TOKENLAB_BASE_URL", "https://api.tokenlab.amd.com/v1"),
+                    api_key=os.getenv("TOKENLAB_API_KEY", ""),
+                    model=model_name,
+                    prompt=prompt,
+                )
                 latency = round((time.perf_counter() - t0) * 1000, 2)
+                if err:
+                    res = route_task(prompt, forced_model=model_name, save_checkpoint=False, log_to_advisor=False)
+                    content = f"[Token Lab Note: {err}]\n\n{res.get('content', '')}"
                 self._send_json({
                     "model_used": f"AMD Cloud: {model_name}",
-                    "content": res.get("content", ""),
+                    "content": content,
                     "latency_ms": latency,
                     "is_local": False,
                 })
@@ -373,23 +381,64 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
             if target.startswith("do:"):
                 model_name = target.split(":", 1)[1]
-                res = route_task(
-                    prompt,
-                    forced_model=model_name,
-                    cloud_provider="digitalocean",
-                    save_checkpoint=False,
-                    log_to_advisor=False,
+                content, err = self._call_openai_compat(
+                    base_url=os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
+                    api_key=os.getenv("DO_MODEL_ACCESS_KEY", ""),
+                    model=model_name,
+                    prompt=prompt,
                 )
                 latency = round((time.perf_counter() - t0) * 1000, 2)
+                if err:
+                    content = f"[DigitalOcean Note: {err}]"
                 self._send_json({
                     "model_used": f"DigitalOcean MI300X: {model_name}",
-                    "content": res.get("content", ""),
+                    "content": content,
                     "latency_ms": latency,
                     "is_local": False,
                 })
                 return
 
         self._send_json({"error": "Unknown endpoint"}, status=404)
+
+    def _call_openai_compat(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        prompt: str,
+    ) -> tuple[str, str]:
+        """Direct zero-dependency OpenAI-compatible HTTP call (no mock fallback)."""
+        clean_key = api_key.strip()
+        if not clean_key:
+            return "", "API key not configured in .env"
+        url = f"{base_url.rstrip('/')}/chat/completions"
+        payload = json.dumps({
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a helpful AI assistant inside Jupiter Studio."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1024,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {clean_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "JupiterStudio/0.2",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["choices"][0]["message"]["content"], ""
+        except urllib.error.HTTPError as exc:
+            return "", f"HTTP {exc.code}: {exc.reason}"
+        except Exception as exc:
+            return "", str(exc)
 
     def _call_ollama(self, model: str, prompt: str) -> str:
         url = f"{OLLAMA_HOST}/api/generate"

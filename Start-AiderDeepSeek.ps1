@@ -30,8 +30,24 @@ $apiBase = if ($env:TOKENLAB_BASE_URL) { $env:TOKENLAB_BASE_URL } else { "https:
 $env:OPENAI_API_KEY = $apiKey
 $env:OPENAI_API_BASE = $apiBase
 
+$aiderExe = (Get-Command aider -ErrorAction SilentlyContinue).Source
+if (-not $aiderExe) {
+    $fallback = Join-Path $env:USERPROFILE ".local\bin\aider.exe"
+    if (Test-Path $fallback) {
+        $aiderExe = $fallback
+    } else {
+        $fallback2 = Join-Path $env:LOCALAPPDATA "Programs\Python\Python*\Scripts\aider.exe"
+        $aiderExe = Resolve-Path $fallback2 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Path
+    }
+}
+
+if (-not $aiderExe) {
+    Write-Error "ERROR: aider.exe not found in PATH or at $env:USERPROFILE\.local\bin\aider.exe"
+    exit 1
+}
+
 $aiderCmd = @(
-    "aider",
+    $aiderExe,
     "--model", "openai/DeepSeek-V4.1-Flash",
     "--model-metadata-file", ".aider.model.metadata.json",
     "--model-settings-file", ".aider.model.settings.yml",
