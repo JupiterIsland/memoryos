@@ -3,10 +3,12 @@
 import json
 import os
 import time
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from openai import OpenAI
@@ -64,6 +66,24 @@ do_client = (
     else None
 )
 
+# Initialize isolated client for NVIDIA NIM / Brev OpenAI-compatible inference
+nv_client = (
+    OpenAI(
+        api_key=(
+            os.getenv("NVIDIA_API_KEY")
+            or os.getenv("NVIDIA_NIM_API_KEY")
+            or "nv-offline"
+        ),
+        base_url=(
+            os.getenv("NVIDIA_BASE_URL")
+            or os.getenv("BREV_INFERENCE_URL")
+            or "https://integrate.api.nvidia.com/v1"
+        ),
+    )
+    if OpenAI is not None
+    else None
+)
+
 DO_MODEL_MAP: Dict[str, str] = {
     "Gemma-4-31B-IT": os.getenv("DO_VISION_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
     "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
@@ -74,25 +94,125 @@ DO_MODEL_MAP: Dict[str, str] = {
     ),
 }
 
+NVIDIA_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("NV_VISION_MODEL", "meta/llama-3.3-70b-instruct"),
+    "Qwen3.8-27B": os.getenv("NV_CODE_MODEL", "qwen/qwen2.5-coder-32b-instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("NV_LONG_CONTEXT_MODEL", "meta/llama-3.3-70b-instruct"),
+    "MiniCPM5-2B": os.getenv("NV_FAST_MODEL", "qwen/qwen2.5-7b-instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "NV_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
+}
 
-def get_cloud_provider_status() -> Dict[str, Any]:
-    """Return configuration & readiness status for AMD Token Lab and DigitalOcean MI300X."""
-    tl_key = os.getenv("TOKENLAB_API_KEY", "").strip()
-    do_key = (
+
+def _is_configured_key(key: str, *placeholders: str) -> bool:
+    """Return True when an API key env var holds a non-placeholder credential."""
+    cleaned = (key or "").strip()
+    return bool(
+        cleaned
+        and cleaned not in placeholders
+        and cleaned not in {"tl-offline", "do-offline", "nv-offline"}
+    )
+
+
+def _get_tokenlab_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for AMD Token Lab."""
+    key = os.getenv("TOKENLAB_API_KEY", "").strip()
+    base_url = (
+        os.getenv("TOKENLAB_BASE_URL", "").strip()
+        or os.getenv("TOKENLAB_API_BASE", "").strip()
+        or "https://api.tokenlab.amd.com/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _get_do_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for DigitalOcean Serverless Inference."""
+    key = (
         os.getenv("DO_MODEL_ACCESS_KEY", "").strip()
         or os.getenv("DIGITALOCEAN_INFERENCE_KEY", "").strip()
     )
+    base_url = (
+        os.getenv("DO_INFERENCE_BASE_URL", "").strip()
+        or "https://inference.do-ai.run/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _get_nvidia_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for NVIDIA NIM / Brev OpenAI-compatible endpoints."""
+    key = (
+        os.getenv("NVIDIA_API_KEY", "").strip()
+        or os.getenv("NVIDIA_NIM_API_KEY", "").strip()
+    )
+    base_url = (
+        os.getenv("NVIDIA_BASE_URL", "").strip()
+        or os.getenv("BREV_INFERENCE_URL", "").strip()
+        or "https://integrate.api.nvidia.com/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _http_post_json(
+    url: str,
+    headers: Dict[str, str],
+    payload: Dict[str, Any],
+    timeout: float = 45.0,
+) -> Dict[str, Any]:
+    """POST JSON via Python stdlib urllib so remote endpoints work without openai/httpx."""
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+        return json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as exc:
+        err_body = exc.read().decode("utf-8", errors="replace")[:400]
+        raise RuntimeError(f"HTTP {exc.code} from {url}: {err_body}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Connection error to {url}: {exc.reason}") from exc
+
+
+def get_cloud_provider_status() -> Dict[str, Any]:
+    """Return configuration & readiness status for AMD Token Lab, NVIDIA NIM/Brev, and DigitalOcean MI300X."""
+    tl_key, tl_base = _get_tokenlab_credentials()
+    nv_key, nv_base = _get_nvidia_credentials()
+    do_key, do_base = _get_do_credentials()
     do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
+    transport = "openai_sdk+urllib_fallback" if OpenAI is not None else "urllib_stdlib"
     return {
         "amd_tokenlab": {
-            "configured": bool(tl_key and tl_key != "tl-your-tokenlab-key-here"),
-            "base_url": os.getenv("TOKENLAB_BASE_URL", "https://api.tokenlab.amd.com/v1"),
+            "configured": _is_configured_key(
+                tl_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
+            ),
+            "base_url": tl_base,
+            "messages_url": f"{tl_base}/messages",
+            "systemone_url": f"{tl_base}/systemone",
+            "transport": transport,
             "hardware": "AMD Instinct Cloud (Token Lab)",
         },
+        "nvidia_brev": {
+            "configured": _is_configured_key(
+                nv_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+            ),
+            "base_url": nv_base,
+            "brev_org_id": os.getenv("BREV_ORG_ID", "").strip() or None,
+            "transport": transport,
+            "hardware": "NVIDIA NIM / Brev Cloud",
+            "model_map": NVIDIA_MODEL_MAP,
+        },
         "digitalocean_mi300x": {
-            "configured": bool(do_key and do_key != "do-ai-your-model-access-key-here"),
-            "droplet_api_configured": bool(do_token and do_token != "dop_v1_your-digitalocean-api-token-here"),
-            "base_url": os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
+            "configured": _is_configured_key(do_key, "do-ai-your-model-access-key-here"),
+            "droplet_api_configured": _is_configured_key(
+                do_token, "dop_v1_your-digitalocean-api-token-here"
+            ),
+            "base_url": do_base,
+            "transport": transport,
             "hardware": "DigitalOcean Serverless Inference (AMD Instinct MI300X)",
             "ssh_key_fingerprint": "75:f4:ca:fb:d4:b3:03:b4:34:8b:d2:68:f7:a4:95:dc",
             "model_map": DO_MODEL_MAP,
@@ -325,7 +445,10 @@ def _call_systemone_choice(
     model: str = "d3",
 ) -> Dict[str, Any]:
     """Call Token Lab /v1/systemone for a structured choice decision (with offline fallback)."""
-    if tl_client is None or not os.getenv("TOKENLAB_API_KEY"):
+    tl_key, tl_base = _get_tokenlab_credentials()
+    if not _is_configured_key(
+        tl_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
+    ):
         return _local_d3_fallback(state_text, criteria, model=model)
 
     payload = {
@@ -339,7 +462,15 @@ def _call_systemone_choice(
         },
     }
     try:
-        response = tl_client.post("/systemone", cast_to=dict, body=payload)
+        if tl_client is not None and getattr(tl_client, "api_key", None) == tl_key:
+            response = tl_client.post("/systemone", cast_to=dict, body=payload)
+        else:
+            response = _http_post_json(
+                f"{tl_base}/systemone",
+                {"Authorization": f"Bearer {tl_key}"},
+                payload,
+                timeout=15.0,
+            )
         decision = response.get("answers", {}).get(question_id, {})
         return {
             "id": response.get("id"),
@@ -347,6 +478,7 @@ def _call_systemone_choice(
             "choice": decision.get("choice"),
             "probabilities": decision.get("probabilities", {}),
             "confidence": decision.get("confidence", 0.0),
+            "source": "tokenlab_d3",
         }
     except Exception:
         return _local_d3_fallback(state_text, criteria, model=model)
@@ -548,28 +680,201 @@ TASK_TYPE_TO_TIER: Dict[str, str] = {
 }
 
 
+def _normalize_openai_content(content: Any) -> str:
+    """Normalize chat-completion message content (str or content-block list) to text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text", "")))
+        return "\n".join(p for p in parts if p)
+    return str(content or "")
+
+
 def _invoke_remote_chat(
     client: Any,
     model_name: str,
     messages: list,
     temperature: float,
     max_tokens: int,
+    *,
+    base_url: str = "",
+    api_key: str = "",
+    timeout: float = 60.0,
 ) -> tuple[str, Dict[str, int]]:
-    """Invoke an OpenAI-compatible chat completion endpoint and normalize usage."""
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
+    """Invoke an OpenAI-compatible chat completion endpoint via SDK or stdlib urllib."""
+    if client is not None and (not api_key or getattr(client, "api_key", None) == api_key):
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        content = _normalize_openai_content(response.choices[0].message.content)
+        usage = getattr(response, "usage", None)
+        usage_dict = {
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+            "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+            "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
+        }
+        return content, usage_dict
+
+    if not base_url or not api_key:
+        raise RuntimeError("Missing base_url or api_key for OpenAI-compatible HTTP call")
+
+    data = _http_post_json(
+        f"{base_url.rstrip('/')}/chat/completions",
+        {"Authorization": f"Bearer {api_key}"},
+        {
+            "model": model_name,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=timeout,
     )
-    content = response.choices[0].message.content
-    usage = getattr(response, "usage", None)
+    choices = data.get("choices") or []
+    message = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
+    content = _normalize_openai_content(message.get("content", ""))
+    usage = data.get("usage") or {}
+    prompt_t = int(usage.get("prompt_tokens", 0) or 0)
+    comp_t = int(usage.get("completion_tokens", 0) or 0)
     usage_dict = {
-        "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
-        "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
-        "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
+        "prompt_tokens": prompt_t,
+        "completion_tokens": comp_t,
+        "total_tokens": int(usage.get("total_tokens", prompt_t + comp_t) or 0),
     }
     return content, usage_dict
+
+
+def _convert_messages_for_anthropic(messages: list) -> tuple[str, List[Dict[str, Any]]]:
+    """Convert OpenAI-style chat messages to Anthropic /v1/messages system + message list."""
+    system_parts: List[str] = []
+    converted: List[Dict[str, Any]] = []
+    for msg in messages:
+        role = str(msg.get("role", "user"))
+        content = msg.get("content", "")
+        if role == "system":
+            text = _normalize_openai_content(content).strip()
+            if text:
+                system_parts.append(text)
+            continue
+
+        target_role = "assistant" if role == "assistant" else "user"
+        if isinstance(content, list):
+            blocks: List[Dict[str, Any]] = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == "text":
+                    blocks.append({"type": "text", "text": str(item.get("text", ""))})
+                elif item.get("type") == "image_url":
+                    img_url = str((item.get("image_url") or {}).get("url", ""))
+                    if img_url.startswith("data:") and ";base64," in img_url:
+                        header, b64_data = img_url.split(";base64,", 1)
+                        media_type = header.replace("data:", "", 1) or "image/jpeg"
+                        blocks.append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": b64_data,
+                                },
+                            }
+                        )
+                    elif img_url:
+                        blocks.append({"type": "image", "source": {"type": "url", "url": img_url}})
+            converted.append({"role": target_role, "content": blocks or [{"type": "text", "text": ""}]})
+        else:
+            converted.append({"role": target_role, "content": str(content)})
+
+    return "\n\n".join(system_parts), converted
+
+
+def _invoke_tokenlab_messages(
+    base_url: str,
+    api_key: str,
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+    timeout: float = 60.0,
+) -> tuple[str, Dict[str, int]]:
+    """Invoke AMD Token Lab's native Anthropic-compatible /v1/messages endpoint."""
+    system_text, anthropic_messages = _convert_messages_for_anthropic(messages)
+    payload: Dict[str, Any] = {
+        "model": model_name,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": anthropic_messages,
+    }
+    if system_text:
+        payload["system"] = system_text
+
+    data = _http_post_json(
+        f"{base_url.rstrip('/')}/messages",
+        {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
+        payload,
+        timeout=timeout,
+    )
+    text_parts = [
+        str(block.get("text", ""))
+        for block in (data.get("content") or [])
+        if isinstance(block, dict) and block.get("type") == "text"
+    ]
+    content = "".join(text_parts).strip()
+    if not content and isinstance(data.get("content"), str):
+        content = data["content"]
+    usage = data.get("usage") or {}
+    prompt_t = int(usage.get("input_tokens", 0) or 0)
+    comp_t = int(usage.get("output_tokens", 0) or 0)
+    return content, {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": comp_t,
+        "total_tokens": prompt_t + comp_t,
+    }
+
+
+def _invoke_tokenlab_chat(
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+) -> tuple[str, Dict[str, int]]:
+    """Call Token Lab /v1/chat/completions first, falling back to native /v1/messages."""
+    tl_key, tl_base = _get_tokenlab_credentials()
+    try:
+        return _invoke_remote_chat(
+            tl_client,
+            model_name,
+            messages,
+            temperature,
+            max_tokens,
+            base_url=tl_base,
+            api_key=tl_key,
+            timeout=45.0,
+        )
+    except Exception as openai_exc:
+        try:
+            return _invoke_tokenlab_messages(
+                tl_base,
+                tl_key,
+                model_name,
+                messages,
+                temperature,
+                max_tokens,
+                timeout=45.0,
+            )
+        except Exception as msg_exc:
+            raise RuntimeError(
+                f"chat/completions: {openai_exc} | messages: {msg_exc}"
+            ) from msg_exc
 
 
 def _build_offline_payload(
@@ -689,72 +994,79 @@ def route_task(
     t0 = time.perf_counter()
     error_flag = False
     error_message = None
-    api_key = os.getenv("TOKENLAB_API_KEY", "").strip()
-    do_api_key = (
-        os.getenv("DO_MODEL_ACCESS_KEY", "").strip()
-        or os.getenv("DIGITALOCEAN_INFERENCE_KEY", "").strip()
+    api_key, _tl_base = _get_tokenlab_credentials()
+    has_tl_key = _is_configured_key(
+        api_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
     )
+    nv_api_key, nv_base = _get_nvidia_credentials()
+    has_nv_key = _is_configured_key(
+        nv_api_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+    )
+    nv_model = NVIDIA_MODEL_MAP.get(target_model, target_model)
+    do_api_key, do_base = _get_do_credentials()
+    has_do_key = _is_configured_key(do_api_key, "do-ai-your-model-access-key-here")
     do_model = DO_MODEL_MAP.get(target_model, target_model)
 
-    if gpu_id == "tokenlab-remote" and cloud_provider == "digitalocean" and do_client is not None and do_api_key:
-        try:
-            content, usage_dict = _invoke_remote_chat(
-                do_client, do_model, messages, temperature, max_tokens
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            gpu_id = "do-mi300x-remote"
-            routing_policy = "digitalocean_mi300x_direct"
-            target_model = do_model
-        except Exception as exc:
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            error_flag = True
-            error_message = str(exc)
-            content, usage_dict = _build_offline_payload(
-                prompt_text, total_chars, target_model, routing_policy, error_fallback=True
-            )
-    elif gpu_id == "tokenlab-remote" and tl_client is not None and api_key:
-        try:
-            content, usage_dict = _invoke_remote_chat(
-                tl_client, target_model, messages, temperature, max_tokens
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-        except Exception as exc:
-            if do_client is not None and do_api_key:
-                try:
+    remote_candidates = []
+    if gpu_id == "tokenlab-remote":
+        if cloud_provider == "digitalocean":
+            if has_do_key:
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", "digitalocean_mi300x_direct", do_model))
+        elif cloud_provider in ("nvidia", "brev"):
+            if has_nv_key:
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", "nvidia_brev_direct", nv_model))
+        else:
+            if has_tl_key:
+                remote_candidates.append(("tokenlab", "TokenLab", "tokenlab-remote", routing_policy, target_model))
+            if has_nv_key:
+                nv_policy = "nvidia_brev_failover" if has_tl_key else "nvidia_brev_primary"
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", nv_policy, nv_model))
+            if has_do_key:
+                do_policy = "digitalocean_mi300x_failover" if (has_tl_key or has_nv_key) else "digitalocean_mi300x_primary"
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", do_policy, do_model))
+
+    if remote_candidates:
+        provider_errors = []
+        succeeded = False
+        for prov_key, label, cand_gpu_id, cand_policy, cand_model in remote_candidates:
+            try:
+                if prov_key == "tokenlab":
+                    content, usage_dict = _invoke_tokenlab_chat(
+                        cand_model, messages, temperature, max_tokens
+                    )
+                elif prov_key == "nvidia":
                     content, usage_dict = _invoke_remote_chat(
-                        do_client, do_model, messages, temperature, max_tokens
+                        nv_client,
+                        cand_model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        base_url=nv_base,
+                        api_key=nv_api_key,
                     )
-                    latency_ms = (time.perf_counter() - t0) * 1000.0
-                    gpu_id = "do-mi300x-remote"
-                    routing_policy = "digitalocean_mi300x_failover"
-                    target_model = do_model
-                except Exception as do_exc:
-                    latency_ms = (time.perf_counter() - t0) * 1000.0
-                    error_flag = True
-                    error_message = f"TokenLab: {exc} | DigitalOcean: {do_exc}"
-                    content, usage_dict = _build_offline_payload(
-                        prompt_text, total_chars, target_model, routing_policy, error_fallback=True
+                else:
+                    content, usage_dict = _invoke_remote_chat(
+                        do_client,
+                        cand_model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        base_url=do_base,
+                        api_key=do_api_key,
                     )
-            else:
                 latency_ms = (time.perf_counter() - t0) * 1000.0
-                error_flag = True
-                error_message = str(exc)
-                content, usage_dict = _build_offline_payload(
-                    prompt_text, total_chars, target_model, routing_policy, error_fallback=True
-                )
-    elif gpu_id == "tokenlab-remote" and not api_key and do_client is not None and do_api_key:
-        try:
-            content, usage_dict = _invoke_remote_chat(
-                do_client, do_model, messages, temperature, max_tokens
-            )
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            gpu_id = "do-mi300x-remote"
-            routing_policy = "digitalocean_mi300x_primary"
-            target_model = do_model
-        except Exception as exc:
+                gpu_id = cand_gpu_id
+                routing_policy = cand_policy
+                target_model = cand_model
+                succeeded = True
+                break
+            except Exception as exc:
+                provider_errors.append(f"{label}: {exc}" if len(remote_candidates) > 1 else str(exc))
+
+        if not succeeded:
             latency_ms = (time.perf_counter() - t0) * 1000.0
             error_flag = True
-            error_message = str(exc)
+            error_message = " | ".join(provider_errors)
             content, usage_dict = _build_offline_payload(
                 prompt_text, total_chars, target_model, routing_policy, error_fallback=True
             )

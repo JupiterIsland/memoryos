@@ -7,6 +7,7 @@ Requirements (install in a CUDA/ROCm venv):
 
 from __future__ import annotations
 
+import inspect
 import os
 from pathlib import Path
 
@@ -21,6 +22,7 @@ def main() -> None:
         from datasets import load_dataset
         from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
+        import trl
         from trl import SFTTrainer
     except ImportError as exc:
         raise SystemExit(
@@ -59,26 +61,48 @@ def main() -> None:
     model = get_peft_model(model, lora_cfg)
 
     dataset = load_dataset("json", data_files=str(DATASET_PATH), split="train")
-    args = TrainingArguments(
-        output_dir=str(OUTPUT_DIR),
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=4,
-        num_train_epochs=3,
-        learning_rate=2e-4,
-        fp16=not torch.cuda.is_bf16_supported(),
-        bf16=torch.cuda.is_bf16_supported(),
-        logging_steps=5,
-        save_strategy="epoch",
-        report_to="none",
-    )
+    print(f"[+] Loaded {len(dataset)} training examples from {DATASET_PATH}")
 
-    trainer = SFTTrainer(
-        model=model,
-        train_dataset=dataset,
-        tokenizer=tokenizer,
-        args=args,
-        max_seq_length=1024,
-    )
+    use_bf16 = bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+    use_fp16 = bool(torch.cuda.is_available() and not use_bf16)
+
+    sft_config_cls = getattr(trl, "SFTConfig", None)
+    trainer_params = inspect.signature(SFTTrainer.__init__).parameters
+    config_cls = sft_config_cls if sft_config_cls is not None else TrainingArguments
+    config_params = inspect.signature(config_cls.__init__).parameters
+
+    train_arg_kwargs = {
+        "output_dir": str(OUTPUT_DIR),
+        "per_device_train_batch_size": 2,
+        "gradient_accumulation_steps": 4,
+        "num_train_epochs": 3,
+        "learning_rate": 2e-4,
+        "fp16": use_fp16,
+        "bf16": use_bf16,
+        "logging_steps": 5,
+        "save_strategy": "epoch",
+        "report_to": "none",
+    }
+    if "max_length" in config_params:
+        train_arg_kwargs["max_length"] = 1024
+    elif "max_seq_length" in config_params:
+        train_arg_kwargs["max_seq_length"] = 1024
+
+    args = config_cls(**train_arg_kwargs)
+
+    trainer_kwargs = {
+        "model": model,
+        "train_dataset": dataset,
+        "args": args,
+    }
+    if "processing_class" in trainer_params:
+        trainer_kwargs["processing_class"] = tokenizer
+    elif "tokenizer" in trainer_params:
+        trainer_kwargs["tokenizer"] = tokenizer
+    if "max_seq_length" in trainer_params and "max_length" not in train_arg_kwargs and "max_seq_length" not in train_arg_kwargs:
+        trainer_kwargs["max_seq_length"] = 1024
+
+    trainer = SFTTrainer(**trainer_kwargs)
     trainer.train()
     model.save_pretrained(str(OUTPUT_DIR))
     tokenizer.save_pretrained(str(OUTPUT_DIR))

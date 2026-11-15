@@ -206,6 +206,11 @@ HTML_PAGE = r"""<!DOCTYPE html>
           <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Surgical Code Diff)</option>
           <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (1M Context)</option>
         </optgroup>
+        <optgroup label="NVIDIA NIM / Brev Cloud">
+          <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
+          <option value="nv:meta/llama-3.3-70b-instruct">Llama-3.3-70B (NVIDIA NIM)</option>
+          <option value="nv:qwen/qwen2.5-7b-instruct">Qwen-2.5-7B (NVIDIA NIM)</option>
+        </optgroup>
         <optgroup label="DigitalOcean Serverless (AMD MI300X)">
           <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
           <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
@@ -379,19 +384,32 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 })
                 return
 
-            if target.startswith("do:"):
-                model_name = target.split(":", 1)[1]
+            if target.startswith("do:") or target.startswith("nv:"):
+                prefix, model_name = target.split(":", 1)
+                if prefix == "nv":
+                    base_url = (
+                        os.getenv("NVIDIA_BASE_URL")
+                        or os.getenv("BREV_INFERENCE_URL")
+                        or "https://integrate.api.nvidia.com/v1"
+                    )
+                    api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("NVIDIA_NIM_API_KEY") or ""
+                    label = "NVIDIA NIM / Brev"
+                else:
+                    base_url = os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1")
+                    api_key = os.getenv("DO_MODEL_ACCESS_KEY", "")
+                    label = "DigitalOcean MI300X"
+
                 content, err = self._call_openai_compat(
-                    base_url=os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
-                    api_key=os.getenv("DO_MODEL_ACCESS_KEY", ""),
+                    base_url=base_url,
+                    api_key=api_key,
                     model=model_name,
                     prompt=prompt,
                 )
                 latency = round((time.perf_counter() - t0) * 1000, 2)
                 if err:
-                    content = f"[DigitalOcean Note: {err}]"
+                    content = f"[{label} Note: {err}]"
                 self._send_json({
-                    "model_used": f"DigitalOcean MI300X: {model_name}",
+                    "model_used": f"{label}: {model_name}",
                     "content": content,
                     "latency_ms": latency,
                     "is_local": False,
