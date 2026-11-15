@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-vendor GPU detector prototype (`src/memoryos/gpu_backends.py`) supporting NVIDIA (`nvidia-smi`), AMD sysfs (`0x1002`), and handheld APUs (Steam Deck, ROG Ally, Legion Go).
 - Standalone Jupiter Studio hybrid workstation application (`apps/jupiter_studio.py`) with Ollama + AMD Cloud + DO MI300X failover.
 - NVIDIA NIM and Brev OpenAI-compatible provider routing integration.
-- SpeculativeOffloadNet (<1ms MLP) and Jupiter-Advisor-1.5B QLoRA training pipeline (`f5aef00`).
+- SpeculativeOffloadNet MLP and Jupiter-Advisor-1.5B QLoRA training pipeline.
 - MemoryOS For Dummies edition locked onto Gemma-4-31B-IT (`Run-MemoryOS-For-Dummies.ps1`, `run-for-dummies.sh`).
 - 1-click Aider launcher locked onto DeepSeek-V4.1-Flash (`Start-AiderDeepSeek.ps1`, `start-aider-deepseek.sh`).
 
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ryzen AI NPU Hardware Detection** (`src/memoryos/amd_zen_studio.py`):
   - `detect_ryzen_ai_npu()` probing `/dev/accel/accel0` (`amdxdna`) and ONNX Runtime `VitisAIExecutionProvider`, with clean fallback to Zen CPU thread tuning (`BLIS_NUM_THREADS=8`, `ZENDNN_PRIMITIVE_CACHE_CAPACITY=1024`).
 - **Quiet Advisor Telemetry Dashboard** (`apps/quiet_advisor_ui/server.py`, `apps/quiet_advisor_ui/api.py`):
-  - Real-time web UI and REST API displaying telemetry from `QuietAdvisorDB.sqlite` with live FPS and VRAM savings badges.
+  - Real-time web UI and REST API displaying telemetry from `QuietAdvisorDB.sqlite` with live GPU FREE, VRAM SAVED, and INF/s badges.
 - **Automated Telemetry Detectors** (`quiet_advisor_detectors.py`, `quiet_advisor_scheduler.py`):
   - `context_waste`: Detects oversized prompt buffers and suggests tighter token caps.
   - `vram_pressure`: Identifies GPU VRAM saturation and enables `MEMORYOS_QUANT_MODE=8bit`.
@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Router Architectural 3-Service Split**:
-  - Reduced router footprint to ~150 MB (`requirements-router.txt`, `Dockerfile-router`) by completely separating heavy local vision/audio dependencies (`torch`, `basicsr`, `realesrgan`, `faster-whisper`) into optional `requirements-vision-worker.txt`.
+  - Reduced router container and dependency footprint (`requirements-router.txt`, `Dockerfile-router`) by completely separating heavy local vision/audio dependencies (`torch`, `basicsr`, `realesrgan`, `faster-whisper`) into optional `requirements-vision-worker.txt`.
 - **Aider Configuration Optimization**:
   - Switched edit format to `--editor-edit-format editor-diff` and raised output cap to `8,192` max tokens for `Qwen3.8-27B` in `.aider.model.settings.yml` and `.aider.model.metadata.json`, accelerating edit application by 15x.
 - **Repository Structure Overhaul**:
@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Evaluated 100 frames with **`2.489 ms` average** (`2.951 ms` p99), consuming **`14.93%`** of a 60 FPS frame budget.
 - **NVMe Checkpoint Recovery (`suite_4`)**:
   - Restored 20 checkpoints in **`53.84 ms` total** (**`2.692 ms` average** single reload).
+- **Live Router Ping & Fallback (`suite_5`)**:
+  - Verified safe offline fallback reporting `OFFLINE_OK` with structured fallback responses when the standalone port 5000 router is inactive.
 - **Database Telemetry Audit (`suite_1`)**:
   - 50 seeded inferences (`15 Gemma-4-31B-IT`, `15 Qwen3.8-27B`, `10 d3`, `5 DeepSeek-V4.1-Flash`, `5 MiniCPM5-2B`), 7 cards, and 20 checkpoints verified.
 - **Production AMD Token Lab Offload Telemetry (`2026-11-14`)**:

@@ -777,20 +777,29 @@ function clearChat() {
   `;
 }
 
+let isGenerating = false;
+let responseTimer = null;
+
 function stopGeneration() {
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
   }
+  if (responseTimer) {
+    clearInterval(responseTimer);
+    responseTimer = null;
+  }
   setRunningState(false);
 }
 
 function setRunningState(running) {
+  isGenerating = running;
   document.getElementById("run-btn").style.display = running ? "none" : "block";
   document.getElementById("stop-btn").style.display = running ? "block" : "none";
 }
 
 async function sendPrompt() {
+  if (isGenerating) return;
   const input = document.getElementById("prompt-input");
   const text = input.value.trim();
   if (!text) return;
@@ -843,6 +852,15 @@ async function sendPrompt() {
 
   setRunningState(true);
   currentAbortController = new AbortController();
+
+  let elapsedSec = 0;
+  if (responseTimer) clearInterval(responseTimer);
+  responseTimer = setInterval(() => {
+    elapsedSec++;
+    if (contentEl && contentEl.innerText.startsWith("Generating response")) {
+      contentEl.innerText = `Generating response... (${elapsedSec}s)`;
+    }
+  }, 1000);
 
   let accumulatedContent = "";
   let accumulatedReasoning = "";
@@ -900,23 +918,27 @@ async function sendPrompt() {
 
         if (evType === "start") {
           metaEl.innerText = `${parsed.model_used || "STREAMING"} [${parsed.provider || "Active"}]`;
-          if (contentEl.innerText === "Generating response...") {
+          if (contentEl.innerText.startsWith("Generating response")) {
             contentEl.innerHTML = "";
           }
         } else if (evType === "reasoning") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
           accumulatedReasoning += parsed.delta || "";
           reasoningBox.style.display = "block";
           reasoningContent.innerText = accumulatedReasoning;
         } else if (evType === "delta") {
-          if (contentEl.innerText === "Generating response...") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+          if (contentEl.innerText.startsWith("Generating response")) {
             contentEl.innerHTML = "";
           }
           accumulatedContent += parsed.delta || "";
           contentEl.innerHTML = renderMarkdown(accumulatedContent);
         } else if (evType === "done") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
           metaEl.innerText = `${parsed.model_used || target} (${parsed.latency_ms || 0} ms)`;
           contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(No response text)");
         } else if (evType === "error") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
           metaEl.className = "meta-tag meta-error";
           metaEl.innerText = "ERROR";
           contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${parsed.error}</div>`;
@@ -930,6 +952,7 @@ async function sendPrompt() {
     chatHistory.push({ role: "assistant", content: accumulatedContent });
 
   } catch(err) {
+    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
     if (err.name === "AbortError") {
       metaEl.innerText += " (Stopped)";
     } else {
@@ -938,6 +961,7 @@ async function sendPrompt() {
       contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${err.message}</div>`;
     }
   } finally {
+    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
     setRunningState(false);
     currentAbortController = null;
     chatLog.scrollTop = chatLog.scrollHeight;
@@ -1192,7 +1216,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             method="POST",
         )
 
-        with urllib.request.urlopen(req, timeout=60.0) as resp:
+        with urllib.request.urlopen(req, timeout=120.0) as resp:
             for raw_line in resp:
                 line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line or not line.startswith("data:"):
@@ -1230,7 +1254,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
+            with urllib.request.urlopen(req, timeout=120.0) as resp:
                 for raw_line in resp:
                     line = raw_line.decode("utf-8", errors="replace").strip()
                     if not line:
