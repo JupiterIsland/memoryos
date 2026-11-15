@@ -26,7 +26,21 @@
 ### 2. One-Command DigitalOcean Droplet Deployment
 * Added [installer/deploy-digitalocean.sh](installer/deploy-digitalocean.sh) (Linux / WSL2) and [installer/Deploy-DigitalOcean.ps1](installer/Deploy-DigitalOcean.ps1) (Windows PowerShell) to provision an Ubuntu 24.04 Droplet (`--create-droplet` / `-CreateDroplet`) or deploy to an existing Droplet IP over Ed25519 SSH and start `memoryos-quiet-advisor.service` on port `80`.
 
-### 3. Cleaned & Credible Release Documentation
+### 3. Multi-Vendor GPU & Console Companion Prototype (`src/memoryos/gpu_backends.py`)
+* **Status:** Early Experimental Prototype on `beta`.
+* **Implemented Capabilities:**
+  * **NVIDIA:** Queries `nvidia-smi` directly for live GPU name, VRAM (total/used/free), utilization, temperature, and power draw.
+  * **AMD:** Probes Linux `/sys/class/drm/card*/device/` sysfs entries for vendor ID (`0x1002`) and VRAM usage.
+  * **Handheld Form-Factor:** Checks Linux `/sys/class/dmi/id/product_name` for device strings (`jupiter`, `galileo`, `rog ally`, `legion go`).
+  * **Console Companion Gate Scaffolding:** `ConsoleCompanionManager` tracks frame count and applies the `d3` MSE threshold logic to incoming frame deltas.
+  * **CLI Integration:** Wired `MultiGPUDetector` into `memoryos hw` (`src/memoryos/cli.py`) so hardware probes utilize the unified detector.
+* **Explicit Limitations & Future Scope:**
+  * *AMD ROCm:* Probes sysfs directly; does not yet invoke `rocm-smi` directly in `MultiGPUDetector`.
+  * *Intel Arc/Iris:* DirectML and Intel-specific GPU telemetry endpoints are not yet implemented in this module.
+  * *Handheld Memory:* Handheld APUs currently report an assumed 16 GB unified memory baseline rather than querying dynamic OS-reported shared VRAM allocations.
+  * *Console Capture I/O:* Currently evaluates numerical MSE deltas; it does not yet open a live V4L2 video capture handle or parse proprietary Remote Play protocol streams. The `0.092 ms` label references the verified Zen 3 CPU benchmark rather than an inline runtime measurement of this wrapper class.
+
+### 4. Cleaned & Credible Release Documentation
 * Rewrote [RELEASE_NOTES.md](RELEASE_NOTES.md) with an **At a Glance** summary, explicit **Measured vs. Modeled** benchmark methodology, **Known Limitations**, beginner-friendly **Quick Start**, and **Roadmap**.
 
 ---

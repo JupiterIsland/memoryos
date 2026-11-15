@@ -20,6 +20,18 @@ from memoryos.core.writer import create_decision_adr
 
 def detect_gpu():
     try:
+        from memoryos.gpu_backends import MultiGPUDetector
+        prof = MultiGPUDetector.get_active_profile()
+        if prof.vendor == "nvidia":
+            return f"NVIDIA: {prof.device_name}"
+        elif prof.vendor == "amd":
+            return f"AMD: {prof.device_name}"
+        elif prof.vendor == "handheld_apu":
+            return f"Handheld APU: {prof.device_name}"
+    except Exception:
+        pass
+
+    try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
             capture_output=True,
