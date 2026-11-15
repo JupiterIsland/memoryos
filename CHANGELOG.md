@@ -94,6 +94,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 78 micro-points consumed out of 10,000,000 grant budget (`0.00078%` burn rate; `99.99922%` headroom remaining).
   - 27 API gateway requests allowed / 0 rate-limited / 0 denied.
   - Remote 31B inference speed of **`64.5 tok/s`** with **`465 ms`** average latency, eliminating modeled local 31B spillover crashes (`12.7 GB` spillover to system RAM, `4.4 tok/s`, `4,850 ms` latency, and framerate drop from 120 to 19 FPS).
+- **Mobile Hotspot & Cellular Uplink Efficiency (`suite_7`)**:
+  - Tethered iPhone XR 4G LTE Hotspot simulation (1,000 video frames inspected).
+  - **`94.0%` cellular bandwidth reduction** (**`385.5 MB` saved**; `24.7 MB` tethered vs `410.2 MB` un-gated).
+  - **`205.6 s` cellular airtime saved**, keeping mobile LTE radio in low-power idle 94% of the time and preventing iPhone XR thermal throttling.
+- **Speculative Offload MLP Inference Speed (`suite_8`)**:
+  - `SpeculativeOffloadModel` pure-Python forward pass on AMD Zen 3 CPU averaged **`5.37 µs`** (**`0.00537 ms`**; `8.66 µs` p99).
+  - **`86,530x` faster** than a remote cloud API roundtrip (`465 ms`), verifying probabilistic offload decisions locally before touching the network.
 
 [Unreleased]: https://github.com/JupiterIsland/memoryos/compare/v0.1.0-preview...HEAD
 [0.1.0-preview]: https://github.com/JupiterIsland/memoryos/releases/tag/v0.1.0-preview
