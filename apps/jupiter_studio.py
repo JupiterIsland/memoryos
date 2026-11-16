@@ -99,14 +99,23 @@ HTML_PAGE = r"""<!DOCTYPE html>
   }
   .logo-badge {
     width: 38px; height: 38px;
-    background: radial-gradient(circle, var(--orange) 0%, #b34700 100%);
-    border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 19px; color: #fff;
-    box-shadow: 0 0 16px rgba(255, 106, 0, 0.35);
+    border-radius: 9px;
+    box-shadow: 0 0 16px rgba(255, 106, 0, 0.25);
   }
-  .brand h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; }
   .brand p { font-size: 11px; color: var(--muted); }
+  .rc-pill {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(237, 28, 36, 0.18);
+    border: 1px solid rgba(237, 28, 36, 0.45);
+    color: #ff4d4f;
+    margin-left: 6px;
+  }
   .section-title {
     font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px;
     display: flex; justify-content: space-between; align-items: center;
@@ -402,10 +411,30 @@ HTML_PAGE = r"""<!DOCTYPE html>
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="brand">
-      <div class="logo-badge">J</div>
+      <div class="logo-badge" title="Jupiter Studio RC1 — Powered by AMD Token Lab">
+        <svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+          <defs>
+            <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF8A00"/>
+              <stop offset="100%" stop-color="#E52E71"/>
+            </linearGradient>
+            <linearGradient id="ringG" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#38BDF8"/>
+              <stop offset="50%" stop-color="#A855F7"/>
+              <stop offset="100%" stop-color="#FF8A00"/>
+            </linearGradient>
+          </defs>
+          <rect width="40" height="40" rx="9" fill="#0d1424" stroke="#1e2942" stroke-width="1.2"/>
+          <g transform="translate(20, 20) rotate(-22)">
+            <ellipse cx="0" cy="0" rx="14" ry="4" fill="none" stroke="url(#ringG)" stroke-width="1.6"/>
+            <circle cx="0" cy="0" r="7" fill="url(#orbGrad)"/>
+            <ellipse cx="2.5" cy="1" rx="1.5" ry="0.9" fill="#991B1B"/>
+          </g>
+        </svg>
+      </div>
       <div>
-        <h1>Jupiter Studio</h1>
-        <p>MemoryOS Hybrid Workstation</p>
+        <h1>Jupiter Studio <span class="rc-pill">RC1</span></h1>
+        <p>MemoryOS Hybrid Workstation // AMD Token Lab</p>
       </div>
     </div>
 

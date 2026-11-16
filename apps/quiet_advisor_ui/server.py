@@ -54,8 +54,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
     gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
   }
-  .brand h1 { margin: 0; font-size: 20px; letter-spacing: 0.8px; color: var(--cyan); }
-  .brand p { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-logo-mark { width: 42px; height: 42px; flex-shrink: 0; }
+  .brand-headings h1 { margin: 0; font-size: 19px; letter-spacing: 0.8px; color: var(--cyan); display: flex; align-items: center; gap: 8px; }
+  .brand-headings p { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+  .badge-rc { font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 2px 6px; border-radius: 4px; background: rgba(237, 28, 36, 0.2); border: 1px solid #ED1C24; color: #ff5252; text-transform: uppercase; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   button {
     border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
@@ -159,8 +162,33 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <body>
   <div class="topbar">
     <div class="brand">
-      <h1>MEMORYOS // THE QUIET ADVISOR</h1>
-      <p id="dbMeta">Loading SQLite &amp; Token Lab state...</p>
+      <div class="brand-logo-mark" title="MemoryOS // The Quiet Advisor — Powered by AMD Token Lab">
+        <svg viewBox="0 0 42 42" width="42" height="42" aria-hidden="true">
+          <defs>
+            <linearGradient id="qaRed" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF334B"/>
+              <stop offset="100%" stop-color="#ED1C24"/>
+            </linearGradient>
+            <linearGradient id="qaCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38BDF8"/>
+              <stop offset="100%" stop-color="#0284C7"/>
+            </linearGradient>
+          </defs>
+          <rect width="42" height="42" rx="9" fill="#0b101c" stroke="#1f2942" stroke-width="1.2"/>
+          <g transform="translate(21, 20)">
+            <path d="M 0,11 L 10,5 L 10,-2 L 0,4 Z" fill="#0f172a" stroke="#1e293b" stroke-width="0.8"/>
+            <path d="M 0,11 L -10,5 L -10,-2 L 0,4 Z" fill="#090d16" stroke="#1e293b" stroke-width="0.8"/>
+            <path d="M 0,5 L 9,0 L 0,-5 L -9,0 Z" fill="#07090f" stroke="url(#qaCyan)" stroke-width="1.2"/>
+            <path d="M -7,-2 L 0,-6 L 0,-12 L -7,-8 Z" fill="url(#qaRed)"/>
+            <path d="M 0,-6 L 7,-2 L 7,-8 L 0,-12 Z" fill="url(#qaCyan)"/>
+            <path d="M 0,-14 L 3.5,-12 L 0,-10 L -3.5,-12 Z" fill="#FFFFFF"/>
+          </g>
+        </svg>
+      </div>
+      <div class="brand-headings">
+        <h1>MEMORYOS // THE QUIET ADVISOR <span class="badge-rc">AMD RC1</span></h1>
+        <p id="dbMeta">Loading SQLite &amp; Token Lab state...</p>
+      </div>
     </div>
     <div class="controls">
       <div id="liveBadges" style="display:flex; gap:8px; margin-right:12px; align-items:center;"></div>

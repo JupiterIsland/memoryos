@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="jupBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e1322"/>
+      <stop offset="100%" stop-color="#05070c"/>
+    </linearGradient>
+    <linearGradient id="jupOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A00"/>
+      <stop offset="100%" stop-color="#E52E71"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#FF8A00"/>
+    </linearGradient>
+    <filter id="jupGlow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="100" fill="url(#jupBg)" stroke="#1e2942" stroke-width="4"/>
+
+  <!-- Orbital Rings -->
+  <g transform="translate(256, 240) rotate(-22)" filter="url(#jupGlow)">
+    <ellipse cx="0" cy="0" rx="190" ry="52" fill="none" stroke="url(#ringGrad)" stroke-width="6" opacity="0.85"/>
+    <ellipse cx="0" cy="0" rx="160" ry="40" fill="none" stroke="#38BDF8" stroke-width="2" stroke-dasharray="6 8" opacity="0.6"/>
+
+    <!-- Central Jupiter Core -->
+    <circle cx="0" cy="0" r="88" fill="url(#jupOrange)"/>
+
+    <!-- Atmosphere Bands -->
+    <path d="M -80,-25 Q 0,-45 80,-25" fill="none" stroke="#FFFFFF" stroke-width="4" opacity="0.4"/>
+    <path d="M -86,0 Q 0,-15 86,0" fill="none" stroke="#3B0764" stroke-width="6" opacity="0.35"/>
+    <path d="M -82,28 Q 0,10 82,28" fill="none" stroke="#FDE047" stroke-width="5" opacity="0.45"/>
+
+    <!-- Great Red / Crimson AI Core -->
+    <ellipse cx="36" cy="18" rx="20" ry="12" fill="#991B1B" opacity="0.85"/>
+  </g>
+
+  <!-- High-Tech Studio Badge -->
+  <g transform="translate(256, 440)" text-anchor="middle">
+    <rect x="-130" y="-18" width="260" height="34" rx="17" fill="#090d16" stroke="#FF8A00" stroke-width="1.5"/>
+    <text x="0" y="5" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="800" letter-spacing="3">JUPITER STUDIO</text>
+  </g>
+</svg>
