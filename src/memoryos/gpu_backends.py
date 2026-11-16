@@ -40,8 +40,8 @@ class MultiGPUDetector:
     """Detects active graphics hardware and handles vendor-specific policies."""
 
     @staticmethod
-    def detect_nvidia() -> Optional[HardwareProfile]:
-        """Detect NVIDIA GPU via nvidia-smi if available."""
+    def detect_nvidia(device_index: int = 0) -> Optional[HardwareProfile]:
+        """Detect NVIDIA GPU via nvidia-smi if available for the specified device index."""
         smi = shutil.which("nvidia-smi") or shutil.which("nvidia-smi.exe")
         if not smi:
             # Check default Windows path
@@ -60,7 +60,10 @@ class MultiGPUDetector:
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
             if res.returncode == 0 and res.stdout.strip():
-                parts = [p.strip() for p in res.stdout.strip().splitlines()[0].split(",")]
+                lines = [ln.strip() for ln in res.stdout.strip().splitlines() if ln.strip()]
+                if not (0 <= device_index < len(lines)):
+                    return None
+                parts = [p.strip() for p in lines[device_index].split(",")]
                 if len(parts) >= 5:
                     name = parts[0]
                     total = int(float(parts[1]))
@@ -134,12 +137,12 @@ class MultiGPUDetector:
         return False
 
     @classmethod
-    def get_active_profile(cls) -> HardwareProfile:
+    def get_active_profile(cls, device_index: int = 0) -> HardwareProfile:
         """Probe all backends and return the primary active profile."""
         is_handheld = cls.detect_handheld_formfactor()
 
         # 1. Try NVIDIA
-        nv = cls.detect_nvidia()
+        nv = cls.detect_nvidia(device_index=device_index)
         if nv:
             nv.is_handheld = is_handheld
             return nv
@@ -186,7 +189,7 @@ class ConsoleCompanionManager:
             "mode": self.mode,
             "target_console": "PlayStation 5 / Xbox Series X / Nintendo Switch",
             "capture_device": f"/dev/video{self.capture_device_id}" if os.name != "nt" else f"Video Device {self.capture_device_id}",
-            "d3_frame_skip_gate": "0.092ms Zen 3 AVX2 Active",
+            "d3_frame_skip_gate": "0.091ms Zen 3 AVX2 Active",
             "vram_overhead_on_console": "0 MB (Runs on host Companion PC)",
         }
 

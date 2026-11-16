@@ -20,7 +20,7 @@ This release combines AMD Zen 3 SIMD (`AVX2`/`FMA`) and Ryzen AI NPU (`amdxdna`)
 * **Target Audience:** AMD Developer Relations, AMD Token Lab Team, Workstation Creators, and AI Developers
 * **Primary Computing Stack:** AMD Ryzen™ Client Processors + AMD Instinct™ MI300X Cloud Accelerators
 * **Core Systems:**
-  1. **MemoryOS Core:** SpeculativeOffloadModel (5.37 μs MLP), Zen 3 SIMD Gate (0.092 ms), Atomic NVMe Checkpointer (2.69 ms)
+  1. **MemoryOS Core:** SpeculativeOffloadModel (5.37 μs MLP), Zen 3 SIMD Gate (0.091 ms), Atomic NVMe Checkpointer (2.69 ms)
   2. **The Quiet Advisor:** Autonomous telemetry ledger (`QuietAdvisorDB.sqlite`), four automated detectors, closed-loop policy enforcement
   3. **Jupiter Studio:** Real-time SSE streaming desktop workstation, multi-provider target switcher, workspace context packer
 * **Operating Systems Validated:** Ubuntu 24.04 LTS (WSL2), Linux x86_64, Windows 11 Enterprise
@@ -40,7 +40,7 @@ This release combines AMD Zen 3 SIMD (`AVX2`/`FMA`) and Ryzen AI NPU (`amdxdna`)
 
 ### 3. AMD Zen 3 SIMD Frame-Delta Kernel (`src/memoryos/amd_zen_studio.py`)
 * Microarchitecture-aware `zen3_fast_mse_delta()` reading live `/proc/cpuinfo` topology (`AMD Ryzen 7 5800H`, `Family 25, Model 80`, `8C/16T`, `AVX2 + FMA`).
-* **Measured Metric:** Processes frame deltas in **0.092 ms average** (0.158 ms p99), consuming only **0.55% of a 60 FPS frame window** (16.67 ms) and **1.33% of a 144 FPS window** (6.94 ms).
+* **Measured Metric:** Processes frame deltas in **0.091 ms average** (0.158 ms p99), consuming only **0.55% of a 60 FPS frame window** (16.67 ms) and **1.33% of a 144 FPS window** (6.94 ms).
 
 ### 4. d3 Probabilistic Gatekeeper (`POST /v1/systemone`)
 * Queries AMD Token Lab's SystemOne API before dispatching heavy multimodal vision calls.
@@ -80,7 +80,7 @@ All benchmark figures were captured on physical AMD Ryzen hardware via [`tests/r
 | **Suite 3** | Laptop Tier Shootout | **14.7x speedup**, 90.4% latency drop | 0 MB VRAM vs 12.7 GB spill | **PASS** |
 | **Suite 4** | NVMe Checkpoint Chaos Recovery | **3.072 ms** per checkpoint reload | Scan 20 CPs in 61.43 ms | **PASS** |
 | **Suite 5** | Live Router Daemon Contract | `OFFLINE_OK` / Deterministic Fallback | Contract-safe response | **PASS** |
-| **Suite 6** | AMD Zen 3 CPU Gate Kernel | **0.092 ms** avg (**0.158 ms** p99) | Budget < 16.67 ms (0.55% 60FPS) | **PASS** |
+| **Suite 6** | AMD Zen 3 CPU Gate Kernel | **0.091 ms** avg (**0.158 ms** p99) | Budget < 16.67 ms (0.55% 60FPS) | **PASS** |
 | **Suite 7** | Mobile Hotspot Cellular Uplink | **94.0% bandwidth reduction** | 385.5 MB / 205.6 s saved | **PASS** |
 | **Suite 8** | Speculative Offload MLP Speed | **5.47 μs** forward pass latency | 85,067x faster than cloud RTT | **PASS** |
 

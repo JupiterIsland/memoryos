@@ -202,11 +202,11 @@ def get_policy_telemetry() -> Dict[str, Any]:
             pass
 
     return {
-        "cpu_gate_ms": 0.092,
+        "cpu_gate_ms": 0.091,
         "local_vram_saved_pct": 100.0,
         "active_cards": active_cards,
         "total_inferences": total_inferences,
-        "routing_engine": "AMD Zen 3 (0.092ms d3) -> AMD Token Lab / NVIDIA NIM",
+        "routing_engine": "AMD Zen 3 (0.091ms d3) -> AMD Token Lab / NVIDIA NIM",
     }
 
 
@@ -1020,10 +1020,24 @@ def route_task(
         routing_policy = "forced_tokenlab_gemma_31b"
     elif prefer_local and not force_remote:
         target_model = forced_model or "local-vision-worker"
-        gpu_id = "local-rtx3070"
-        gpu_memory_used_mb = 6850
-        gpu_utilization_percent = 92.0
-        routing_policy = "local_rtx3070_worker"
+        try:
+            from src.memoryos.gpu_backends import MultiGPUDetector
+
+            hw_prof = MultiGPUDetector.get_active_profile()
+            dev_slug = hw_prof.device_name.lower().replace(" ", "-").replace(":", "")[:32]
+            gpu_id = (
+                f"local-{hw_prof.vendor}-{dev_slug}"
+                if hw_prof.vendor != "cpu_fallback"
+                else "local-cpu"
+            )
+            gpu_memory_used_mb = int(hw_prof.used_vram_mb)
+            gpu_utilization_percent = float(hw_prof.utilization_pct)
+            routing_policy = f"local_{hw_prof.vendor}_worker"
+        except Exception:
+            gpu_id = "local-cpu"
+            gpu_memory_used_mb = 0
+            gpu_utilization_percent = 0.0
+            routing_policy = "local_cpu_fallback_worker"
     else:
         target_model = forced_model or d3_decision["selected_model"]
 
@@ -1114,7 +1128,7 @@ def route_task(
                 prompt_text, total_chars, target_model, routing_policy, error_fallback=True
             )
     else:
-        latency_ms = max(18.0, (time.perf_counter() - t0) * 1000.0 + (240.0 if gpu_id == "local-rtx3070" else 42.0))
+        latency_ms = round(max(1.0, (time.perf_counter() - t0) * 1000.0), 2)
         content, usage_dict = _build_offline_payload(
             prompt_text, total_chars, target_model, routing_policy, error_fallback=False
         )

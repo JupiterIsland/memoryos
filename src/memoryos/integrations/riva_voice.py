@@ -32,80 +32,127 @@ class VoiceConfig:
     enable_tts: bool = True
     enable_stt: bool = True
     audio_output_path: Optional[str] = None
+    allow_simulation: bool = False
 
 
 class RivaVoiceClient:
     """
     NVIDIA Riva voice client for MemoryOS.
-    Provides TTS and STT capabilities for memory interactions.
+    Uses riva.client gRPC when installed and reachable; explicitly marks unavailable or simulated mode otherwise.
     """
-    
-    def __init__(self, 
-                 riva_server_url: str = None,
-                 config: VoiceConfig = None):
+
+    def __init__(
+        self,
+        riva_server_url: str = None,
+        config: VoiceConfig = None,
+        allow_simulation: Optional[bool] = None,
+    ):
         """
         Initialize Riva voice client.
-        
+
         Args:
             riva_server_url: RIVA server endpoint (default: localhost:50051)
             config: VoiceConfig object for customization
+            allow_simulation: Explicitly allow offline demo simulation (default: False)
         """
         self.riva_url = riva_server_url or os.getenv("RIVA_SERVER_URL", "localhost:50051")
         self.config = config or VoiceConfig()
+        if allow_simulation is not None:
+            self.config.allow_simulation = bool(allow_simulation)
+        elif os.getenv("RIVA_ALLOW_SIMULATION", "").strip().lower() in ("1", "true", "yes"):
+            self.config.allow_simulation = True
+
         self.audio_queue = queue.Queue()
         self.is_listening = False
-        
-        print(f"[Riva] Initialized. Server: {self.riva_url}")
-        print(f"[Riva] Voice: {self.config.voice_name} | Sample Rate: {self.config.sample_rate}Hz")
-    
+        self._riva_client = None
+        self.riva_available = False
+
+        try:
+            import riva.client  # type: ignore
+            self._riva_client = riva.client
+            self.riva_available = True
+            print(f"[Riva] gRPC client loaded. Server: {self.riva_url}")
+        except ImportError:
+            mode_label = "simulated" if self.config.allow_simulation else "unavailable"
+            print(f"[Riva] nvidia-riva-client not installed; voice backend mode={mode_label} ({self.riva_url})")
+
+    def get_backend_status(self) -> Dict:
+        """Return explicit availability/simulation state for NVIDIA Riva."""
+        return {
+            "available": self.riva_available,
+            "simulated": (not self.riva_available) and self.config.allow_simulation,
+            "mode": "live" if self.riva_available else ("simulated" if self.config.allow_simulation else "unavailable"),
+            "server": self.riva_url,
+            "voice_name": self.config.voice_name,
+        }
+
     def text_to_speech(self, text: str, save_path: Optional[str] = None) -> bytes:
         """
         Convert text to speech using NVIDIA Riva.
-        
-        Args:
-            text: Text to synthesize
-            save_path: Optional path to save audio file
-        
-        Returns:
-            Raw audio bytes (PCM)
+
+        Returns empty bytes when Riva is unavailable unless allow_simulation=True.
         """
-        print(f"[TTS] Synthesizing: '{text[:100]}...'")
-        
-        # In production, this calls Riva gRPC API:
-        # client = riva.client.SpeechSynthesisServiceClient("grpc://localhost:50051")
-        # response = client.synthesize(text, voice_name=self.config.voice_name)
-        
-        # For demo, simulate audio generation
+        if self.riva_available and self._riva_client is not None:
+            try:
+                auth = self._riva_client.Auth(uri=self.riva_url)
+                tts_service = self._riva_client.SpeechSynthesisService(auth)
+                resp = tts_service.synthesize(
+                    text,
+                    voice_name=self.config.voice_name,
+                    language_code=self.config.language_code,
+                    sample_rate_hz=self.config.sample_rate,
+                )
+                audio_data = bytes(resp.audio)
+                if save_path:
+                    self._save_audio(audio_data, save_path)
+                return audio_data
+            except Exception as exc:
+                print(f"[Riva TTS] gRPC call failed ({exc})")
+                if not self.config.allow_simulation:
+                    return b""
+
+        if not self.config.allow_simulation:
+            print("[Riva TTS] Unavailable (simulation disabled).")
+            return b""
+
+        print(f"[Riva:SIMULATED TTS] '{text[:100]}...'")
         audio_data = self._simulate_audio_synthesis(text)
-        
         if save_path:
             self._save_audio(audio_data, save_path)
-            print(f"[TTS] Saved to {save_path}")
-        
         return audio_data
-    
+
     def speech_to_text(self, audio_path: str) -> str:
         """
         Convert speech to text using NVIDIA Riva.
-        
-        Args:
-            audio_path: Path to audio file
-        
-        Returns:
-            Transcribed text
+
+        Returns empty string when Riva is unavailable unless allow_simulation=True.
         """
-        print(f"[STT] Transcribing: {audio_path}")
-        
-        # In production, this calls Riva gRPC API:
-        # with open(audio_path, 'rb') as f:
-        #     audio_data = f.read()
-        # client = riva.client.SpeechRecognitionServiceClient("grpc://localhost:50051")
-        # response = client.recognize(audio=audio_data)
-        
-        # For demo, simulate transcription
+        if self.riva_available and self._riva_client is not None:
+            try:
+                auth = self._riva_client.Auth(uri=self.riva_url)
+                asr_service = self._riva_client.ASRService(auth)
+                with open(audio_path, "rb") as f:
+                    audio_data = f.read()
+                cfg = self._riva_client.RecognitionConfig(
+                    language_code=self.config.language_code,
+                    max_alternatives=1,
+                    enable_automatic_punctuation=True,
+                )
+                resp = asr_service.offline_recognize(audio_data, cfg)
+                if resp.results:
+                    return resp.results[0].alternatives[0].transcript
+                return ""
+            except Exception as exc:
+                print(f"[Riva STT] gRPC call failed ({exc})")
+                if not self.config.allow_simulation:
+                    return ""
+
+        if not self.config.allow_simulation:
+            print("[Riva STT] Unavailable (simulation disabled).")
+            return ""
+
         transcription = self._simulate_speech_recognition(audio_path)
-        
-        print(f"[STT] Transcribed: '{transcription}'")
+        print(f"[Riva:SIMULATED STT] '{transcription}'")
         return transcription
     
     def narrate_memory(self, memory_block: Dict) -> str:
@@ -137,22 +184,15 @@ class RivaVoiceClient:
     def listen_for_command(self, timeout_seconds: float = 10.0) -> str:
         """
         Listen for voice command with timeout.
-        
-        Args:
-            timeout_seconds: Seconds to listen before timing out
-        
-        Returns:
-            Recognized command text
+
+        Returns empty string when Riva is unavailable unless allow_simulation=True.
         """
+        if not self.riva_available and not self.config.allow_simulation:
+            print("[Riva Listen] Unavailable (simulation disabled).")
+            return ""
+
         print(f"[Listen] Listening for command... (timeout: {timeout_seconds}s)")
-        
-        # In production:
-        # streaming_config = riva.client.StreamingRecognitionConfig(...)
-        # responses = client.streaming_recognize(streaming_config, audio_generator())
-        
-        # For demo, simulate command recognition
-        command = self._simulate_listen(timeout_seconds)
-        return command
+        return self._simulate_listen(timeout_seconds)
     
     def _simulate_audio_synthesis(self, text: str) -> bytes:
         """Simulate audio synthesis for demo."""

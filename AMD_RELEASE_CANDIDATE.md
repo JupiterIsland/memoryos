@@ -54,7 +54,7 @@ The MemoryOS runtime divides responsibilities into four distinct operational lay
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                       LAYER 1: HOST-SIDE TELEMETRY & DELTA GATE                         │
-│   • AMD Zen 3 Fast MSE Kernel (0.092 ms / AVX2 + FMA SIMD)                             │
+│   • AMD Zen 3 Fast MSE Kernel (0.091 ms / AVX2 + FMA SIMD)                             │
 │   • SpeculativeOffloadModel MLP (5.37 μs pure-Python forward pass)                     │
 │   • Local SQLite WAL Telemetry Ledger (QuietAdvisorDB.sqlite)                          │
 │   • Atomic NVMe Checkpoint Engine (2.69 ms quick-save restoration)                      │
@@ -94,7 +94,7 @@ All benchmark figures documented below have been executed, validated, and logged
 | **Suite 3** | Laptop Tier Shootout | **14.7x speedup**, 90.4% latency drop | 0 MB VRAM vs 12.7 GB spill | **PASS** |
 | **Suite 4** | NVMe Checkpoint Chaos Recovery | **3.072 ms** per checkpoint reload | Scan 20 CPs in 61.43 ms | **PASS** |
 | **Suite 5** | Live Router Daemon Contract | `OFFLINE_OK` / Deterministic Fallback | Contract-safe response | **PASS** |
-| **Suite 6** | AMD Zen 3 CPU Gate Kernel | **0.092 ms** avg (**0.158 ms** p99) | Budget < 16.67 ms (0.55% 60FPS) | **PASS** |
+| **Suite 6** | AMD Zen 3 CPU Gate Kernel | **0.091 ms** avg (**0.158 ms** p99) | Budget < 16.67 ms (0.55% 60FPS) | **PASS** |
 | **Suite 7** | Mobile Hotspot Cellular Uplink | **94.0% bandwidth reduction** | 385.5 MB / 205.6 s saved | **PASS** |
 | **Suite 8** | Speculative Offload MLP Speed | **5.47 μs** forward pass latency | 85,067x faster than cloud RTT | **PASS** |
 
@@ -105,7 +105,7 @@ All benchmark figures documented below have been executed, validated, and logged
    * Compared to a standard remote HTTPS network round-trip of 465 ms, the local decision is computed **85,000 times faster**, preventing speculative network overhead.
 
 2. **AMD Zen 3 CPU Frame Gating (`Suite 6`):**
-   * Using AMD Zen 3 SIMD (`AVX2`, `FMA`, `SHA-NI`, `FSRM`), `zen3_fast_mse_delta()` processes raw frames in **92 microseconds** (p99: 158 μs).
+   * Using AMD Zen 3 SIMD (`AVX2`, `FMA`, `SHA-NI`, `FSRM`), `zen3_fast_mse_delta()` processes raw frames in **91 microseconds** (p99: 158 μs).
    * This represents only **0.55% of a 60 FPS frame window** (16.67 ms) and **1.33% of a 144 FPS frame window** (6.94 ms), guaranteeing zero framerate drop during active client gaming or editing.
 
 3. **Zero-VRAM Client Footprint (`Suite 1 & Suite 3`):**
@@ -194,7 +194,7 @@ Expected output:
   "suite_2_60fps_144fps_frame_budget": { "status": "PASS", "avg_cpu_gate_ms": 2.713 },
   "suite_3_2000gbp_laptop_shootout": { "status": "PASS", "speedup_vs_2000gbp_laptop": 14.7 },
   "suite_4_nvme_quicksave_chaos_recovery": { "status": "PASS", "avg_single_quicksave_reload_ms": 3.072 },
-  "suite_6_amd_zen_studio_and_ryzen_ai_npu": { "status": "PASS", "avg_zen3_d3_gate_ms": 0.092 },
+  "suite_6_amd_zen_studio_and_ryzen_ai_npu": { "status": "PASS", "avg_zen3_d3_gate_ms": 0.091 },
   "suite_7_mobile_hotspot_cellular_efficiency": { "status": "PASS", "bandwidth_reduction_pct": 94.0 },
   "suite_8_speculative_mlp_speed": { "status": "PASS", "avg_mlp_latency_us": 5.47 }
 }

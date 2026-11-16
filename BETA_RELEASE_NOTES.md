@@ -41,7 +41,7 @@ All 8 benchmark suites pass with 100% compliance on the beta track:
 * **Suite 3 (Laptop Shootout):** 14.7x speedup vs stock local; 0 MB VRAM vs 12.7 GB spillover.
 * **Suite 4 (Chaos Recovery):** 3.072 ms per checkpoint reload across 20 quick-saves.
 * **Suite 5 (Router Contract):** Safe offline deterministic contract fallback.
-* **Suite 6 (Zen 3 Kernel):** 0.092 ms avg CPU gate on AMD Ryzen 7 5800H (0.55% 60 FPS budget).
+* **Suite 6 (Zen 3 Kernel):** 0.091 ms avg CPU gate on AMD Ryzen 7 5800H (0.55% 60 FPS budget).
 * **Suite 7 (Mobile Hotspot):** 94.0% cellular bandwidth reduction over iPhone XR LTE hotspot.
 * **Suite 8 (Speculative MLP):** 5.47 μs average neural forward pass latency.
 

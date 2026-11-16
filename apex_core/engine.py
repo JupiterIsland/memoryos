@@ -43,38 +43,72 @@ class InferenceMetrics:
 
 
 class GPUContextManager:
-    """Manages GPU device context and CUDA/ROCm routing."""
-    
-    def __init__(self):
+    """Manages GPU device selection (CUDA / Apple MPS / CPU; ROCm via PyTorch HIP) and separated telemetry."""
+
+    def __init__(self, device_index: int = 0):
         self.device_type = self._detect_gpu_type()
         self.device_count = self._get_device_count()
-        self.current_device = 0
-        
+        if self.device_type == "cuda" and self.device_count > 0:
+            if not (0 <= device_index < self.device_count):
+                raise ValueError(
+                    f"Invalid CUDA device_index={device_index}; available devices: 0..{self.device_count - 1}"
+                )
+        self.current_device = device_index if self.device_type == "cuda" else 0
+
         logger.info(f"GPU Backend: {self.device_type}")
-        logger.info(f"Device Count: {self.device_count}")
-    
+        logger.info(f"Device Count: {self.device_count} | Active Index: {self.current_device}")
+
     def _detect_gpu_type(self) -> str:
         """Detect available GPU backend."""
         if not TORCH_AVAILABLE:
             return "cpu"
-        
+
         if torch.cuda.is_available():
             return "cuda"
-        elif torch.backends.mps.is_available():
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return "mps"
         else:
             return "cpu"
-    
+
     def _get_device_count(self) -> int:
         """Get number of available GPU devices."""
         if not TORCH_AVAILABLE:
             return 0
-            
+
         if self.device_type == "cuda":
             return torch.cuda.device_count()
-        else:
+        elif self.device_type == "mps":
             return 1
-    
+        return 0
+
+    def select_device(self, device_index: int) -> str:
+        """Select active GPU device index."""
+        if self.device_type == "cuda":
+            if not (0 <= device_index < self.device_count):
+                raise ValueError(
+                    f"Invalid CUDA device_index={device_index}; available devices: 0..{self.device_count - 1}"
+                )
+            self.current_device = device_index
+        return self.get_device()
+
+    def list_devices(self) -> List[Dict[str, object]]:
+        """Enumerate detected compute devices without hardcoding models."""
+        if self.device_type == "cuda" and TORCH_AVAILABLE:
+            devices = []
+            for idx in range(self.device_count):
+                try:
+                    props = torch.cuda.get_device_properties(idx)
+                    devices.append({
+                        "index": idx,
+                        "name": props.name,
+                        "total_mb": round(props.total_memory / (1024 * 1024), 2),
+                        "backend": "rocm_hip" if getattr(torch.version, "hip", None) else "cuda",
+                    })
+                except Exception:
+                    devices.append({"index": idx, "name": f"cuda:{idx}", "total_mb": None, "backend": "cuda"})
+            return devices
+        return [{"index": 0, "name": self.device_type, "total_mb": None, "backend": self.device_type}]
+
     def get_device(self) -> str:
         """Get current device string for model placement."""
         if self.device_type == "cuda":
@@ -83,28 +117,104 @@ class GPUContextManager:
             return "mps"
         else:
             return "cpu"
-    
-    def get_device_memory(self) -> float:
-        """Get available GPU memory in MB."""
-        if not TORCH_AVAILABLE or self.device_type != "cuda":
-            return 0.0
-        
+
+    def get_memory_stats(self) -> Dict[str, Optional[float]]:
+        """Return separated total, free, used, and PyTorch-allocator VRAM statistics (MB)."""
+        if self.device_type != "cuda" or not TORCH_AVAILABLE:
+            # Check nvidia-smi via MultiGPUDetector in case PyTorch CUDA isn't installed
+            try:
+                from src.memoryos.gpu_backends import MultiGPUDetector
+
+                nv = MultiGPUDetector.detect_nvidia(device_index=self.current_device)
+                if nv is not None:
+                    return {
+                        "available": True,
+                        "source": nv.telemetry_source,
+                        "total_mb": float(nv.total_vram_mb),
+                        "free_mb": float(nv.free_vram_mb),
+                        "used_mb": float(nv.used_vram_mb),
+                        "torch_allocated_mb": None,
+                        "torch_reserved_mb": None,
+                    }
+            except Exception:
+                pass
+            return {
+                "available": False,
+                "source": "unavailable",
+                "total_mb": None,
+                "free_mb": None,
+                "used_mb": None,
+                "torch_allocated_mb": None,
+                "torch_reserved_mb": None,
+            }
+
         try:
-            return torch.cuda.get_device_properties(self.current_device).total_memory / 1024 / 1024
-        except:
-            return 0.0
-    
-    def get_device_utilization(self) -> float:
-        """Get GPU utilization percentage."""
+            total_bytes = torch.cuda.get_device_properties(self.current_device).total_memory
+            free_bytes: Optional[int] = None
+            if hasattr(torch.cuda, "mem_get_info"):
+                free_b, total_b = torch.cuda.mem_get_info(self.current_device)
+                free_bytes = int(free_b)
+                total_bytes = int(total_b)
+
+            alloc_mb = round(torch.cuda.memory_allocated(self.current_device) / (1024 * 1024), 2)
+            reserved_mb = round(torch.cuda.memory_reserved(self.current_device) / (1024 * 1024), 2)
+            total_mb = round(total_bytes / (1024 * 1024), 2)
+            free_mb = round(free_bytes / (1024 * 1024), 2) if free_bytes is not None else None
+            used_mb = round(total_mb - free_mb, 2) if free_mb is not None else alloc_mb
+            return {
+                "available": True,
+                "source": "torch.cuda.mem_get_info" if free_mb is not None else "torch.cuda.allocator",
+                "total_mb": total_mb,
+                "free_mb": free_mb,
+                "used_mb": used_mb,
+                "torch_allocated_mb": alloc_mb,
+                "torch_reserved_mb": reserved_mb,
+            }
+        except Exception:
+            return {
+                "available": False,
+                "source": "error",
+                "total_mb": None,
+                "free_mb": None,
+                "used_mb": None,
+                "torch_allocated_mb": None,
+                "torch_reserved_mb": None,
+            }
+
+    def get_total_device_memory(self) -> float:
+        """Get total GPU VRAM capacity in MB (0.0 if unavailable)."""
+        stats = self.get_memory_stats()
+        return float(stats["total_mb"] or 0.0)
+
+    def get_device_memory(self) -> float:
+        """Get currently available (free) GPU memory in MB (0.0 if unavailable)."""
+        stats = self.get_memory_stats()
+        if stats["free_mb"] is not None:
+            return float(stats["free_mb"])
+        return float(stats["total_mb"] or 0.0)
+
+    def get_allocator_utilization(self) -> float:
+        """Get PyTorch CUDA allocator utilization percentage (allocated / reserved)."""
         if not TORCH_AVAILABLE or self.device_type != "cuda":
             return 0.0
-        
         try:
             allocated = torch.cuda.memory_allocated(self.current_device)
             reserved = torch.cuda.memory_reserved(self.current_device)
-            return (allocated / reserved * 100) if reserved > 0 else 0.0
-        except:
+            return round((allocated / reserved * 100.0), 2) if reserved > 0 else 0.0
+        except Exception:
             return 0.0
+
+    def get_device_utilization(self) -> float:
+        """Get whole-device GPU compute utilization percentage (0.0 if telemetry unavailable)."""
+        try:
+            from src.memoryos.gpu_backends import MultiGPUDetector
+
+            nv = MultiGPUDetector.detect_nvidia(device_index=self.current_device)
+            if nv is not None:
+                return float(nv.utilization_pct)
+        except Exception:
+            pass
+        return 0.0
 
 
 class ModelRouter:
@@ -293,11 +403,15 @@ class InferenceEngine:
     
     def get_tier_status(self) -> Dict:
         """Get current status of all memory tiers."""
+        mem_stats = self.gpu_manager.get_memory_stats()
         return {
             "hot_gpu": {
                 "device": self.gpu_manager.get_device(),
-                "total_memory_mb": self.gpu_manager.get_device_memory(),
+                "total_memory_mb": self.gpu_manager.get_total_device_memory(),
+                "free_memory_mb": self.gpu_manager.get_device_memory(),
+                "memory_stats": mem_stats,
                 "utilization_percent": self.gpu_manager.get_device_utilization(),
+                "allocator_utilization_percent": self.gpu_manager.get_allocator_utilization(),
                 "models_loaded": sum(1 for m in self.loaded_models.values() if m["tier"] == "hot")
             },
             "warm_cpu": {

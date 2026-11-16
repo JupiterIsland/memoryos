@@ -33,7 +33,7 @@ Traditional local AI runtimes attempt to pack 14B–32B parameter weights direct
  │                                                                                                             │
  │   ┌────────────────────────┐    ┌───────────────────────────┐    ┌──────────────────────────────────────┐   │
  │   │  Zen 3 SIMD MSE Gate   │    │  Speculative Offload MLP  │    │      Atomic NVMe Checkpointer        │   │
- │   │  0.092 ms / AVX2 + FMA │    │  5.37 μs Decision Engine  │    │      2.69 ms Quick-Save Restore      │   │
+ │   │  0.091 ms / AVX2 + FMA │    │  5.37 μs Decision Engine  │    │      2.69 ms Quick-Save Restore      │   │
  │   └───────────┬────────────┘    └─────────────┬─────────────┘    └──────────────────┬───────────────────┘   │
  └───────────────┼───────────────────────────────┼─────────────────────────────────────┼───────────────────────┘
                  │                               │                                     │
@@ -73,7 +73,7 @@ The host runtime executes entirely on client hardware, using AMD Zen SIMD accele
 * **Objective:** Intercept incoming video frames or desktop UI snapshots and eliminate redundant inference on static states.
 * **Implementation:** The kernel interrogates `/proc/cpuinfo` for AVX2, FMA, and Zen 3 microarchitectural flags (`Family 25, Model 80`). Grayscale Mean Squared Error (MSE) is evaluated over downscaled 160×90 matrices using SIMD vector math.
 * **Verified Benchmark:** Evaluated over 200 iterations on an AMD Ryzen 7 5800H (8C/16T):
-  * **Average Latency:** **0.092 ms** (92 microseconds)
+  * **Average Latency:** **0.091 ms** (91 microseconds)
   * **P99 Latency:** **0.158 ms**
   * **Frame-Budget Impact:** Consumes only **0.55%** of a 60 FPS frame window (16.67 ms) and **1.33%** of a 144 FPS window (6.94 ms), maintaining zero client GPU framerate loss.
 

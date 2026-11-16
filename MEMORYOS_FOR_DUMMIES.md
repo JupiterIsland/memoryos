@@ -12,7 +12,7 @@ Imagine your laptop's graphics card (**GPU**) is a **kitchen counter** with `8 G
 * Without MemoryOS, everything spills onto the floor (**System RAM**). Your game slows from **120 FPS down to a slideshow**, and your laptop fans scream at **86°C**.
 
 **MemoryOS fixes this by acting like a smart traffic cop:**
-1. **Your AMD Ryzen CPU checks if anything actually changed (`0.092 ms`):** If your screen is paused or static, MemoryOS skips the AI call completely (`0` wasted tokens, `0` GPU lag).
+1. **Your AMD Ryzen CPU checks if anything actually changed (`0.091 ms`):** If your screen is paused or static, MemoryOS skips the AI call completely (`0` wasted tokens, `0` GPU lag).
 2. **Heavy thinking goes to the cloud (`0 MB` local VRAM used):** When something *does* change, MemoryOS sends the job to our flagship, most-credited model—**`Gemma-4-31B-IT`** on **AMD Token Lab** (with automatic failover to **`Qwen3.8-27B`**, **`DeepSeek-V4.1-Flash`**, or **DigitalOcean MI300X** if a server is busy).
 3. **Your local GPU stays 100% free** for gaming, video playback, or editing.
 

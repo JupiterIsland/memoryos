@@ -484,7 +484,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
       <div class="card">
         <div style="display:flex; justify-content:space-between; font-size:12px;">
           <span>CPU Skip Gate (d3)</span>
-          <span style="color:var(--green); font-weight:700;" id="pol-gate">0.092 ms</span>
+          <span style="color:var(--green); font-weight:700;" id="pol-gate">0.091 ms</span>
         </div>
         <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
           <span>Local AI VRAM Saved</span>

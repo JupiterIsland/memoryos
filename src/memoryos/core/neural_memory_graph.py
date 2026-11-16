@@ -29,60 +29,122 @@ class MemoryTier:
 
 
 class GPUTelemetry:
-    """NVIDIA GPU telemetry and memory management."""
-    
-    def __init__(self):
+    """NVIDIA GPU telemetry and memory management (pynvml -> nvidia-smi -> explicit unavailable)."""
+
+    def __init__(self, gpu_id: int = 0, allow_simulation: bool = False):
         """Initialize GPU telemetry."""
-        self.gpu_id = 0
+        self.gpu_id = gpu_id
+        self.allow_simulation = allow_simulation
         self.vendor = "NVIDIA"
+        self.pynvml = None
+        self.available = False
         self.try_import_nvidia()
-    
+
     def try_import_nvidia(self):
-        """Attempt to import NVIDIA GPU libraries."""
+        """Attempt to initialize NVIDIA telemetry libraries."""
         try:
             import pynvml
             pynvml.nvmlInit()
             self.pynvml = pynvml
             self.available = True
-            print(f"[GPU] NVIDIA GPU telemetry available (pynvml)")
-        except ImportError:
-            print(f"[GPU] pynvml not available. Using simulated GPU metrics.")
+            print("[GPU] NVIDIA GPU telemetry available (pynvml)")
+        except Exception:
+            self.pynvml = None
             self.available = False
-    
+            if self.allow_simulation:
+                print("[GPU] pynvml unavailable. Explicit simulation mode enabled.")
+            else:
+                print("[GPU] pynvml unavailable; falling back to nvidia-smi or reporting unavailable.")
+
+    def _query_nvidia_smi(self) -> Optional[Dict]:
+        """Fallback telemetry via MultiGPUDetector (nvidia-smi) when pynvml is absent."""
+        try:
+            from memoryos.gpu_backends import MultiGPUDetector
+
+            prof = MultiGPUDetector.detect_nvidia(device_index=self.gpu_id)
+            if prof is not None and prof.total_vram_mb > 0:
+                return {
+                    "available": True,
+                    "simulated": False,
+                    "telemetry_status": "live",
+                    "source": prof.telemetry_source,
+                    "device_name": prof.device_name,
+                    "total_mb": float(prof.total_vram_mb),
+                    "used_mb": float(prof.used_vram_mb),
+                    "free_mb": float(prof.free_vram_mb),
+                    "utilization_pct": round((prof.used_vram_mb / prof.total_vram_mb) * 100.0, 2),
+                    "compute_utilization_pct": float(prof.utilization_pct),
+                }
+        except Exception:
+            pass
+        return None
+
     def get_gpu_memory_info(self) -> Dict:
-        """Get current GPU memory utilization."""
-        if self.available:
+        """Get current GPU memory metrics, returning explicit unavailable status if no telemetry exists."""
+        if self.available and self.pynvml is not None:
             try:
                 handle = self.pynvml.nvmlDeviceGetHandleByIndex(self.gpu_id)
                 meminfo = self.pynvml.nvmlDeviceGetMemoryInfo(handle)
+                total_mb = meminfo.total / (1024 * 1024)
+                used_mb = meminfo.used / (1024 * 1024)
+                free_mb = meminfo.free / (1024 * 1024)
                 return {
-                    'total_mb': meminfo.total / 1024 / 1024,
-                    'used_mb': meminfo.used / 1024 / 1024,
-                    'free_mb': meminfo.free / 1024 / 1024,
-                    'utilization_pct': (meminfo.used / meminfo.total) * 100,
+                    "available": True,
+                    "simulated": False,
+                    "telemetry_status": "live",
+                    "source": "pynvml",
+                    "total_mb": round(total_mb, 2),
+                    "used_mb": round(used_mb, 2),
+                    "free_mb": round(free_mb, 2),
+                    "utilization_pct": round((used_mb / total_mb) * 100.0, 2) if total_mb > 0 else 0.0,
                 }
             except Exception as e:
-                print(f"[GPU] Error reading telemetry: {e}")
-        
-        # Simulated metrics
+                print(f"[GPU] Error reading pynvml telemetry: {e}")
+
+        smi_info = self._query_nvidia_smi()
+        if smi_info is not None:
+            return smi_info
+
+        if self.allow_simulation:
+            return {
+                "available": False,
+                "simulated": True,
+                "telemetry_status": "simulated",
+                "source": "simulated",
+                "total_mb": 24000.0,
+                "used_mb": 16000.0,
+                "free_mb": 8000.0,
+                "utilization_pct": 66.7,
+            }
+
         return {
-            'total_mb': 24000,  # RTX 4090 = 24GB
-            'used_mb': 16000,
-            'free_mb': 8000,
-            'utilization_pct': 66.7,
+            "available": False,
+            "simulated": False,
+            "telemetry_status": "unavailable",
+            "source": "none",
+            "total_mb": None,
+            "used_mb": None,
+            "free_mb": None,
+            "utilization_pct": None,
         }
-    
-    def get_gpu_load(self) -> float:
-        """Get GPU utilization 0-100."""
-        if self.available:
+
+    def get_gpu_load(self) -> Optional[float]:
+        """Get GPU compute utilization (0-100), or None if unavailable."""
+        if self.available and self.pynvml is not None:
             try:
                 handle = self.pynvml.nvmlDeviceGetHandleByIndex(self.gpu_id)
                 util = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
-                return util.gpu
+                return float(util.gpu)
             except Exception:
                 pass
-        
-        return 50.0  # Simulated
+
+        smi_info = self._query_nvidia_smi()
+        if smi_info is not None:
+            return float(smi_info["compute_utilization_pct"])
+
+        if self.allow_simulation:
+            return 50.0
+        return None
 
 
 class NeuralMemoryGraph:
@@ -155,37 +217,37 @@ class NeuralMemoryGraph:
             Tier name: 'gpu_vram' | 'cpu_cache' | 'cpu_ram' | 'nvme'
         """
         gpu_mem = self.gpu.get_gpu_memory_info()
-        gpu_utilization = gpu_mem['utilization_pct']
-        
-        # Decision logic
-        if heat_score >= 0.8 and gpu_utilization < 70:
-            # Hot + room in VRAM
-            return 'gpu_vram'
-        elif heat_score >= 0.7 and gpu_utilization < 85:
-            # Very hot + some VRAM
-            return 'gpu_vram'
-        elif heat_score >= 0.5 and access_frequency > 5:
-            # Moderately hot + frequently accessed
+        telemetry_ok = bool(gpu_mem.get("available")) and not bool(gpu_mem.get("simulated"))
+        gpu_utilization = gpu_mem.get("utilization_pct")
+
+        # Never route to GPU VRAM using missing or simulated telemetry
+        if telemetry_ok and gpu_utilization is not None:
+            if heat_score >= 0.8 and gpu_utilization < 70:
+                return 'gpu_vram'
+            elif heat_score >= 0.7 and gpu_utilization < 85:
+                return 'gpu_vram'
+
+        if heat_score >= 0.5 and access_frequency > 5:
             return 'cpu_cache'
         elif heat_score >= 0.2:
-            # Warm memory
             return 'cpu_ram'
         else:
-            # Cold memory
             return 'nvme'
-    
+
     def optimize_for_model(self, model_size_gb: float) -> Dict:
         """
         Optimize memory allocation for model loading.
-        
+
         Args:
             model_size_gb: Size of model to load
-        
+
         Returns:
             Optimization plan with tier allocations
         """
         gpu_mem = self.gpu.get_gpu_memory_info()
-        available_vram = gpu_mem['free_mb'] / 1024
+        telemetry_ok = bool(gpu_mem.get("available")) and not bool(gpu_mem.get("simulated"))
+        free_mb = gpu_mem.get("free_mb")
+        available_vram = (float(free_mb) / 1024.0) if (telemetry_ok and free_mb is not None) else 0.0
         
         plan = {
             'model_size_gb': model_size_gb,
@@ -275,8 +337,10 @@ class NeuralMemoryGraph:
         """Generate and speak memory status report."""
         status = self.get_memory_status()
         gpu_mem = status['gpu_memory']
-        
-        report = f"Memory status: GPU VRAM {gpu_mem['utilization_pct']:.0f}% full. "
+
+        util = gpu_mem.get('utilization_pct')
+        vram_str = f"{util:.0f}% full" if util is not None else f"telemetry {gpu_mem.get('telemetry_status', 'unavailable')}"
+        report = f"Memory status: GPU VRAM {vram_str}. "
         report += f"Tracking {status['total_blocks_tracked']} memory blocks. "
         report += f"Hot memories: {status['hot_memories']}."
         
@@ -323,7 +387,9 @@ def neural_route_command(model_name: str = "mistral-7b", predict_tokens: int = 2
     
     # Status report
     status = graph.get_memory_status()
-    print(f"\n[Memory Status] GPU: {status['gpu_memory']['utilization_pct']:.1f}% | Hot: {status['hot_memories']}")
+    util = status['gpu_memory'].get('utilization_pct')
+    util_str = f"{util:.1f}%" if util is not None else status['gpu_memory'].get('telemetry_status', 'unavailable')
+    print(f"\n[Memory Status] GPU: {util_str} | Hot: {status['hot_memories']}")
 
 
 def neural_prefetch_command(next_tokens: int = 256):
