@@ -69,6 +69,11 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
     card_type_preferences TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
+    export_hash TEXT PRIMARY KEY,
+    ingested_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS kv_store (
     key VARCHAR PRIMARY KEY,
     value VARCHAR,

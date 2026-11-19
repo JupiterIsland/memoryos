@@ -23,9 +23,9 @@ The system centers on three integrated architectural components:
 
 * **Formal Release Candidate:** `v1.0.0-RC1` ready for presentation to AMD Developer Relations and the AMD Token Lab engineering team.
 * **Zero Host VRAM Consumption:** 100% of host GPU memory remains dedicated to client applications, gaming, or rendering; 27B- and 31B-parameter models run remotely on AMD Instinct compute with **0 MB local VRAM allocation**.
-* **5.37 μs Speculative Offload Decision:** A local pure-Python neural forward pass determines offloading necessity in 5.37 μs—evaluating **85,000x faster** than a remote cloud network round-trip.
+* **5.37 μs Speculative Offload Decision:** A local pure-Python neural forward pass determines offloading necessity in **5.37 μs**, allowing sub-millisecond host-side gating before any network request is dispatched.
 * **0.091 ms AMD Zen 3 CPU Frame Gate:** Processes raw frame deltas in 91 μs using AVX2 and FMA SIMD, consuming only **0.55% of a 60 FPS frame window**.
-* **2.69 ms Atomic Checkpoint Recovery:** Restores state snapshots from NVMe storage in sub-3 millisecond intervals, ensuring crash-resilient session persistence.
+* **3.07 ms Atomic Checkpoint Recovery:** Restores state snapshots from NVMe storage in ~3.07 ms per checkpoint (`61.43 ms` total across 20 checkpoints), ensuring crash-resilient session persistence.
 * **94.0% Cellular Tethering Bandwidth Reduction:** Suppresses static video frames over mobile LTE hotspots, saving 385.5 MB and 205.6 seconds of airtime per 1,000 frames.
 
 ---
@@ -44,7 +44,7 @@ The system centers on three integrated architectural components:
 │   • AMD Zen 3 Fast MSE Kernel (0.091 ms / AVX2 + FMA SIMD)                             │
 │   • SpeculativeOffloadModel MLP (5.37 μs pure-Python forward pass)                     │
 │   • Local SQLite WAL Telemetry Ledger (QuietAdvisorDB.sqlite)                          │
-│   • Atomic NVMe Checkpoint Engine (2.69 ms quick-save restoration)                      │
+│   • Atomic NVMe Checkpoint Engine (3.07 ms per-checkpoint restoration)                     │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
@@ -85,12 +85,12 @@ All figures are verified on physical AMD Ryzen hardware via the automated test s
 | :--- | :--- | :--- | :--- | :---: |
 | **Suite 1: Database Audit** | 50 Inferences, 7 Cards, 20 Checkpoints | Exact count match | 100.0% Local VRAM Saved | **PASS** |
 | **Suite 2: Frame Budget** | 100-Frame CPU MSE Delta Timing | **2.713 ms** avg | Consumes 16.28% of 60 FPS (Zero lag) | **PASS** |
-| **Suite 3: Laptop Shootout** | 50-Request Monolithic Workload | **14.7x Speedup**, 90.4% Latency Drop | 0 MB VRAM vs 12.7 GB spillover | **PASS** |
+| **Suite 3: Laptop Shootout** | 50-Request Monolithic Workload | **14.7x vs modeled 12.7 GB VRAM-spillover baseline**, 90.4% latency drop | 0 MB local VRAM vs 12.7 GB spillover | **PASS** |
 | **Suite 4: Chaos Recovery** | 20-Checkpoint NVMe Quick-Save Scan | **3.072 ms** per checkpoint reload | Total 20 CPs scanned in 61.43 ms | **PASS** |
 | **Suite 5: Router Ping** | Local Port 5000 API Contract | Deterministic fallback | Verified contract response | **PASS** |
 | **Suite 6: AMD Zen 3 Kernel** | 200 Iterations Zen 3 AVX2/FMA Gate | **0.091 ms** avg (**0.158 ms** p99) | Consumes 0.55% of 60 FPS budget | **PASS** |
 | **Suite 7: Mobile Hotspot** | 1,000 Frames over Cellular Uplink | **94.0% Bandwidth Reduction** | 385.5 MB / 205.6 s airtime saved | **PASS** |
-| **Suite 8: Speculative MLP** | 1,000 Forward Passes (Pure Python) | **5.47 μs** avg latency | 85,067x faster than cloud network RTT | **PASS** |
+| **Suite 8: Speculative MLP** | 1,000 Forward Passes (Pure Python) | **5.37 μs** avg latency | Sub-millisecond pre-network host gate | **PASS** |
 
 ---
 

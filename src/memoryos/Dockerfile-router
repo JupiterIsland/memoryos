@@ -7,8 +7,8 @@ WORKDIR /app
 # Minimal runtime dependencies (no build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
-    sqlite3 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /usr/sbin/nologin memoryos
 
 # Copy lean requirements (router only)
 COPY requirements-router.txt .
@@ -20,13 +20,14 @@ RUN pip install --no-cache-dir --upgrade pip setuptools && \
 # Copy application
 COPY . .
 
-# Create data directories
+# Create data directories and drop root ownership
 RUN mkdir -p \
     /app/memory/timeline \
     /app/memory/heatstream \
     /app/tlb_hot_cache \
     /app/checkpoints \
-    /app/graph
+    /app/graph \
+    && chown -R memoryos:memoryos /app
 
 # Environment
 ENV PYTHONUNBUFFERED=1 \
@@ -34,9 +35,11 @@ ENV PYTHONUNBUFFERED=1 \
     ROUTER_HOST=0.0.0.0 \
     ROUTER_PORT=5000
 
-# Health check
+USER memoryos
+
+# Health check (honors ROUTER_PORT)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
+    CMD python -c "import os, urllib.request; port = os.environ.get('ROUTER_PORT', '5000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/health')" || exit 1
 
 # Start FastAPI router server
 ENTRYPOINT ["python", "server.py"]

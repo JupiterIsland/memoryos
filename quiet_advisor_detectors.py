@@ -6,8 +6,9 @@ This module implements the 10 pattern detectors that surface insights
 to users about their inference patterns.
 """
 
+import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Tuple, Union
@@ -64,7 +65,7 @@ class DetectedInsight:
     time_savings_seconds: int = 0
     quality_improvement_percent: float = 0.0
     confidence: float = 1.0
-    suggested_experiments: List[str] = None
+    suggested_experiments: List[str] = field(default_factory=list)
     
     def score(self, user_preferences: Dict = None) -> float:
         """Calculate insight score for ranking"""
@@ -88,8 +89,12 @@ class DetectedInsight:
 
 
 class ContextWasteDetector:
-    """Detector 1: Finds context padding waste"""
-    
+    """Detector 1: Finds context padding waste."""
+
+    # Auditable modeling assumptions for weekly time-savings projection
+    ASSUMED_DAILY_INFERENCES = 15
+    ASSUMED_WORKDAYS_PER_WEEK = 5
+
     @staticmethod
     def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
         if len(inferences) < 5:
@@ -115,14 +120,19 @@ class ContextWasteDetector:
         
         # Calculate potential savings
         avg_context_provided = sum(i.context_tokens_provided for i in inferences) / len(inferences)
-        recommended_context = int(sum(i.context_tokens_used for i in inferences) / len(inferences) * 1.2)
+        recommended_context = max(
+            1, int(sum(i.context_tokens_used for i in inferences) / len(inferences) * 1.2)
+        )
         
         # Estimate time savings (rough calculation)
         avg_latency = sum(i.total_latency_ms for i in inferences) / len(inferences)
         speedup_factor = avg_context_provided / recommended_context
-        time_saved_per_inference = avg_latency * (1 - (1/speedup_factor)) if speedup_factor > 1 else 0
-        daily_inferences = 15  # assumption
-        time_savings_seconds = int((time_saved_per_inference / 1000) * daily_inferences * 5)  # 5 days week
+        time_saved_per_inference = avg_latency * (1 - (1 / speedup_factor)) if speedup_factor > 1 else 0
+        time_savings_seconds = int(
+            (time_saved_per_inference / 1000)
+            * ContextWasteDetector.ASSUMED_DAILY_INFERENCES
+            * ContextWasteDetector.ASSUMED_WORKDAYS_PER_WEEK
+        )
         
         return DetectedInsight(
             detector_type=DetectorType.CONTEXT_WASTE,
@@ -253,7 +263,135 @@ class VRAMThrashingDetector:
         )
 
 
-VRAMWasteDetector = VRAMThrashingDetector
+class ThermalThrottlingDetector:
+    """Detector: Detects sustained local GPU thermal stress and recommends Token Lab offload."""
+
+    THERMAL_THRESHOLD_C = 82.0
+    MIN_HOT_RUNS = 3
+
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        hot_runs = [
+            i for i in inferences if i.gpu_temperature_celsius >= ThermalThrottlingDetector.THERMAL_THRESHOLD_C
+        ]
+        if len(hot_runs) < ThermalThrottlingDetector.MIN_HOT_RUNS:
+            return None
+
+        cool_runs = [
+            i
+            for i in inferences
+            if 0 < i.gpu_temperature_celsius < ThermalThrottlingDetector.THERMAL_THRESHOLD_C
+            and i.tokens_per_second > 0
+        ]
+        hot_tps = [i.tokens_per_second for i in hot_runs if i.tokens_per_second > 0]
+
+        peak_temp = max(i.gpu_temperature_celsius for i in hot_runs)
+        avg_hot_temp = sum(i.gpu_temperature_celsius for i in hot_runs) / len(hot_runs)
+
+        throughput_drop_pct = 0.0
+        if cool_runs and hot_tps:
+            avg_cool_tps = sum(i.tokens_per_second for i in cool_runs) / len(cool_runs)
+            avg_hot_tps = sum(hot_tps) / len(hot_tps)
+            if avg_cool_tps > 0 and avg_hot_tps < avg_cool_tps:
+                throughput_drop_pct = ((avg_cool_tps - avg_hot_tps) / avg_cool_tps) * 100.0
+
+        return DetectedInsight(
+            detector_type=DetectorType.THERMAL_THROTTLING,
+            title="GPU Thermal Throttling Detected",
+            subtitle=f"Peak {peak_temp:.0f}°C across {len(hot_runs)} local runs"
+            + (f" ({throughput_drop_pct:.0f}% throughput drop)" if throughput_drop_pct >= 5.0 else ""),
+            description=(
+                f"Local GPU sustained {avg_hot_temp:.1f}°C average ({peak_temp:.0f}°C peak) across "
+                f"{len(hot_runs)} inferences, exceeding the {ThermalThrottlingDetector.THERMAL_THRESHOLD_C:.0f}°C "
+                "thermal ceiling.\n"
+                "Offload heavy reasoning and vision workloads to AMD Token Lab to eliminate local thermal "
+                "throttling while keeping workstation acoustics and game frame-times flat."
+            ),
+            metrics={
+                "peak_temp": f"{peak_temp:.0f}°C",
+                "hot_runs": f"{len(hot_runs)}/{len(inferences)}",
+                "throughput_drop": f"{throughput_drop_pct:.1f}%",
+            },
+            recommended_action="force_tokenlab_offload",
+            action_value={
+                "thermal_penalty": 1.4,
+                "peak_temp_c": round(peak_temp, 1),
+                "forced_model": "Gemma-4-31B-IT",
+            },
+            time_savings_seconds=max(900, int(len(hot_runs) * 240)),
+            quality_improvement_percent=round(min(30.0, max(10.0, throughput_drop_pct)), 1),
+            confidence=0.9,
+            suggested_experiments=["force_gemma_31b_offload", "set_gpu_power_cap"],
+        )
+
+
+def compute_workstation_health(inferences: List[InferenceLog], vram_capacity_mb: int = 8192) -> Dict[str, Any]:
+    """Compute a 0-100 composite Workstation Health Score across 4 hardware-aware axes."""
+    if not inferences:
+        return {
+            "score": 100,
+            "grade": "A",
+            "sample_count": 0,
+            "status": "idle",
+            "components": {
+                "vram_headroom": 100.0,
+                "thermal_headroom": 100.0,
+                "context_efficiency": 100.0,
+                "reliability": 100.0,
+            },
+        }
+
+    cap = max(1, int(vram_capacity_mb))
+    avg_vram_ratio = sum(min(1.0, max(0.0, i.gpu_memory_used_mb / cap)) for i in inferences) / len(inferences)
+    vram_headroom = round((1.0 - avg_vram_ratio) * 100.0, 1)
+
+    temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+    if temps:
+        avg_temp = sum(temps) / len(temps)
+        # 45C or cooler = 100%, 95C or hotter = 0%
+        thermal_headroom = round(max(0.0, min(100.0, (95.0 - avg_temp) / 50.0 * 100.0)), 1)
+    else:
+        thermal_headroom = 100.0
+
+    ctx_ratios = [
+        min(1.0, i.context_tokens_used / i.context_tokens_provided)
+        for i in inferences
+        if i.context_tokens_provided > 0
+    ]
+    context_efficiency = round((sum(ctx_ratios) / len(ctx_ratios)) * 100.0, 1) if ctx_ratios else 100.0
+
+    error_rate = sum(1 for i in inferences if i.error_flag) / len(inferences)
+    reliability = round((1.0 - error_rate) * 100.0, 1)
+
+    composite = round(
+        vram_headroom * 0.35
+        + thermal_headroom * 0.25
+        + context_efficiency * 0.20
+        + reliability * 0.20
+    )
+    if composite >= 90:
+        grade = "A"
+    elif composite >= 80:
+        grade = "B"
+    elif composite >= 70:
+        grade = "C"
+    elif composite >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+
+    return {
+        "score": int(composite),
+        "grade": grade,
+        "sample_count": len(inferences),
+        "status": "healthy" if composite >= 80 else ("degraded" if composite >= 60 else "critical"),
+        "components": {
+            "vram_headroom": vram_headroom,
+            "thermal_headroom": thermal_headroom,
+            "context_efficiency": context_efficiency,
+            "reliability": reliability,
+        },
+    }
 
 
 class PerformanceEnvelopeDetector:
@@ -337,6 +475,8 @@ class AnomalyDetector:
         avg_latency = sum(latencies) / len(latencies)
         variance = sum((x - avg_latency)**2 for x in latencies) / len(latencies)
         std_dev = variance ** 0.5
+        if std_dev == 0:
+            return None
         
         # Find outliers (>2 std dev)
         outliers = [(i, (i.total_latency_ms - avg_latency) / std_dev) 
@@ -543,14 +683,14 @@ class NVMeCheckpointDetector:
                 DetectedInsight(
                     detector_type=DetectorType.EFFICIENCY_FRONTIER,
                     title="Token Lab Grant & Prompt Cache Headroom",
-                    subtitle=f"{tl_summary['burn_percent']:.5f}% grant used ({tl_summary['cached_tokens']} cached tokens)",
+                    subtitle=f"{tl_summary['burn_percent']:.4f}% grant used ({tl_summary['cached_tokens']} cached tokens)",
                     description=(
                         f"Burn rate is {tl_summary['budget_used_micro']} of {tl_summary['budget_micro']} micro-points "
                         f"across {tl_summary['total_tokens']} tokens with zero local RTX 3070 VRAM cost. "
                         f"Prompt caching hit {tl_summary['cached_tokens']} tokens and reasoning models used {tl_summary['reasoning_tokens']} tokens."
                     ),
                     metrics={
-                        "burn_rate": f"{tl_summary['burn_percent']:.5f}%",
+                        "burn_rate": f"{tl_summary['burn_percent']:.4f}%",
                         "cached_tokens": f"{tl_summary['cached_tokens']} cached",
                         "expires": str(tl_summary["expires_at"])[:10] or "30d",
                     },
@@ -627,18 +767,42 @@ def ingest_tokenlab_export(
     export_path: Optional[Path] = None,
     user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Idempotently load Token Lab export requests into QuietAdvisorDB + NVMe insights."""
+    """Atomically and idempotently load Token Lab export requests + cards into QuietAdvisorDB."""
     summary = parse_tokenlab_export(export_path)
     if not summary:
-        return {"ingested_requests": 0, "ingested_cards": 0, "summary": {}}
+        return {"ingested_requests": 0, "ingested_cards": 0, "summary": {}, "skipped": False}
+
+    export_hash = hashlib.sha256(
+        json.dumps(summary, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+    # Ensure idempotency ledger exists even on legacy DB files
+    db.conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
+            export_hash TEXT PRIMARY KEY,
+            ingested_at TEXT NOT NULL
+        )
+        """
+    )
+    already = db.conn.execute(
+        "SELECT 1 FROM quiet_advisor_ingest_log WHERE export_hash = ?",
+        (export_hash,),
+    ).fetchone()
+    if already:
+        return {
+            "ingested_requests": 0,
+            "ingested_cards": 0,
+            "summary": summary,
+            "skipped": True,
+            "export_hash": export_hash,
+        }
 
     target_user = user_id or summary["user_id"] or "default"
-    existing_cnt = db.conn.execute(
-        "SELECT COUNT(*) FROM memoryos_inference_log WHERE session_id = 'tokenlab-export'"
-    ).fetchone()[0]
-
     ingested_requests = 0
-    if existing_cnt == 0:
+    ingested_cards = 0
+
+    try:
         db.conn.execute("INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)", (target_user,))
         for req in summary.get("requests", []):
             model = str(req.get("model") or "unknown")
@@ -678,15 +842,11 @@ def ingest_tokenlab_export(
             )
             ingested_requests += 1
 
-    existing_tl_cards = db.conn.execute(
-        "SELECT COUNT(*) FROM quiet_advisor_cards WHERE action_value LIKE '%tokenlab_export%'"
-    ).fetchone()[0]
-    ingested_cards = 0
-    if existing_tl_cards == 0:
         detector = NVMeCheckpointDetector(export_path=export_path)
         for insight in detector.detect_from_disk():
             payload = dict(insight.action_value)
             payload["source"] = "tokenlab_export"
+            payload["export_hash"] = export_hash
             payload["d3_routing"] = {
                 "choice": "surface_now",
                 "confidence": round(insight.confidence, 4),
@@ -724,26 +884,44 @@ def ingest_tokenlab_export(
             )
             ingested_cards += 1
 
-    db.conn.commit()
+        db.conn.execute(
+            "INSERT INTO quiet_advisor_ingest_log (export_hash, ingested_at) VALUES (?, ?)",
+            (export_hash, datetime.utcnow().isoformat()),
+        )
+        db.conn.commit()
+    except Exception:
+        db.conn.rollback()
+        raise
+
     return {
         "ingested_requests": ingested_requests,
         "ingested_cards": ingested_cards,
         "summary": summary,
+        "skipped": False,
+        "export_hash": export_hash,
     }
 
 
 class QuietAdvisorEngine:
-    """Main orchestrator for Quiet Advisor detection"""
-    
+    """Main orchestrator for Quiet Advisor detection."""
+
     def __init__(self):
         self.detectors = [
             VRAMThrashingDetector(),
+            ThermalThrottlingDetector(),
             ContextWasteDetector(),
             ModelThrashingDetector(),
             PerformanceEnvelopeDetector(),
             AnomalyDetector(),
             NVMeCheckpointDetector(),
         ]
+
+    @staticmethod
+    def compute_workstation_health(
+        inferences: List[InferenceLog], vram_capacity_mb: int = 8192
+    ) -> Dict[str, Any]:
+        """Return a 0-100 composite workstation health score and component breakdown."""
+        return compute_workstation_health(inferences, vram_capacity_mb=vram_capacity_mb)
     
     def detect_patterns(self, inferences: List[InferenceLog], 
                        user_preferences: Dict = None) -> List[DetectedInsight]:

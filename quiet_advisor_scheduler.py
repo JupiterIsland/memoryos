@@ -147,18 +147,18 @@ class QuietAdvisorScheduler:
             return None
     
     async def _get_user_inferences(self, user_id: str, from_date: datetime, window_hours: int = 24) -> List:
-        """Fetch inferences from the given window for this user"""
-        to_date = from_date + timedelta(hours=window_hours) + timedelta(minutes=1)
-        
-        query = f"""
+        """Fetch inferences from the given window for this user."""
+        to_date = from_date + timedelta(hours=window_hours)
+
+        query = """
         SELECT * FROM memoryos.inference_log
-        WHERE user_id = '{user_id}'
-        AND timestamp >= '{from_date.isoformat()}'
-        AND timestamp < '{to_date.isoformat()}'
+        WHERE user_id = ?
+        AND timestamp >= ?
+        AND timestamp <= ?
         ORDER BY timestamp
         """
-        
-        results = await self.db.query(query)
+
+        results = await self.db.query(query, (user_id, from_date.isoformat(), to_date.isoformat()))
         if not results:
             return []
         try:
@@ -171,13 +171,14 @@ class QuietAdvisorScheduler:
             return results
     
     async def _get_user_preferences(self, user_id: str) -> Dict:
-        """Get user's card preferences (learned from past behavior)"""
+        """Get user's card preferences (learned from past behavior)."""
         try:
             prefs = await self.db.query_one(
-                f"SELECT card_type_preferences FROM quiet_advisor.user_preferences WHERE user_id = '{user_id}'"
+                "SELECT card_type_preferences FROM quiet_advisor.user_preferences WHERE user_id = ?",
+                (user_id,),
             )
             return json.loads(prefs["card_type_preferences"]) if prefs else {}
-        except:
+        except Exception:
             return {}
     
     async def _store_card(self, user_id: str, insight, d3_decision: Optional[Dict] = None):
@@ -243,22 +244,26 @@ class CardActionHandler:
         
         await self.db.insert("quiet_advisor.card_actions", action_record)
         
-        # Update card status
+        # Update card status (parameterized to prevent SQL injection)
         if action == "dismiss":
             await self.db.execute(
-                f"UPDATE quiet_advisor.cards SET user_dismissed = true WHERE id = '{card_id}'"
+                "UPDATE quiet_advisor.cards SET user_dismissed = true WHERE id = ?",
+                (card_id,),
             )
         elif action == "archive":
             await self.db.execute(
-                f"UPDATE quiet_advisor.cards SET user_archived = true WHERE id = '{card_id}'"
+                "UPDATE quiet_advisor.cards SET user_archived = true WHERE id = ?",
+                (card_id,),
             )
         elif action in ("action", "acknowledge"):
             await self.db.execute(
-                f"UPDATE quiet_advisor.cards SET user_actioned = true WHERE id = '{card_id}'"
+                "UPDATE quiet_advisor.cards SET user_actioned = true WHERE id = ?",
+                (card_id,),
             )
         
-        # Update user preferences based on action (closed-loop routing feedback)
-        await self._update_user_preferences(user_id, card_id, action, metadata=metadata)
+        # Update user preferences on meaningful feedback actions (skip read-only 'view')
+        if action != "view":
+            await self._update_user_preferences(user_id, card_id, action, metadata=metadata)
         
         logger.info(f"Card action: user={user_id}, card={card_id}, action={action}")
     
@@ -273,7 +278,8 @@ class CardActionHandler:
         
         # Get card detector type and action_value payload
         card = await self.db.query_one(
-            f"SELECT detector_type, recommended_action, action_value FROM quiet_advisor.cards WHERE id = '{card_id}'"
+            "SELECT detector_type, recommended_action, action_value FROM quiet_advisor.cards WHERE id = ?",
+            (card_id,),
         )
         if not card:
             return
@@ -289,7 +295,8 @@ class CardActionHandler:
         
         # Get or create user preferences
         prefs = await self.db.query_one(
-            f"SELECT card_type_preferences FROM quiet_advisor.user_preferences WHERE user_id = '{user_id}'"
+            "SELECT card_type_preferences FROM quiet_advisor.user_preferences WHERE user_id = ?",
+            (user_id,),
         )
         
         if prefs:
@@ -314,8 +321,8 @@ class CardActionHandler:
         # Closed-loop routing policy updates when user clicks [Acknowledge & Apply]
         if action in ("action", "acknowledge"):
             meta = metadata or {}
-            if detector_type in ("vram_thrashing", "model_thrashing") or recommended_action == "force_tokenlab_offload":
-                penalty = float(meta.get("penalty") or action_val.get("vram_thrashing_penalty") or 1.5)
+            if detector_type in ("vram_thrashing", "model_thrashing", "thermal_throttling") or recommended_action == "force_tokenlab_offload":
+                penalty = float(meta.get("penalty") or action_val.get("vram_thrashing_penalty") or action_val.get("thermal_penalty") or 1.5)
                 preferences["vram_thrashing_penalty"] = penalty
                 preferences["force_remote_offload"] = True
                 preferences["preferred_vision_model"] = str(action_val.get("forced_model") or "Gemma-4-31B-IT")
@@ -325,24 +332,15 @@ class CardActionHandler:
                 preferences["recommended_context_cap"] = int(action_val["context_tokens"])
 
         prefs_json = json.dumps(preferences)
-        if hasattr(self.db, "conn"):
-            self.db.conn.execute(
-                """
-                INSERT INTO quiet_advisor_user_preferences (user_id, card_type_preferences)
-                VALUES (?, ?)
-                ON CONFLICT (user_id) DO UPDATE SET card_type_preferences = excluded.card_type_preferences
-                """,
-                (user_id, prefs_json),
-            )
-            self.db.conn.commit()
-        else:
-            escaped = prefs_json.replace("'", "''")
-            await self.db.execute(f"""
+        await self.db.execute(
+            """
             INSERT INTO quiet_advisor.user_preferences (user_id, card_type_preferences)
-            VALUES ('{user_id}', '{escaped}')
+            VALUES (?, ?)
             ON CONFLICT (user_id) DO UPDATE
-            SET card_type_preferences = '{escaped}'
-            """)
+            SET card_type_preferences = excluded.card_type_preferences
+            """,
+            (user_id, prefs_json),
+        )
 
 
 # Integration with Apex-Metal
@@ -358,14 +356,23 @@ class ApexMetalHook:
     async def post_inference_hook(self, inference_result):
         """
         Called after every inference completes in Apex-Metal.
+
+        Note on token accounting:
+        - `context_tokens_provided` records the allocated context window (`context_length`).
+        - `context_tokens_used` records actual active tokens (`context_tokens_used` if present,
+          otherwise falling back to `tokens_generated` for output-token accounting).
         """
-        
+        active_tokens = getattr(
+            inference_result,
+            "context_tokens_used",
+            inference_result.tokens_generated,
+        )
         await self.logger.log_inference(
             user_id=inference_result.user_id,
             session_id=inference_result.session_id,
             model_id=inference_result.model_id,
             context_tokens_provided=inference_result.context_length,
-            context_tokens_used=inference_result.tokens_generated,
+            context_tokens_used=active_tokens,
             time_to_first_token_ms=inference_result.time_to_first_token_ms,
             total_latency_ms=inference_result.total_latency_ms,
             tokens_per_second=inference_result.tokens_per_second,
@@ -391,13 +398,13 @@ class CardDisplayService:
     def __init__(self, db_connection):
         self.db = db_connection
     
-    async def get_card_for_user(self, user_id: str) -> Optional[Dict]:
-        """Get the active card to display for this user"""
+    async def get_card_for_user(self, user_id: str, record_view: bool = False) -> Optional[Dict]:
+        """Get the active card to display for this user."""
         
         # Find newest non-dismissed, non-archived, non-expired card
-        query = f"""
+        query = """
         SELECT * FROM quiet_advisor.cards
-        WHERE user_id = '{user_id}'
+        WHERE user_id = ?
         AND user_dismissed = false
         AND user_archived = false
         AND expires_at > NOW()
@@ -405,27 +412,27 @@ class CardDisplayService:
         LIMIT 1
         """
         
-        card = await self.db.query_one(query)
+        card = await self.db.query_one(query, (user_id,))
         
-        if card:
-            # Record that user viewed this card
+        if card and record_view:
+            # Opt-in view logging to avoid write amplification on read polls
             action_handler = CardActionHandler(self.db)
             await action_handler.handle_action(user_id, card["id"], "view")
         
         return card
     
     async def get_card_archive(self, user_id: str) -> List[Dict]:
-        """Get all dismissed/archived cards for user"""
+        """Get all dismissed/archived cards for user."""
         
-        query = f"""
+        query = """
         SELECT * FROM quiet_advisor.cards
-        WHERE user_id = '{user_id}'
+        WHERE user_id = ?
         AND (user_dismissed = true OR user_archived = true OR expires_at < NOW())
         ORDER BY created_at DESC
         LIMIT 50
         """
         
-        return await self.db.query(query)
+        return await self.db.query(query, (user_id,))
 
 
 # Example usage / testing

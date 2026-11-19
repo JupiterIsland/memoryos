@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Designed official vector brand identity and banner assets (`assets/memoryos_executive_banner.svg`, `assets/memoryos_logo_mark.svg`, `assets/jupiter_studio_logo.svg`).
   - Integrated high-tech vector branding directly into Jupiter Studio and Quiet Advisor UI headers.
 - **Speculative Offload MLP Decision Engine (`src/memoryos/speculative_offload.py`)**:
-  - Implemented pure-Python `SpeculativeOffloadModel` forward pass computing $P(\text{offload})$ in 5.37 μs (`suite_8`), evaluating 85,000x faster than a cloud network RTT.
+  - Implemented pure-Python `SpeculativeOffloadModel` forward pass computing $P(\text{offload})$ in 5.37 μs (`suite_8`), enabling sub-millisecond host-side gating before any network call.
 - **Suite 7 (Mobile Hotspot Efficiency) & Suite 8 (Speculative MLP Speed) in Benchmark Suite**:
   - Expanded `tests/run_gamer_hardware_tests.py` to 8 complete benchmark suites covering database audits, 60/144 FPS frame budgets, laptop shootouts, NVMe recovery, live router pings, AMD Zen 3 kernels, cellular tethering, and microsecond MLP execution.
 - **Jupiter Studio Hybrid AI Workstation (`apps/jupiter_studio.py`)**:
@@ -36,12 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Verified Hardware Benchmarks (`tests/run_gamer_hardware_tests.py`)
 - **Suite 1 (Database Audit):** 50 Inferences, 7 Cards, 20 Checkpoints, 100.0% local VRAM saved.
 - **Suite 2 (Frame Budget):** 2.713 ms avg CPU MSE gate (16.28% of 60 FPS budget).
-- **Suite 3 (Laptop Shootout):** 14.7x speedup vs stock local; 0 MB VRAM vs 12.7 GB spillover.
+- **Suite 3 (Laptop Shootout):** 14.7x vs modeled 12.7 GB VRAM-spillover local baseline; 0 MB local VRAM used.
 - **Suite 4 (Chaos Recovery):** 3.072 ms per checkpoint reload across 20 quick-saves.
 - **Suite 5 (Router Contract):** Safe offline deterministic contract fallback.
 - **Suite 6 (Zen 3 Kernel):** 0.091 ms avg CPU gate on AMD Ryzen 7 5800H (0.55% 60 FPS budget).
 - **Suite 7 (Mobile Hotspot):** 94.0% cellular bandwidth reduction over iPhone XR LTE hotspot.
-- **Suite 8 (Speculative MLP):** 5.47 μs average neural forward pass latency.
+- **Suite 8 (Speculative MLP):** 5.37 μs average neural forward pass latency.
 
 ---
 

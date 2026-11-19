@@ -5,7 +5,7 @@ import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 QUIET_ADVISOR_SQLITE_PATH = REPO_ROOT / "QuietAdvisorDB.sqlite"
@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_card_actions (
 CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
     user_id TEXT PRIMARY KEY,
     card_type_preferences TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
+    export_hash TEXT PRIMARY KEY,
+    ingested_at TEXT NOT NULL
 );
 """
 
@@ -144,17 +149,17 @@ class QuietAdvisorDB:
     async def insert(self, table: str, record: Dict[str, Any]) -> int:
         return self.insert_sync(table, record)
 
-    async def query(self, sql: str) -> List[Dict[str, Any]]:
-        cur = self.conn.execute(_normalize_sql(sql))
+    async def query(self, sql: str, params: Sequence[Any] = ()) -> List[Dict[str, Any]]:
+        cur = self.conn.execute(_normalize_sql(sql), tuple(params))
         return [dict(row) for row in cur.fetchall()]
 
-    async def query_one(self, sql: str) -> Optional[Dict[str, Any]]:
-        cur = self.conn.execute(_normalize_sql(sql))
+    async def query_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[Dict[str, Any]]:
+        cur = self.conn.execute(_normalize_sql(sql), tuple(params))
         row = cur.fetchone()
         return dict(row) if row else None
 
-    async def execute(self, sql: str) -> None:
-        self.conn.execute(_normalize_sql(sql))
+    async def execute(self, sql: str, params: Sequence[Any] = ()) -> None:
+        self.conn.execute(_normalize_sql(sql), tuple(params))
         self.conn.commit()
 
     def record_user_preference(
