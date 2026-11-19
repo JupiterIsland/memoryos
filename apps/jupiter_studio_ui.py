@@ -360,49 +360,147 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   /* ── QUANTUM LATTICE & 3-THEME ENGINE ──────────────────────────────── */
   :root {
     --bg: #07090e;
-    --panel: rgba(13, 17, 26, 0.90);
-    --card: rgba(18, 24, 38, 0.88);
-    --border: rgba(255, 106, 0, 0.24);
+    --sidebar-bg: #0c101a;
+    --panel: rgba(13, 17, 26, 0.92);
+    --card-bg: rgba(18, 24, 38, 0.88);
+    --border: rgba(255, 106, 0, 0.22);
+    --border-highlight: rgba(255, 106, 0, 0.45);
     --text: #f3f6fc;
     --muted: #8b9bb4;
     --orange: #ff6a00;
     --cyan: #00f0ff;
     --green: #10b981;
     --red: #f43f5e;
+    --code-bg: #05070d;
   }
+  .main {
+    background: radial-gradient(circle at top right, rgba(0, 240, 255, 0.06) 0%, var(--bg) 55%);
+  }
+
+  /* RADEON CARBON THEME */
   html[data-studio-theme="radeon"] {
-    --bg: #09070a;
-    --panel: rgba(19, 12, 16, 0.92);
-    --card: rgba(28, 16, 22, 0.90);
+    --bg: #090608;
+    --sidebar-bg: #120b0f;
+    --panel: rgba(20, 11, 16, 0.94);
+    --card-bg: rgba(30, 16, 23, 0.90);
     --border: rgba(237, 28, 36, 0.34);
+    --border-highlight: rgba(255, 176, 0, 0.55);
     --orange: #ed1c24;
     --cyan: #ffb000;
+    --text: #faf5f7;
+    --muted: #b098a3;
   }
+  html[data-studio-theme="radeon"] .main {
+    background: radial-gradient(circle at top right, rgba(237, 28, 36, 0.11) 0%, var(--bg) 55%);
+  }
+
+  /* DAYLIGHT CERAMIC THEME (100% High-Contrast Light Mode) */
   html[data-studio-theme="daylight"] {
-    --bg: #f2efe9;
-    --panel: #e7e2d8;
-    --card: #faf8f3;
-    --border: #cfc7b8;
-    --text: #151513;
-    --muted: #68645b;
-    --orange: #ff4d00;
-    --cyan: #0a7b5c;
+    --bg: #f5f2eb;
+    --sidebar-bg: #ebe6dc;
+    --panel: #ebe6dc;
+    --card-bg: #ffffff;
+    --border: #d4cdc0;
+    --border-highlight: #b5ac9c;
+    --text: #161614;
+    --muted: #5e5a52;
+    --orange: #e84800;
+    --cyan: #0b6e58;
+    --green: #0a7a4b;
+    --red: #c81e1e;
+    --code-bg: #18181b;
   }
-  html[data-studio-theme="daylight"] .msg.assistant {
+  html[data-studio-theme="daylight"] .main {
+    background: var(--bg);
+  }
+  html[data-studio-theme="daylight"] .sidebar {
+    background: var(--sidebar-bg);
+    box-shadow: 2px 0 12px rgba(20, 18, 14, 0.06);
+  }
+  html[data-studio-theme="daylight"] .card {
     background: #ffffff;
-    color: #151513;
+    border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(20, 18, 14, 0.05);
   }
-  html[data-studio-theme="daylight"] .msg.user {
-    background: #151513;
-    color: #faf8f3;
+  html[data-studio-theme="daylight"] .select-box,
+  html[data-studio-theme="daylight"] input,
+  html[data-studio-theme="daylight"] textarea,
+  html[data-studio-theme="daylight"] .workspace-file-list {
+    background: #ffffff;
+    color: #161614;
+    border-color: var(--border-highlight);
+  }
+  html[data-studio-theme="daylight"] .workspace-file-item:hover {
+    background: #f0ece3;
+  }
+  html[data-studio-theme="daylight"] .btn-secondary,
+  html[data-studio-theme="daylight"] .btn-icon {
+    background: #ffffff !important;
+    color: #161614 !important;
+    border: 1px solid var(--border-highlight) !important;
+  }
+  html[data-studio-theme="daylight"] .btn-secondary:hover,
+  html[data-studio-theme="daylight"] .btn-icon:hover {
+    background: #e3ddd1 !important;
+    border-color: #161614 !important;
   }
   html[data-studio-theme="daylight"] .chat-header,
   html[data-studio-theme="daylight"] .input-bar-wrapper {
-    background: rgba(231, 226, 216, 0.96);
+    background: #ebe6dc;
+    border-color: var(--border);
   }
-  html[data-studio-theme="daylight"] #prompt-input {
+  html[data-studio-theme="daylight"] .msg.assistant {
     background: #ffffff;
-    color: #151513;
+    color: #161614;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    box-shadow: 0 2px 8px rgba(20, 18, 14, 0.05);
+  }
+  html[data-studio-theme="daylight"] .msg.user {
+    background: #1a1a18;
+    border-color: #1a1a18;
+    color: #faf8f3;
+  }
+  html[data-studio-theme="daylight"] .md-body h1,
+  html[data-studio-theme="daylight"] .md-body h2,
+  html[data-studio-theme="daylight"] .md-body h3 {
+    color: #161614;
+  }
+  html[data-studio-theme="daylight"] .md-body code {
+    background: #ebe6dc;
+    color: #161614;
+  }
+  html[data-studio-theme="daylight"] .code-block-container {
+    color: #f1f5f9;
+  }
+  html[data-studio-theme="daylight"] .theme-pill-group {
+    background: #ded8cc;
+    border-color: var(--border-highlight);
+  }
+  html[data-studio-theme="daylight"] .spec-radar {
+    background: #e5dfd3;
+    border-top: 1px solid var(--border-highlight);
+  }
+  html[data-studio-theme="daylight"] .radar-cell {
+    background: #ffffff;
+    border: 1px solid var(--border);
+  }
+  html[data-studio-theme="daylight"] .btn-arena {
+    background: #ffffff;
+    color: #0b6e58;
+    border-color: #0b6e58;
+  }
+  html[data-studio-theme="daylight"] .btn-arena.active {
+    background: linear-gradient(135deg, #e84800, #c81e1e);
+    color: #ffffff;
+    border-color: #c81e1e;
+  }
+  html[data-studio-theme="daylight"] .arena-col {
+    background: #faf8f3;
+  }
+  html[data-studio-theme="daylight"] .reasoning-box {
+    background: #f5f2eb;
+    color: #4a4740;
   }
 
   .sidebar {
@@ -666,9 +764,10 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 
     <!-- Live Pre-Send Speculative Neural Radar (runs 5.37us MLP on every keystroke) -->
     <div class="spec-radar" id="spec-radar-bar">
-      <div class="radar-cell">
-        <span class="radar-k">Speculative MLP</span>
-        <span class="radar-v hot" id="rad-mlp">P(offload) 88.0% · 5.37 μs</span>
+      <div class="radar-cell" style="position:relative; overflow:hidden;">
+        <div id="rad-mlp-bar" style="position:absolute; left:0; top:0; bottom:0; width:88%; background:linear-gradient(90deg, rgba(255,106,0,0.18), rgba(0,240,255,0.14)); transition:width 0.2s ease; pointer-events:none;"></div>
+        <span class="radar-k" style="position:relative; z-index:1;">Speculative MLP</span>
+        <span class="radar-v hot" id="rad-mlp" style="position:relative; z-index:1;">P(offload) 88.0% · 5.37 μs</span>
       </div>
       <div class="radar-cell">
         <span class="radar-k">Predicted d3 Route</span>
@@ -1355,6 +1454,8 @@ async function updateSpeculativeRadar() {
     const d = await res.json();
     const pct = (Number(d.p_offload || 0.88) * 100).toFixed(1);
     document.getElementById("rad-mlp").innerText = `P(offload) ${pct}% · ${d.mlp_latency_us} μs`;
+    const barEl = document.getElementById("rad-mlp-bar");
+    if (barEl) barEl.style.width = `${Math.max(4, Math.min(100, Number(pct)))}%`;
     const sel = document.getElementById("target-selector").value;
     const routeLabel = sel === "auto:d3" ? `d3 → ${d.predicted_model}` : sel;
     document.getElementById("rad-route").innerText = routeLabel;
