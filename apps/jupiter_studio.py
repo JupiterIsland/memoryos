@@ -357,6 +357,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         self._send_json({"error": "Unknown endpoint"}, status=404)
 
+    _BLOCKED_UPLOAD_NAMES = {".env", ".env.local", ".env.production", "credentials.json", "id_rsa", "id_ed25519"}
+    _BLOCKED_UPLOAD_EXTS = (".pem", ".key", ".p12", ".pfx")
+
+    @classmethod
+    def _is_sensitive_filename(cls, name: str) -> bool:
+        base = Path(str(name or "")).name.lower()
+        return (
+            base in cls._BLOCKED_UPLOAD_NAMES
+            or (base.startswith(".env.") and base != ".env.example")
+            or base.endswith(cls._BLOCKED_UPLOAD_EXTS)
+        )
+
     @staticmethod
     def _format_uploaded_files(
         uploaded_files: List[Dict[str, Any]],
@@ -372,6 +384,8 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             if not isinstance(item, dict):
                 continue
             name = str(item.get("name") or "uploaded_file.txt").strip()
+            if JupiterStudioHandler._is_sensitive_filename(name):
+                continue
             raw_content = str(item.get("content") or "")
             remaining = max_total_chars - used_chars
             if remaining <= 0:

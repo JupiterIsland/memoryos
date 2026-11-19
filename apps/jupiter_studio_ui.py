@@ -1047,6 +1047,17 @@ function addFilesFromList(fileList) {
       imgReader.readAsDataURL(file);
       continue;
     }
+    const lowerName = (file.name || "").toLowerCase();
+    if (
+      lowerName === ".env" ||
+      (lowerName.startsWith(".env.") && lowerName !== ".env.example") ||
+      lowerName.endsWith(".pem") ||
+      lowerName.endsWith(".key") ||
+      lowerName === "credentials.json"
+    ) {
+      showToast(`🔒 Blocked ${file.name}: secret files are never sent to cloud models`);
+      continue;
+    }
     if (file.size > 2 * 1024 * 1024) {
       showToast(`⚠️ Skipped ${file.name}: exceeds 2 MB upload limit`);
       continue;
