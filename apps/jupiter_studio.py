@@ -11,21 +11,58 @@ Features:
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import os
+import shutil
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
+import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+APP_DIR = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
+REPO_ROOT = APP_DIR
+
+for _p in (str(BUNDLE_ROOT), str(APP_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+
+def _bootstrap_standalone_env() -> None:
+    """Ensure .env exists beside the executable on first launch and load it into os.environ."""
+    env_file = APP_DIR / ".env"
+    if IS_FROZEN and not env_file.exists():
+        bundled_example = BUNDLE_ROOT / ".env.example"
+        if bundled_example.exists():
+            try:
+                shutil.copy2(bundled_example, env_file)
+            except Exception:
+                pass
+    if env_file.exists():
+        try:
+            for raw in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+
+
+_bootstrap_standalone_env()
 
 from src.memoryos.gpu_backends import MultiGPUDetector
 from src.memoryos.router import (
@@ -1404,12 +1441,51 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), JupiterStudioHandler)
-    print(f"[+] Jupiter Studio active at http://127.0.0.1:{PORT}")
+    global REPO_ROOT
+
+    parser = argparse.ArgumentParser(description="Jupiter Studio // MemoryOS Hybrid AI Workstation")
+    parser.add_argument("--host", default=os.getenv("JUPITER_STUDIO_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("JUPITER_STUDIO_PORT", PORT)))
+    parser.add_argument("--workspace", default=None, help="Project folder to expose in Workspace Context Files")
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        default=os.getenv("JUPITER_NO_BROWSER", "").strip().lower() in ("1", "true", "yes"),
+        help="Do not automatically open the web browser on startup",
+    )
+    args = parser.parse_args()
+
+    if args.workspace:
+        ws_path = Path(args.workspace).expanduser().resolve()
+        if ws_path.is_dir():
+            REPO_ROOT = ws_path
+
+    server = None
+    bound_port = args.port
+    for candidate_port in range(args.port, args.port + 10):
+        try:
+            server = ThreadingHTTPServer((args.host, candidate_port), JupiterStudioHandler)
+            bound_port = candidate_port
+            break
+        except OSError:
+            continue
+
+    if server is None:
+        raise RuntimeError(f"Could not bind Jupiter Studio on ports {args.port}..{args.port + 9}")
+
+    url = f"http://127.0.0.1:{bound_port}"
+    print(f"[+] Jupiter Studio active at {url}")
+    print(f"[+] Workspace root: {REPO_ROOT}")
+
+    if IS_FROZEN and not args.no_browser:
+        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n[*] Stopped")
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

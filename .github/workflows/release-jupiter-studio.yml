@@ -1,0 +1,105 @@
+name: Release Jupiter Studio Downloads
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows-x64
+            os: windows-latest
+            ext: ".exe"
+            archive: "zip"
+          - label: Linux-x64
+            os: ubuntu-latest
+            ext: ""
+            archive: "tar.gz"
+          - label: macOS-arm64
+            os: macos-latest
+            ext: ""
+            archive: "tar.gz"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build Jupiter Studio standalone executable
+        run: python -m PyInstaller --clean --noconfirm installer/JupiterStudio.spec
+
+      - name: Smoke-test standalone executable (--help)
+        shell: bash
+        run: |
+          ./dist/JupiterStudio${{ matrix.ext }} --help
+
+      - name: Package Windows ZIP
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $stage = "dist/JupiterStudio-${{ matrix.label }}"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "dist/JupiterStudio.exe" "$stage/JupiterStudio.exe"
+          Copy-Item ".env.example" "$stage/.env.example"
+          Copy-Item "README.md" "$stage/README.md"
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" "$stage/LICENSE" }
+          Compress-Archive -Path "$stage/*" -DestinationPath "dist/JupiterStudio-${{ matrix.label }}.zip" -Force
+
+      - name: Package Unix tar.gz
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          stage="dist/JupiterStudio-${{ matrix.label }}"
+          mkdir -p "$stage"
+          cp dist/JupiterStudio "$stage/JupiterStudio"
+          cp .env.example "$stage/.env.example"
+          cp README.md "$stage/README.md"
+          [[ -f LICENSE ]] && cp LICENSE "$stage/LICENSE"
+          tar -czf "dist/JupiterStudio-${{ matrix.label }}.tar.gz" -C dist "JupiterStudio-${{ matrix.label }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JupiterStudio-${{ matrix.label }}
+          path: dist/JupiterStudio-${{ matrix.label }}.${{ matrix.archive }}
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach packages to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
