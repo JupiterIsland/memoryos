@@ -1,6 +1,6 @@
-# MemoryOS // The Quiet Advisor
+# MemoryOS // Jupiter Studio
 
-### Hardware-Aware AI Workload Orchestration, Zero-VRAM Cloud Offloading, and Speculative Host-Side Gating
+### Hardware-Aware AI Workstation for Multi-Model Routing, Project Context, and Live GPU Telemetry
 
 ![MemoryOS // The Quiet Advisor — Powered by AMD Token Lab](docs/memoryos_executive_banner.png)
 
@@ -10,22 +10,20 @@
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
 [![Architecture: Zero-VRAM Hybrid](https://img.shields.io/badge/Architecture-Zero--VRAM_Hybrid-38BDF8?style=for-the-badge)](ARCHITECTURE.md)
 
-MemoryOS is a hardware-aware local AI workstation and orchestration layer built for laptops and desktops where GPU VRAM is tight. It pairs host-side CPU gating (`0.091 ms` AMD Zen 3 SIMD gate + `5.37 μs` pure-Python Speculative Offload MLP) with zero-VRAM cloud and LAN routing across **AMD Token Lab**, **Hugging Face Inference Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark (`vLLM`/`Flare`)**, and **Ollama**.
-
 ---
 
 ## Jupiter Studio RC1
 
 ![Jupiter Studio RC1 — Live Qwen3.8-27B Streaming & Speculative Neural Radar](docs/screenshots/jupiter_studio_live_stream.png)
 
-> **Jupiter Studio RC1** — A hardware-aware AI workstation that automatically routes requests between models while monitoring performance, memory usage, and execution cost.
+> **Jupiter Studio is a hardware-aware AI workstation that automatically routes tasks between models, manages project context, and provides live system telemetry from a single desktop interface.**
 
-* ✓ **Multi-model routing** — automatic `d3` routing across AMD Token Lab, Hugging Face Router, NVIDIA NIM, DigitalOcean MI300X, local DGX Spark (`vLLM`/`Flare`), and Ollama
-* ✓ **Local and cloud AI** — keep local GPU VRAM at **0 MB** while running 27B–72B models
-* ✓ **Workspace-aware context** — stage repo files and attach multi-file uploads or screenshots directly
-* ✓ **Hardware telemetry** — live GPU detection, VRAM monitoring, thermal throttling guard, and `0–100` Workstation Health Score
-* ✓ **Persistent memory** — SQLite telemetry ledger + atomic NVMe checkpoint recovery
-* ✓ **One-click Copilot export** — copy structured workspace bundles straight into IDE agents
+* ✓ **Multi-model routing** — automatic routing across local and cloud AI models
+* ✓ **Local and cloud AI** — run 27B–72B models while keeping local GPU VRAM free
+* ✓ **Workspace-aware context** — bring repository files, uploads, and screenshots straight into chat
+* ✓ **Hardware telemetry** — live GPU detection, VRAM usage, thermal guard, and health scoring
+* ✓ **Persistent memory** — local SQLite telemetry ledger and atomic NVMe checkpoints
+* ✓ **One-click Copilot export** — copy structured workspace bundles into IDE agents
 
 | Sharp Smoked-Crystal Quantum Theme | Atari / Commodore B&amp;W Monochrome Mode |
 | :---: | :---: |
@@ -49,10 +47,43 @@ Then open **[http://127.0.0.1:7860](http://127.0.0.1:7860)** — see **[HOW_TO_U
 
 ---
 
-### Three Integrated Components
-1. **Jupiter Studio (`apps/jupiter_studio.py`):** Zero-dependency Python hybrid workstation with live SSE token streaming, Pre-Send Speculative Neural Radar (`/api/speculate`), `Dual Arena` side-by-side model compare, 3 themes (`Quantum`, `Radeon`, `Daylight`), workspace file staging, `.env`/secret upload blocker, and Copilot bundle export.
-2. **MemoryOS Core (`src/memoryos/`):** Host-side hardware-aware execution scheduler, `0.091 ms` AMD Zen 3 frame-delta kernel, `5.37 μs` Speculative Offload MLP, and `3.07 ms` atomic NVMe checkpoint manager.
-3. **The Quiet Advisor (`quiet_advisor_detectors.py`, `quiet_advisor_scheduler.py`):** Local SQLite telemetry engine (`QuietAdvisorDB.sqlite`) with parameterized queries, versioned migrations, alert `CardState` machine, per-detector circuit breakers, `ThermalThrottlingDetector`, and `0–100` Workstation Health Score.
+## Key Features (Ordered by User Value)
+
+### 1. AI Workstation — One Place to Work With Multiple AI Models
+* Single zero-dependency desktop interface (`Jupiter Studio`) with real-time streaming responses
+* Unified access to local and cloud AI without juggling browser tabs
+* **Dual Arena** side-by-side shootout to race two models on the same prompt
+* Instant surface switching across **Quantum** (smoked-crystal dark), **Radeon** (crimson carbon), and **Atari B&W** (high-res monochrome)
+
+### 2. Smart Model Routing — Automatically Sends Requests to the Best Model
+* Multi-model orchestration across **AMD Token Lab**, **Hugging Face Inference Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark (`vLLM`/`Flare`)**, and **Ollama**
+* Fast local execution where appropriate with automatic cloud offload and instant `HTTP 429` failover when needed
+* Resource-aware decisions driven by the `d3` router
+
+### 3. Context & Workspace Intelligence — Bring Files, Projects, and Notes Into Conversations
+* Built-in repository file picker with multi-file drag-and-drop and multimodal screenshot vision
+* Automatic **secret-file upload blocker** (prevents `.env`, `.pem`, `.key`, and `credentials.json` from ever leaving your machine)
+* One-click **Copilot Bundle Export** for VS Code, Cursor, and IDE coding agents
+
+### 4. Real-Time Hardware Telemetry — See Exactly What the System Is Doing
+* Live GPU detection, VRAM usage, temperature, and load monitoring (including DGX Spark / GB10 unified-memory fallback)
+* **Live Pre-Send Speculative Neural Radar** showing offload probability, predicted route, draft token count, and VRAM saved as you type
+* Composite `0–100` **Workstation Health Score** (`Grade A–F`)
+
+### 5. MemoryOS Intelligence Layer — Persistent Knowledge and Workflow Continuity
+* Local SQLite WAL telemetry ledger (`QuietAdvisorDB.sqlite`) with versioned migrations and parameterized queries
+* **The Quiet Advisor** autonomous detectors for VRAM saturation, thermal throttling, context waste, and model thrashing
+* Alert `CardState` lifecycle machine (`PENDING → TRIGGERED → ACKNOWLEDGED → RESOLVED`) with duplicate suppression and per-detector circuit breakers
+
+### 6. Performance Optimisation — Reduce Waste and Improve Responsiveness
+* Zero local studio VRAM allocation (`0 MB`) when offloading 27B–72B models to cloud accelerators
+* `0.091 ms` AMD Zen 3 AVX2/FMA host-side CPU skip gate and `5.37 μs` pure-Python Speculative Offload MLP
+* `3.07 ms` atomic NVMe checkpoint recovery and `94.0%` cellular tethering bandwidth reduction
+
+### 7. Developer Features — Built for Builders
+* Pure Python architecture with zero PyTorch/Electron bloat (`apps/jupiter_studio.py`, `src/memoryos/`, `quiet_advisor_detectors.py`)
+* Automated **GitHub Actions CI** (`32/32` unit tests + `8/8` hardware benchmark suites) and cross-platform standalone release builds
+* Open source under the MIT License with extensible provider and custom model support
 
 ---
 
