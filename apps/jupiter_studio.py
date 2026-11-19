@@ -499,6 +499,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
           <option value="flare:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (NVIDIA Flare :8080)</option>
         </optgroup>
         <optgroup label="Local Models (100% Free / Ollama)" id="opt-ollama">
+          <option value="ollama:raon-1-nano">raon-1-nano (Game-Loop 1.5B / 256K)</option>
           <option value="ollama:qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Ultra-Fast)</option>
           <option value="ollama:qwen2.5-coder:7b">qwen2.5-coder:7b (Local Accuracy)</option>
           <option value="ollama:deepseek-r1:7b">deepseek-r1:7b (Reasoning)</option>
