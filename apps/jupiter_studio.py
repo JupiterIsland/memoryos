@@ -106,6 +106,67 @@ try:
 except ImportError:
     from jupiter_studio_ui import STUDIO_HTML as HTML_PAGE
 
+_OLLAMA_CACHE: Dict[str, Any] = {"host": None, "checked": 0.0}
+
+
+def _http_ok(url: str, timeout: float = 1.2) -> Optional[Dict[str, Any]]:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception:
+        return None
+
+
+def _resolve_ollama_host() -> Optional[str]:
+    """Find a live Ollama server: OLLAMA_HOST, localhost, or the Windows host when running under WSL."""
+    now = time.time()
+    if now - _OLLAMA_CACHE["checked"] < 10 and _OLLAMA_CACHE["checked"]:
+        return _OLLAMA_CACHE["host"]
+    candidates = [OLLAMA_HOST.rstrip("/"), "http://127.0.0.1:11434"]
+    try:
+        for line in Path("/etc/resolv.conf").read_text().splitlines():
+            if line.startswith("nameserver"):
+                candidates.append(f"http://{line.split()[1]}:11434")
+    except Exception:
+        pass
+    found = None
+    for cand in dict.fromkeys(candidates):
+        if _http_ok(f"{cand}/api/tags") is not None:
+            found = cand
+            break
+    _OLLAMA_CACHE.update(host=found, checked=now)
+    return found
+
+
+def _probe_model_availability() -> Dict[str, Any]:
+    """Report which execution providers can actually serve a request right now."""
+    cloud = get_cloud_provider_status()
+    host = _resolve_ollama_host()
+    installed: List[str] = []
+    if host:
+        tags = _http_ok(f"{host}/api/tags") or {}
+        installed = [m.get("name", "") for m in tags.get("models", [])]
+    _, vllm_url = _get_local_vllm_credentials()
+    _, flare_url = _get_nvidia_flare_credentials()
+
+    def state(ok: bool, reason: str) -> Dict[str, Any]:
+        return {"ready": ok, "reason": "" if ok else reason}
+
+    return {
+        "providers": {
+            "cloud": state(cloud["amd_tokenlab"]["configured"], "Set TOKENLAB_API_KEY in .env"),
+            "nv": state(cloud["nvidia_brev"]["configured"], "Set NVIDIA_API_KEY in .env"),
+            "do": state(cloud["digitalocean_mi300x"]["configured"], "Set DO_MODEL_ACCESS_KEY in .env"),
+            "vllm": state(_http_ok(f"{vllm_url}/models", 0.8) is not None, f"No vLLM server at {vllm_url}"),
+            "flare": state(_http_ok(f"{flare_url}/models", 0.8) is not None, f"No Flare server at {flare_url}"),
+            "ollama": state(bool(host), "Ollama not running - start the Ollama app"),
+            "auto": state(True, ""),
+        },
+        "ollama_host": host,
+        "ollama_installed": installed,
+    }
+
+
 def _compute_live_health(prof: Any) -> Dict[str, Any]:
     """Compute live Workstation Health Score from current GPU profile."""
     try:
@@ -182,6 +243,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             policy = get_policy_telemetry()
             health = _compute_live_health(prof)
             self._send_json({"gpu": prof.__dict__, "cloud": cloud, "policy": policy, "health": health})
+            return
+
+        if self.path == "/api/models":
+            self._send_json(_probe_model_availability())
             return
 
         if self.path == "/api/workspace/files":
@@ -448,7 +513,35 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             method="POST",
         )
 
-        with urllib.request.urlopen(req, timeout=120.0) as resp:
+        resp_ctx = None
+        for attempt in range(3):
+            try:
+                resp_ctx = urllib.request.urlopen(req, timeout=120.0)
+                break
+            except urllib.error.HTTPError as http_err:
+                if http_err.code == 429 and attempt < 2:
+                    wait_s = 3 * (attempt + 1)
+                    _send("notice", {"message": f"Rate limited by {provider_key}; retrying in {wait_s}s..."})
+                    time.sleep(wait_s)
+                    continue
+                detail = ""
+                try:
+                    detail = http_err.read().decode("utf-8", errors="replace")[:400]
+                except Exception:
+                    pass
+                if http_err.code == 429:
+                    raise RuntimeError(f"{provider_key}: still rate limited after 3 tries (HTTP 429). Wait a minute or pick another model.") from http_err
+                if http_err.code in (401, 403):
+                    raise RuntimeError(f"{provider_key}: API key rejected (HTTP {http_err.code}). Check .env.") from http_err
+                if http_err.code == 404:
+                    raise RuntimeError(f"{provider_key}: model '{model_name}' not found on this provider (HTTP 404).") from http_err
+                raise RuntimeError(f"{provider_key}: HTTP {http_err.code} {detail}".strip()) from http_err
+            except urllib.error.URLError as url_err:
+                raise RuntimeError(
+                    f"{provider_key}: cannot reach {base_url} ({url_err.reason}). Is the server running?"
+                ) from url_err
+
+        with resp_ctx as resp:
             for raw_line in resp:
                 line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line or not line.startswith("data:"):
@@ -477,31 +570,47 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         history: List[Dict[str, str]],
         _send: Any,
     ) -> None:
-        url = f"{OLLAMA_HOST}/api/generate"
-        payload = json.dumps({
-            "model": model_name,
-            "prompt": prompt,
-            "stream": True,
-        }).encode("utf-8")
-
-        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+        host = _resolve_ollama_host()
+        if not host:
+            raise RuntimeError(
+                "Ollama is not running. Start it on Windows (open the Ollama app or run `ollama serve`), "
+                f"then `ollama pull {model_name}`."
+            )
+        messages: List[Dict[str, str]] = [
+            {"role": h.get("role", "user"), "content": h.get("content", "")}
+            for h in history
+            if h.get("content")
+        ]
+        messages.append({"role": "user", "content": prompt})
+        payload = json.dumps({"model": model_name, "messages": messages, "stream": True}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{host}/api/chat", data=payload, headers={"Content-Type": "application/json"}, method="POST"
+        )
         try:
-            with urllib.request.urlopen(req, timeout=120.0) as resp:
-                for raw_line in resp:
-                    line = raw_line.decode("utf-8", errors="replace").strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        chunk = obj.get("response", "")
-                        if chunk:
-                            _send("delta", {"delta": chunk})
-                        if obj.get("done"):
-                            break
-                    except json.JSONDecodeError:
-                        continue
-        except Exception as exc:
-            raise RuntimeError(f"Ollama error: {exc}. Ensure Ollama is running on host ({OLLAMA_HOST}).") from exc
+            resp_ctx = urllib.request.urlopen(req, timeout=180.0)
+        except urllib.error.HTTPError as http_err:
+            if http_err.code == 404:
+                raise RuntimeError(f"Model '{model_name}' is not installed. Run: ollama pull {model_name}") from http_err
+            raise RuntimeError(f"Ollama HTTP {http_err.code}") from http_err
+        except urllib.error.URLError as url_err:
+            raise RuntimeError(f"Ollama unreachable at {host}: {url_err.reason}") from url_err
+
+        with resp_ctx as resp:
+            for raw_line in resp:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("error"):
+                    raise RuntimeError(f"Ollama: {obj['error']}")
+                chunk = (obj.get("message") or {}).get("content", "")
+                if chunk:
+                    _send("delta", {"delta": chunk})
+                if obj.get("done"):
+                    break
 
     def _call_cloud_direct(self, provider_key: str, model_name: str, prompt: str) -> Tuple[str, str]:
         is_local_openai = False

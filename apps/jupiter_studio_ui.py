@@ -1,1558 +1,733 @@
-"""Jupiter Studio UI — Industrial Hardware-Bench Interface (Braun / Avionics / Oscilloscope).
+"""Jupiter Studio UI — chat-first workstation.
 
-Separated from apps/jupiter_studio.py so UI templates stay modular while remaining
-100% zero-dependency and PyInstaller-compatible.
+Design goals:
+  * The conversation is the product: one readable column, real markdown, copy / retry / edit.
+  * Model picker (Ctrl+K) shows which providers are actually reachable and why not, so
+    nothing silently fails.
+  * Saved conversations in a left rail (localStorage), context + hardware in a right drawer.
 """
 
 STUDIO_HTML = r"""<!DOCTYPE html>
-<html lang="en" data-theme="day">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>JUPITER STUDIO // MemoryOS Hardware Bench</title>
+<title>Jupiter Studio</title>
 <link rel="icon" type="image/png" href="/assets/jupiter_studio_icon.png" />
 <style>
   :root {
-    --chassis: #f2eee6;
-    --well: #e6e0d4;
-    --panel: #faf7f1;
-    --panel-alt: #ede8dd;
-    --ink: #151513;
-    --ink-2: #4a4842;
-    --muted: #767268;
-    --hairline: #cfc7b8;
-    --hairline-strong: #9e9687;
-    --accent: #ff4d00;
-    --accent-ink: #ffffff;
-    --signal: #0a7b5c;
-    --signal-bg: rgba(10, 123, 92, 0.10);
-    --warn: #b45309;
-    --err: #c81e1e;
-    --code-bg: #181816;
-    --code-ink: #ece8df;
-    --scope-bg: #151614;
-    --scope-grid: rgba(255, 77, 0, 0.14);
-    --scope-line: #ff6a26;
-    --font-sans: "Space Grotesk", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-    --font-mono: "JetBrains Mono", "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
+    --bg: #0e0f11; --rail: #131417; --surface: #17191c; --raised: #1e2024; --hover: #25282d;
+    --line: #2a2d32; --line-2: #3a3e45;
+    --text: #e8e6e1; --text-2: #a9a59c; --muted: #6f6c66;
+    --accent: #e8a33d; --accent-ink: #1a1306; --accent-soft: rgba(232,163,61,0.12);
+    --ok: #5fbf8f; --bad: #e0685d; --code: #0a0b0c;
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --serif: "Iowan Old Style", "Charter", "Georgia", serif;
+    --mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
   }
-
-  html[data-theme="phosphor"] {
-    --chassis: #111210;
-    --well: #0b0c0a;
-    --panel: #171815;
-    --panel-alt: #1e201b;
-    --ink: #ece9df;
-    --ink-2: #b9b5a8;
-    --muted: #7d7a70;
-    --hairline: #2a2c26;
-    --hairline-strong: #46493f;
-    --accent: #ffb000;
-    --accent-ink: #111210;
-    --signal: #34d399;
-    --signal-bg: rgba(52, 211, 153, 0.12);
-    --warn: #f59e0b;
-    --err: #f87171;
-    --code-bg: #0a0b09;
-    --code-ink: #f4efe3;
-    --scope-bg: #080907;
-    --scope-grid: rgba(255, 176, 0, 0.14);
-    --scope-line: #ffb000;
+  html[data-theme="light"] {
+    --bg: #f6f4ef; --rail: #efece5; --surface: #ffffff; --raised: #f3f0ea; --hover: #e9e5dd;
+    --line: #e0dbd1; --line-2: #cdc6b9;
+    --text: #1d1c19; --text-2: #55524b; --muted: #8b877e;
+    --accent: #b8650f; --accent-ink: #ffffff; --accent-soft: rgba(184,101,15,0.10);
+    --ok: #2f8a5c; --bad: #c0392b; --code: #1b1c1e;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    background: var(--chassis);
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.5;
-    display: flex;
-    flex-direction: column;
-    -webkit-font-smoothing: antialiased;
-  }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.55 var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 8px; }
 
-  /* ── TOP INSTRUMENT BEZEL ───────────────────────────────────────────── */
-  .bezel {
-    height: 54px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--hairline-strong);
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 16px;
-    padding: 0 14px;
-    flex-shrink: 0;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .brand-mark {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--hairline-strong);
-    background: #141413;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
-  .brand-title {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .brand-sub {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
+  .app { display: grid; grid-template-columns: 248px 1fr 0px; height: 100vh; transition: grid-template-columns .18s ease; }
+  .app.drawer-open { grid-template-columns: 248px 1fr 300px; }
+  .app.rail-closed { grid-template-columns: 0px 1fr 0px; }
+  .app.rail-closed.drawer-open { grid-template-columns: 0px 1fr 300px; }
 
-  /* Live Oscilloscope Strip */
-  .scope-rack {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-  }
-  .scope-window {
-    position: relative;
-    height: 34px;
-    flex: 1;
-    max-width: 420px;
-    min-width: 140px;
-    background: var(--scope-bg);
-    border: 1px solid var(--hairline-strong);
-    overflow: hidden;
-  }
-  #scope-canvas { width: 100%; height: 100%; display: block; }
-  .scope-label {
-    position: absolute;
-    top: 3px;
-    left: 6px;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.55);
-    letter-spacing: 0.08em;
-    pointer-events: none;
-  }
-  .scope-readout {
-    position: absolute;
-    bottom: 2px;
-    right: 6px;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--scope-line);
-    letter-spacing: 0.06em;
-    pointer-events: none;
-  }
+  /* Left rail: conversations */
+  .rail { background: var(--rail); border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .rail-top { padding: 14px 12px 10px; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 28px; height: 28px; border-radius: 7px; overflow: hidden; flex-shrink: 0; background: #000; }
+  .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .wordmark { font-weight: 650; letter-spacing: -0.01em; }
+  .wordmark small { display: block; font: 500 10.5px var(--mono); color: var(--muted); letter-spacing: .04em; }
+  .new-chat { margin: 4px 12px 10px; padding: 9px 12px; border: 1px solid var(--line-2); border-radius: 9px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .new-chat:hover { background: var(--hover); }
+  .kbd { font: 500 10.5px var(--mono); color: var(--muted); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 5px; }
+  .conv-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+  .conv-group { font: 600 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; padding: 12px 8px 4px; }
+  .conv { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 7px; color: var(--text-2); cursor: pointer; }
+  .conv:hover { background: var(--hover); color: var(--text); }
+  .conv.active { background: var(--raised); color: var(--text); }
+  .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .conv-del { opacity: 0; color: var(--muted); padding: 0 4px; }
+  .conv:hover .conv-del { opacity: 1; }
+  .conv-del:hover { color: var(--bad); }
+  .rail-foot { border-top: 1px solid var(--line); padding: 10px 12px; font: 11px var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
 
-  .bezel-meters {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-  .meter {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-    border-left: 1px solid var(--hairline);
-    padding-left: 10px;
-  }
-  .meter-k { font-size: 9px; color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase; }
-  .meter-v { font-size: 11px; font-weight: 700; color: var(--ink); }
-  .meter-v.ok { color: var(--signal); }
-  .meter-v.hot { color: var(--accent); }
+  /* Main column */
+  .main { display: flex; flex-direction: column; min-width: 0; position: relative; }
+  .topbar { height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+  .icon-btn { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .icon-btn.on { color: var(--accent); }
+  .model-btn { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; border: 1px solid transparent; max-width: 420px; }
+  .model-btn:hover { background: var(--hover); border-color: var(--line); }
+  .model-btn .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-btn .prov { font: 11px var(--mono); color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
+  .dot.bad { background: var(--bad); }
+  .dot.busy { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .spacer { flex: 1; }
+  .vram-pill { font: 11px var(--mono); color: var(--text-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
 
-  .bezel-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .hw-btn {
-    height: 30px;
-    padding: 0 10px;
-    background: var(--panel-alt);
-    color: var(--ink);
-    border: 1px solid var(--hairline-strong);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.1s, border-color 0.1s, transform 0.06s;
-  }
-  .hw-btn:hover { background: var(--well); border-color: var(--ink); }
-  .hw-btn:active { transform: translateY(1px); }
-  .hw-btn.active {
-    background: var(--ink);
-    color: var(--panel);
-    border-color: var(--ink);
-  }
-  .hw-btn.accent {
-    background: var(--accent);
-    color: var(--accent-ink);
-    border-color: var(--accent);
-  }
-  .hw-btn.accent:hover { filter: brightness(1.06); }
-  .hw-btn.danger {
-    background: var(--err);
-    color: #fff;
-    border-color: var(--err);
-  }
-  .hw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .scroller { flex: 1; overflow-y: auto; }
+  .thread { max-width: 780px; margin: 0 auto; padding: 28px 24px 40px; }
 
-  .led {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--signal);
-    display: inline-block;
-  }
-  .led.busy { background: var(--accent); animation: blink 0.7s steps(2) infinite; }
-  @keyframes blink { 50% { opacity: 0.25; } }
+  .welcome { padding-top: 9vh; }
+  .welcome h1 { font: 500 34px/1.15 var(--serif); letter-spacing: -0.015em; margin-bottom: 10px; }
+  .welcome p { color: var(--text-2); max-width: 560px; margin-bottom: 26px; }
+  .starters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .starter { text-align: left; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .starter:hover { border-color: var(--line-2); background: var(--raised); }
+  .starter b { display: block; font-weight: 600; margin-bottom: 3px; }
+  .starter span { color: var(--muted); font-size: 12.5px; }
 
-  /* ── THREE-BAY WORKBENCH GRID ───────────────────────────────────────── */
-  .bench {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 278px 1fr 272px;
-    min-height: 0;
-    background: var(--hairline-strong);
-    gap: 1px;
-  }
-  .bench.no-inspector {
-    grid-template-columns: 278px 1fr 0px;
-  }
-  .bench.no-inspector .bay-right { display: none; }
+  .msg { margin-bottom: 26px; }
+  .msg.user { display: flex; justify-content: flex-end; }
+  .bubble { background: var(--raised); border: 1px solid var(--line); border-radius: 14px 14px 4px 14px; padding: 10px 14px; max-width: 85%; white-space: pre-wrap; word-break: break-word; }
+  .attach-line { font: 11px var(--mono); color: var(--muted); margin-top: 6px; text-align: right; }
+  .msg.ai .who { display: flex; align-items: center; gap: 8px; font: 11.5px var(--mono); color: var(--muted); margin-bottom: 6px; }
+  .msg.ai .who b { color: var(--text-2); font-weight: 600; }
+  .md { font-size: 14.5px; line-height: 1.7; word-break: break-word; }
+  .md p { margin: 0 0 12px; }
+  .md p:last-child { margin-bottom: 0; }
+  .md h1, .md h2, .md h3, .md h4 { font-weight: 650; line-height: 1.3; margin: 20px 0 8px; letter-spacing: -0.01em; }
+  .md h1 { font-size: 20px; } .md h2 { font-size: 17.5px; } .md h3 { font-size: 15.5px; } .md h4 { font-size: 14.5px; }
+  .md ul, .md ol { margin: 0 0 12px 22px; }
+  .md li { margin: 3px 0; }
+  .md blockquote { border-left: 3px solid var(--accent); padding: 2px 12px; color: var(--text-2); margin: 0 0 12px; }
+  .md a { color: var(--accent); }
+  .md hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+  .md :not(pre) > code { font: 12.5px var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  .md table { border-collapse: collapse; margin: 0 0 12px; font-size: 13px; display: block; overflow-x: auto; }
+  .md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  .md th { background: var(--raised); font-weight: 600; }
+  .codeblock { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--code); }
+  .codebar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font: 11px var(--mono); color: #8d8a83; border-bottom: 1px solid #222; }
+  .codebar button { color: #b9b5ad; font: 11px var(--mono); padding: 2px 6px; border-radius: 5px; }
+  .codebar button:hover { background: #222; color: #fff; }
+  .codeblock pre { margin: 0; padding: 12px 14px; overflow-x: auto; font: 12.8px/1.55 var(--mono); color: #e6e3dc; }
+  .think { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; background: var(--surface); }
+  .think summary { cursor: pointer; padding: 7px 12px; font: 11.5px var(--mono); color: var(--muted); list-style: none; }
+  .think summary::before { content: "+ "; }
+  .think[open] summary::before { content: "- "; }
+  .think div { padding: 0 12px 10px; font: 12.5px/1.6 var(--mono); color: var(--text-2); white-space: pre-wrap; max-height: 280px; overflow-y: auto; }
+  .caret::after { content: ""; display: inline-block; width: 8px; height: 15px; background: var(--accent); margin-left: 2px; vertical-align: -2px; animation: pulse .9s infinite; }
+  .waiting { color: var(--muted); font: 12.5px var(--mono); }
+  .err-box { border: 1px solid var(--bad); background: rgba(224,104,93,.08); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
+  .err-box b { color: var(--bad); display: block; margin-bottom: 2px; font: 600 11.5px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+  .msg-tools { display: flex; gap: 2px; margin-top: 8px; opacity: 0; transition: opacity .12s; }
+  .msg:hover .msg-tools, .msg:last-child .msg-tools { opacity: 1; }
+  .msg-tools button { font: 11.5px var(--mono); color: var(--muted); padding: 3px 8px; border-radius: 6px; }
+  .msg-tools button:hover { background: var(--hover); color: var(--text); }
+  .stat { font: 11px var(--mono); color: var(--muted); margin-left: auto; align-self: center; }
 
-  .bay {
-    background: var(--chassis);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .bay-head {
-    height: 32px;
-    padding: 0 12px;
-    background: var(--panel-alt);
-    border-bottom: 1px solid var(--hairline);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-2);
-    flex-shrink: 0;
-  }
-  .bay-index { color: var(--accent); margin-right: 6px; }
-  .bay-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+  /* Composer */
+  .composer-wrap { padding: 0 24px 18px; }
+  .composer { max-width: 780px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 10px 10px 8px 14px; transition: border-color .12s; }
+  .composer:focus-within { border-color: var(--accent); }
+  .composer.drag { border-style: dashed; border-color: var(--accent); background: var(--accent-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chips:empty { display: none; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font: 11.5px var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 7px; padding: 3px 4px 3px 8px; }
+  .chip button { color: var(--muted); padding: 0 4px; }
+  .chip button:hover { color: var(--bad); }
+  .chip img { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; }
+  #prompt { width: 100%; resize: none; border: none; outline: none; background: transparent; color: var(--text); font: 14.5px/1.55 var(--sans); max-height: 240px; min-height: 24px; }
+  #prompt::placeholder { color: var(--muted); }
+  .composer-row { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .tool { font: 12px var(--sans); color: var(--text-2); padding: 5px 9px; border-radius: 8px; }
+  .tool:hover { background: var(--hover); color: var(--text); }
+  .send { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; }
+  .send:disabled { opacity: .35; cursor: not-allowed; }
+  .send.stop { background: var(--text); color: var(--bg); }
+  .hint { max-width: 780px; margin: 6px auto 0; font: 11px var(--mono); color: var(--muted); text-align: center; }
 
-  /* ── BAY 01: ROUTING PATCHBAY + WORKSPACE FILES ─────────────────────── */
-  .bus-group { display: flex; flex-direction: column; gap: 4px; }
-  .bus-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    padding: 2px 2px 2px 0;
-    border-bottom: 1px dotted var(--hairline-strong);
-  }
-  .patch-btn {
-    width: 100%;
-    text-align: left;
-    background: var(--panel);
-    color: var(--ink);
-    border: 1px solid var(--hairline);
-    padding: 6px 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    transition: border-color 0.1s, background 0.1s;
-  }
-  .patch-btn:hover { border-color: var(--ink); background: var(--panel-alt); }
-  .patch-btn.selected {
-    background: var(--ink);
-    color: var(--panel);
-    border-color: var(--ink);
-  }
-  .patch-btn .patch-tag {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-    flex-shrink: 0;
-  }
-  .patch-btn.selected .patch-tag { color: var(--accent); }
-  .patch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Right drawer */
+  .drawer { background: var(--rail); border-left: 1px solid var(--line); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .drawer-head { height: 52px; display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 18px; }
+  .sec-title { font: 600 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .kv span:first-child { color: var(--muted); }
+  .kv span:last-child { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .health { display: flex; align-items: baseline; gap: 10px; }
+  .health b { font: 600 30px var(--serif); }
+  .bar { height: 5px; background: var(--raised); border-radius: 5px; overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; background: var(--ok); }
+  .search { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 12.5px var(--sans); outline: none; margin-bottom: 6px; }
+  .search:focus { border-color: var(--accent); }
+  .files { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .file { display: flex; gap: 8px; align-items: center; padding: 5px 8px; font: 11.5px var(--mono); cursor: pointer; border-bottom: 1px solid var(--line); }
+  .file:last-child { border-bottom: none; }
+  .file:hover { background: var(--hover); }
+  .file input { accent-color: var(--accent); }
+  .file .p { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .s { color: var(--muted); }
 
-  /* Workspace file bay */
-  .file-filter {
-    width: 100%;
-    height: 28px;
-    padding: 0 8px;
-    background: var(--panel);
-    color: var(--ink);
-    border: 1px solid var(--hairline-strong);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    outline: none;
-  }
-  .file-filter:focus { border-color: var(--accent); }
-  .file-list {
-    border: 1px solid var(--hairline);
-    background: var(--panel);
-    max-height: 220px;
-    overflow-y: auto;
-  }
-  .file-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 8px;
-    border-bottom: 1px solid var(--hairline);
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .file-row:last-child { border-bottom: none; }
-  .file-row:hover { background: var(--panel-alt); }
-  .file-row.checked { background: var(--signal-bg); }
-  .file-row input { accent-color: var(--accent); cursor: pointer; }
-  .file-row .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-row .fsize { color: var(--muted); font-size: 9.5px; }
+  /* Model palette */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 50; }
+  .overlay.open { display: flex; }
+  .palette { width: min(620px, 92vw); max-height: 70vh; background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .palette input { border: none; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); padding: 14px 16px; font: 15px var(--sans); outline: none; }
+  .pal-list { overflow-y: auto; padding: 6px; }
+  .pal-group { font: 600 10.5px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; padding: 10px 10px 4px; display: flex; justify-content: space-between; }
+  .pal-group em { font-style: normal; text-transform: none; letter-spacing: 0; color: var(--bad); font-weight: 500; }
+  .pal-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; }
+  .pal-item:hover, .pal-item.kb { background: var(--hover); }
+  .pal-item.sel { background: var(--accent-soft); }
+  .pal-item.off { opacity: .45; }
+  .pal-item .n { flex: 1; font-weight: 550; }
+  .pal-item .t { font: 11px var(--mono); color: var(--muted); }
+  .pal-foot { border-top: 1px solid var(--line); padding: 8px 14px; font: 11px var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
 
-  /* ── BAY 02: EXECUTION TAPE + TACTILE COMMAND DECK ──────────────────── */
-  .tape-bay {
-    background: var(--panel);
-    position: relative;
-  }
-  .tape {
-    flex: 1;
-    overflow-y: auto;
-    padding: 18px 24px 28px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .tape-empty {
-    margin: auto;
-    max-width: 560px;
-    border: 1px solid var(--hairline-strong);
-    background: var(--chassis);
-    padding: 20px 22px;
-  }
-  .tape-empty-kicker {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 6px;
-  }
-  .tape-empty h2 {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 8px;
-  }
-  .tape-empty p {
-    color: var(--ink-2);
-    font-size: 12.5px;
-    margin-bottom: 14px;
-  }
-  .quick-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .quick-key {
-    text-align: left;
-    background: var(--panel);
-    border: 1px solid var(--hairline-strong);
-    padding: 8px 10px;
-    cursor: pointer;
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-  .quick-key:hover { border-color: var(--accent); background: var(--panel-alt); }
-  .quick-key span { display: block; font-size: 9px; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 9px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 60; }
+  .toast.show { opacity: 1; }
 
-  /* Tape entry blocks */
-  .entry {
-    border-left: 3px solid var(--hairline-strong);
-    padding-left: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .entry.user { border-left-color: var(--ink); }
-  .entry.assistant { border-left-color: var(--accent); }
-  .entry.error { border-left-color: var(--err); }
-
-  .entry-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .entry-seq { color: var(--ink); font-weight: 700; }
-  .entry-badge {
-    padding: 1px 6px;
-    border: 1px solid var(--hairline-strong);
-    background: var(--chassis);
-    color: var(--ink);
-    font-weight: 700;
-  }
-  .entry-badge.live { border-color: var(--accent); color: var(--accent); }
-  .entry-badge.ok { border-color: var(--signal); color: var(--signal); }
-  .entry-badge.err { border-color: var(--err); color: var(--err); }
-
-  .entry-body {
-    font-size: 13.5px;
-    line-height: 1.62;
-    color: var(--ink);
-    word-break: break-word;
-  }
-  .entry-body p { margin-bottom: 8px; }
-  .entry-body p:last-child { margin-bottom: 0; }
-  .entry-body code {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    background: var(--well);
-    padding: 1px 5px;
-    border: 1px solid var(--hairline);
-  }
-  .entry-body pre {
-    margin: 10px 0;
-    background: var(--code-bg);
-    color: var(--code-ink);
-    border: 1px solid var(--hairline-strong);
-    overflow-x: auto;
-  }
-  .code-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: #9e9a90;
-    text-transform: uppercase;
-  }
-  .code-copy {
-    background: transparent;
-    color: #ece8df;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    padding: 1px 7px;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
-  .code-copy:hover { border-color: var(--accent); color: var(--accent); }
-  .entry-body pre code {
-    display: block;
-    background: transparent;
-    border: none;
-    padding: 10px 12px;
-    color: var(--code-ink);
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  .reasoning-panel {
-    border: 1px dashed var(--hairline-strong);
-    background: var(--chassis);
-    padding: 8px 10px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-2);
-    white-space: pre-wrap;
-    display: none;
-  }
-  .reasoning-panel summary {
-    cursor: pointer;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 10px;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-
-  /* ── COMMAND DECK (INPUT + STAGING TRAY) ────────────────────────────── */
-  .deck {
-    border-top: 1px solid var(--hairline-strong);
-    background: var(--chassis);
-    padding: 10px 16px 12px 16px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .deck.drag-over {
-    outline: 2px dashed var(--accent);
-    outline-offset: -4px;
-    background: var(--panel-alt);
-  }
-  .staging-tray {
-    display: none;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
-  .staging-tray.has-items { display: flex; }
-  .stage-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    background: var(--panel);
-    border: 1px solid var(--hairline-strong);
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-  }
-  .stage-chip button {
-    background: none;
-    border: none;
-    color: var(--err);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    cursor: pointer;
-    padding: 0 2px;
-  }
-  .deck-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-    align-items: stretch;
-  }
-  #prompt-input {
-    width: 100%;
-    min-height: 54px;
-    max-height: 180px;
-    resize: none;
-    background: var(--panel);
-    color: var(--ink);
-    border: 1px solid var(--hairline-strong);
-    padding: 10px 12px;
-    font-family: var(--font-sans);
-    font-size: 13.5px;
-    outline: none;
-  }
-  #prompt-input:focus { border-color: var(--accent); }
-  .deck-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  .deck-subbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-  }
-  .deck-tools { display: flex; gap: 6px; align-items: center; }
-
-  /* ── BAY 03: LIVE SIGNAL INSPECTOR ──────────────────────────────────── */
-  .spec-card {
-    background: var(--panel);
-    border: 1px solid var(--hairline);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .spec-title {
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-  }
-  .kv-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    border-bottom: 1px dotted var(--hairline);
-    padding-bottom: 3px;
-  }
-  .kv-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .kv-k { color: var(--muted); font-size: 10px; }
-  .kv-v { color: var(--ink); font-weight: 700; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 155px; }
-  .kv-v.ok { color: var(--signal); }
-  .kv-v.hot { color: var(--accent); }
-
-  /* Signal path diagram */
-  .path-node {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 5px 8px;
-    border: 1px solid var(--hairline-strong);
-    background: var(--chassis);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .path-node.active { border-color: var(--accent); background: var(--panel-alt); }
-  .path-arrow {
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-    line-height: 1;
-  }
-
-  /* Health gauge */
-  .health-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-  }
-  .health-num { font-size: 26px; font-weight: 700; line-height: 1; }
-  .health-grade {
-    font-size: 12px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border: 1px solid var(--signal);
-    color: var(--signal);
-  }
-  .bar-track {
-    height: 6px;
-    background: var(--well);
-    border: 1px solid var(--hairline);
-    overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%;
-    background: var(--signal);
-    width: 100%;
-    transition: width 0.3s ease;
-  }
-
-  /* Modal for IDE bundle export */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 15, 13, 0.65);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 99;
-  }
-  .modal-backdrop.open { display: flex; }
-  .modal-box {
-    width: min(760px, 92vw);
-    max-height: 82vh;
-    background: var(--panel);
-    border: 1px solid var(--hairline-strong);
-    display: flex;
-    flex-direction: column;
-  }
-  .modal-body {
-    flex: 1;
-    padding: 12px;
-    overflow: auto;
-  }
-  .modal-body textarea {
-    width: 100%;
-    height: 360px;
-    background: var(--code-bg);
-    color: var(--code-ink);
-    border: 1px solid var(--hairline-strong);
-    padding: 10px;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    resize: vertical;
-  }
-
-  /* Scrollbars */
-  ::-webkit-scrollbar { width: 7px; height: 7px; }
-  ::-webkit-scrollbar-track { background: var(--well); }
-  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); }
-
-  @media (max-width: 1060px) {
-    .bench { grid-template-columns: 240px 1fr 0px; }
-    .bay-right { display: none; }
-    .bezel-meters { display: none; }
-  }
-  @media (max-width: 720px) {
-    .bench { grid-template-columns: 1fr; }
-    .bay-left, .bay-right { display: none; }
+  @media (max-width: 900px) {
+    .app, .app.drawer-open { grid-template-columns: 0px 1fr 0px; }
+    .starters { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
+<div class="app" id="app">
 
-  <!-- TOP INSTRUMENT BEZEL -->
-  <header class="bezel">
-    <div class="brand">
-      <div class="brand-mark">
-        <img src="/assets/jupiter_studio_icon.png" alt="J" />
-      </div>
-      <div class="brand-text">
-        <span class="brand-title">Jupiter Studio</span>
-        <span class="brand-sub">MemoryOS Bench // v1.0.0-RC1</span>
-      </div>
+  <aside class="rail">
+    <div class="rail-top">
+      <div class="logo"><img src="/assets/jupiter_studio_icon.png" alt="" /></div>
+      <div class="wordmark">Jupiter Studio<small>MEMORYOS RC1</small></div>
+    </div>
+    <button class="new-chat" onclick="newChat()"><span>New chat</span><span class="kbd">Ctrl+Shift+O</span></button>
+    <div class="conv-list" id="conv-list"></div>
+    <div class="rail-foot"><span id="foot-gpu">--</span><span id="foot-vram">0 MB</span></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="icon-btn" title="Toggle sidebar" onclick="toggleRail()">&#9776;</button>
+      <button class="model-btn" onclick="openPalette()" title="Change model (Ctrl+K)">
+        <span class="dot" id="model-dot"></span>
+        <span class="name" id="model-name">Auto</span>
+        <span class="prov" id="model-prov">d3 router</span>
+        <span class="kbd">Ctrl+K</span>
+      </button>
+      <div class="spacer"></div>
+      <span class="vram-pill" id="vram-pill">Local VRAM 0 MB</span>
+      <button class="icon-btn" title="Light / dark" onclick="toggleTheme()">&#9680;</button>
+      <button class="icon-btn" id="drawer-btn" title="Context & hardware" onclick="toggleDrawer()">&#9638;</button>
     </div>
 
-    <div class="scope-rack">
-      <div class="scope-window" title="Live host-gate & token-stream oscilloscope">
-        <canvas id="scope-canvas"></canvas>
-        <span class="scope-label">CH1 // ZEN3 GATE + STREAM</span>
-        <span class="scope-readout" id="scope-readout">0.091 ms IDLE</span>
-      </div>
-
-      <div class="bezel-meters">
-        <div class="meter">
-          <span class="meter-k">Local VRAM</span>
-          <span class="meter-v ok" id="m-vram">0 MB</span>
-        </div>
-        <div class="meter">
-          <span class="meter-k">Active Bus</span>
-          <span class="meter-v hot" id="m-target">AUTO:D3</span>
-        </div>
-        <div class="meter">
-          <span class="meter-k">Last Latency</span>
-          <span class="meter-v" id="m-lat">-- ms</span>
-        </div>
-      </div>
+    <div class="scroller" id="scroller">
+      <div class="thread" id="thread"></div>
     </div>
 
-    <div class="bezel-controls">
-      <span class="led" id="sys-led" title="System ready"></span>
-      <button class="hw-btn" id="btn-theme" onclick="toggleTheme()">PHOSPHOR</button>
-      <button class="hw-btn active" id="btn-inspector" onclick="toggleInspector()">INSPECTOR</button>
-      <button class="hw-btn" onclick="openExportBundle()">EXPORT</button>
-      <button class="hw-btn" onclick="clearTape()">CLEAR</button>
+    <div class="composer-wrap">
+      <div class="composer" id="composer">
+        <div class="chips" id="chips"></div>
+        <textarea id="prompt" rows="1" placeholder="Message Jupiter Studio..."></textarea>
+        <div class="composer-row">
+          <input type="file" id="file-in" multiple hidden />
+          <button class="tool" onclick="document.getElementById('file-in').click()">+ Attach</button>
+          <button class="tool" onclick="toggleDrawer(true)" id="ctx-tool">Repo files</button>
+          <div class="spacer"></div>
+          <button class="send" id="send" onclick="onSendClick()" title="Send (Enter)">&uarr;</button>
+        </div>
+      </div>
+      <div class="hint" id="hint">Enter to send &middot; Shift+Enter for a new line &middot; drop files or images anywhere</div>
     </div>
-  </header>
-
-  <!-- THREE-BAY MODULAR BENCH -->
-  <main class="bench" id="bench-grid">
-
-    <!-- BAY 01: ROUTING PATCHBAY + WORKSPACE FILES -->
-    <aside class="bay bay-left">
-      <div class="bay-head">
-        <span><span class="bay-index">01</span>Routing Patchbay</span>
-        <span id="patch-count">14 BUSES</span>
-      </div>
-      <div class="bay-scroll">
-        <div id="patchbay-container" style="display:flex; flex-direction:column; gap:10px;"></div>
-
-        <div class="bus-group" style="margin-top:4px;">
-          <div class="bus-label">
-            <span>Workspace Context</span>
-            <span id="selected-files-count">0 STAGED</span>
-          </div>
-          <input class="file-filter" id="file-filter" type="text" placeholder="Filter repo files..." oninput="renderWorkspaceFiles()" />
-          <div class="file-list" id="workspace-file-list">
-            <div class="file-row" style="color:var(--muted);">Scanning workspace...</div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- BAY 02: EXECUTION TAPE + COMMAND DECK -->
-    <section class="bay tape-bay">
-      <div class="bay-head">
-        <span><span class="bay-index">02</span>Execution Tape</span>
-        <span id="tape-status">READY // ZERO LOCAL VRAM</span>
-      </div>
-
-      <div class="tape" id="chat-log">
-        <div class="tape-empty" id="tape-empty">
-          <div class="tape-empty-kicker">MemoryOS // Zero-VRAM Hybrid Instrument</div>
-          <h2>Hardware-Aware Inference Bench</h2>
-          <p>
-            Select any remote or local execution bus in Bay 01, attach source files or screenshots directly
-            onto the command deck below, and transmit. Local GPU VRAM remains reserved for native workloads
-            while host-side Zen 3 gating runs in 0.091 ms.
-          </p>
-          <div class="quick-grid">
-            <button class="quick-key" onclick="quickPrompt('Audit the selected workspace files for bugs, security risks, and performance regressions.')">
-              <span>01 // Code Audit</span>
-              Inspect staged files for risks
-            </button>
-            <button class="quick-key" onclick="quickPrompt('Explain how MemoryOS keeps local VRAM at 0 MB while routing to AMD Instinct via Token Lab.')">
-              <span>02 // Architecture</span>
-              Trace zero-VRAM routing path
-            </button>
-            <button class="quick-key" onclick="quickPrompt('Write a clean, minimal Python unit test for the selected module.')">
-              <span>03 // Verification</span>
-              Generate targeted unit tests
-            </button>
-            <button class="quick-key" onclick="quickPrompt('Compare local Ollama vs AMD Token Lab latency and VRAM tradeoffs for a 31B model on an 8 GB laptop.')">
-              <span>04 // Benchmark</span>
-              Local vs Instinct tradeoff
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="deck" id="command-deck">
-        <div class="staging-tray" id="staging-tray"></div>
-
-        <div class="deck-row">
-          <textarea
-            id="prompt-input"
-            placeholder="Enter instruction or drop files onto the deck... (Enter to transmit, Shift+Enter for newline)"
-          ></textarea>
-          <div class="deck-actions">
-            <button class="hw-btn accent" id="btn-send" onclick="sendPrompt()" style="height:34px; justify-content:center;">TRANSMIT</button>
-            <button class="hw-btn danger" id="btn-stop" onclick="stopGeneration()" style="height:24px; justify-content:center; display:none;">STOP</button>
-          </div>
-        </div>
-
-        <div class="deck-subbar">
-          <div class="deck-tools">
-            <input type="file" id="file-upload-input" multiple style="display:none;" onchange="handleFileUpload(event)" />
-            <input type="file" id="image-upload-input" accept="image/*" style="display:none;" onchange="handleImageUpload(event)" />
-            <button class="hw-btn" style="height:24px;" onclick="document.getElementById('file-upload-input').click()">+ FILE</button>
-            <button class="hw-btn" style="height:24px;" onclick="document.getElementById('image-upload-input').click()">+ IMAGE</button>
-            <span id="deck-hint">DROP CODE, LOGS, JSON, OR IMAGES</span>
-          </div>
-          <span id="deck-route-label">BUS: auto:d3</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- BAY 03: LIVE SIGNAL & HARDWARE INSPECTOR -->
-    <aside class="bay bay-right">
-      <div class="bay-head">
-        <span><span class="bay-index">03</span>Signal Inspector</span>
-        <span id="insp-clock">00:00:00</span>
-      </div>
-      <div class="bay-scroll">
-        <div class="spec-card">
-          <div class="spec-title"><span>Workstation Health</span><span id="health-status">HEALTHY</span></div>
-          <div class="health-row">
-            <span class="health-num" id="health-score">100</span>
-            <span class="health-grade" id="health-grade">GRADE A</span>
-          </div>
-          <div class="bar-track"><div class="bar-fill" id="health-bar"></div></div>
-          <div class="kv-row"><span class="kv-k">VRAM HEADROOM</span><span class="kv-v ok" id="h-vram">100%</span></div>
-          <div class="kv-row"><span class="kv-k">THERMAL HEADROOM</span><span class="kv-v ok" id="h-therm">100%</span></div>
-        </div>
-
-        <div class="spec-card">
-          <div class="spec-title"><span>Signal Path</span><span>LIVE</span></div>
-          <div class="path-node active"><span>01 HOST GATE</span><span id="p-gate">0.091 ms</span></div>
-          <div class="path-arrow">|</div>
-          <div class="path-node"><span>02 ROUTER</span><span id="p-router">d3 AUX</span></div>
-          <div class="path-arrow">|</div>
-          <div class="path-node"><span>03 TARGET</span><span id="p-target">AUTO</span></div>
-        </div>
-
-        <div class="spec-card">
-          <div class="spec-title"><span>Hardware Profile</span><span id="hw-vendor">--</span></div>
-          <div class="kv-row"><span class="kv-k">GPU</span><span class="kv-v" id="hw-name">Detecting...</span></div>
-          <div class="kv-row"><span class="kv-k">VRAM USED</span><span class="kv-v ok" id="hw-vram">0 MB</span></div>
-          <div class="kv-row"><span class="kv-k">TELEMETRY</span><span class="kv-v" id="hw-src">--</span></div>
-          <div class="kv-row"><span class="kv-k">CPU GATE</span><span class="kv-v" id="hw-gate">0.091 ms</span></div>
-        </div>
-
-        <div class="spec-card">
-          <div class="spec-title"><span>Cloud & Local Buses</span><span>LINK</span></div>
-          <div class="kv-row"><span class="kv-k">AMD TOKEN LAB</span><span class="kv-v" id="c-tokenlab">--</span></div>
-          <div class="kv-row"><span class="kv-k">NVIDIA NIM</span><span class="kv-v" id="c-nvidia">--</span></div>
-          <div class="kv-row"><span class="kv-k">DIGITALOCEAN</span><span class="kv-v" id="c-do">--</span></div>
-          <div class="kv-row"><span class="kv-k">LOCAL OLLAMA</span><span class="kv-v" id="c-ollama">11434</span></div>
-        </div>
-      </div>
-    </aside>
-
   </main>
 
-  <!-- EXPORT BUNDLE MODAL -->
-  <div class="modal-backdrop" id="export-modal">
-    <div class="modal-box">
-      <div class="bay-head">
-        <span>IDE Context Bundle Export</span>
-        <div style="display:flex; gap:6px;">
-          <button class="hw-btn accent" style="height:22px;" onclick="copyExportBundle()">COPY</button>
-          <button class="hw-btn" style="height:22px;" onclick="closeExportBundle()">CLOSE</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <textarea id="export-textarea" readonly></textarea>
-      </div>
+  <aside class="drawer">
+    <div class="drawer-head">Context &amp; hardware</div>
+    <div class="drawer-body">
+      <section>
+        <div class="sec-title"><span>Repo files</span><span id="staged">0 selected</span></div>
+        <input class="search" id="file-q" placeholder="Filter files..." oninput="renderFiles()" />
+        <div class="files" id="files"><div class="file">Scanning...</div></div>
+      </section>
+      <section>
+        <div class="sec-title"><span>Workstation health</span><span id="h-status">--</span></div>
+        <div class="health"><b id="h-score">--</b><span id="h-grade" style="color:var(--muted)"></span></div>
+        <div class="bar"><i id="h-bar" style="width:0%"></i></div>
+      </section>
+      <section>
+        <div class="sec-title"><span>Hardware</span></div>
+        <div class="kv"><span>GPU</span><span id="hw-name">--</span></div>
+        <div class="kv"><span>VRAM</span><span id="hw-vram">--</span></div>
+        <div class="kv"><span>Temp / load</span><span id="hw-temp">--</span></div>
+        <div class="kv"><span>CPU gate</span><span id="hw-gate">0.091 ms</span></div>
+      </section>
+      <section>
+        <div class="sec-title"><span>Providers</span><button class="kbd" onclick="loadModels(true)">refresh</button></div>
+        <div id="prov-list"></div>
+      </section>
     </div>
+  </aside>
+</div>
+
+<div class="overlay" id="overlay" onclick="if(event.target===this)closePalette()">
+  <div class="palette">
+    <input id="pal-q" placeholder="Search models..." oninput="renderPalette()" />
+    <div class="pal-list" id="pal-list"></div>
+    <div class="pal-foot"><span>&uarr;&darr; navigate &middot; Enter select &middot; Esc close</span><span id="pal-count"></span></div>
   </div>
+</div>
+<div class="toast" id="toast"></div>
 
 <script>
-const PATCH_BUSES = [
-  {
-    group: "AUTO BUS",
-    busTag: "d3",
-    items: [
-      { value: "auto:d3", label: "Auto-Route (d3 Gate)", tag: "AUTO" },
-    ],
-  },
-  {
-    group: "AMD TOKEN LAB",
-    busTag: "0 MB VRAM",
-    items: [
-      { value: "cloud:Gemma-4-31B-IT", label: "Gemma-4-31B-IT", tag: "31B VLM" },
-      { value: "cloud:Qwen3.8-27B", label: "Qwen3.8-27B", tag: "27B CODE" },
-      { value: "cloud:DeepSeek-V4.1-Flash", label: "DeepSeek-V4.1-Flash", tag: "1M CTX" },
-      { value: "cloud:MiniCPM5-2B", label: "MiniCPM5-2B", tag: "2B FAST" },
-    ],
-  },
-  {
-    group: "NVIDIA NIM / BREV",
-    busTag: "NIM",
-    items: [
-      { value: "nv:qwen/qwen2.5-coder-32b-instruct", label: "Qwen-2.5-Coder-32B", tag: "32B" },
-      { value: "nv:meta/llama-3.3-70b-instruct", label: "Llama-3.3-70B", tag: "70B" },
-      { value: "nv:qwen/qwen2.5-7b-instruct", label: "Qwen-2.5-7B", tag: "7B" },
-    ],
-  },
-  {
-    group: "DIGITALOCEAN MI300X",
-    busTag: "MI300X",
-    items: [
-      { value: "do:Qwen/Qwen2.5-Coder-32B-Instruct", label: "Qwen-2.5-Coder-32B", tag: "MI300X" },
-      { value: "do:meta-llama/Llama-3.3-70B-Instruct", label: "Llama-3.3-70B", tag: "MI300X" },
-    ],
-  },
-  {
-    group: "DGX SPARK / GB10 LOCAL",
-    busTag: "LAN",
-    items: [
-      { value: "vllm:Qwen/Qwen3.8-Flash-Next", label: "Qwen3.8-Flash-Next", tag: "vLLM:8000" },
-      { value: "vllm:deepseek-ai/DeepSeek-V4.1-Flash", label: "DeepSeek-V4.1-Flash", tag: "vLLM:8000" },
-      { value: "flare:Qwen3.8-Flash-Next", label: "Qwen3.8-Flash-Next", tag: "FLARE:8080" },
-      { value: "flare:DeepSeek-V4.1-Flash", label: "DeepSeek-V4.1-Flash", tag: "FLARE:8080" },
-    ],
-  },
-  {
-    group: "LOCAL OLLAMA",
-    busTag: "LOCAL",
-    items: [
-      { value: "ollama:raon-1-nano", label: "raon-1-nano", tag: "1.5B 256K" },
-      { value: "ollama:qwen2.5-coder:1.5b", label: "qwen2.5-coder:1.5b", tag: "1.5B" },
-      { value: "ollama:qwen2.5-coder:7b", label: "qwen2.5-coder:7b", tag: "7B" },
-      { value: "ollama:deepseek-r1:7b", label: "deepseek-r1:7b", tag: "7B R1" },
-      { value: "ollama:deepseek-r1:8b", label: "deepseek-r1:8b", tag: "8B R1" },
-    ],
-  },
+/* ---------- Model catalogue ---------- */
+const CATALOG = [
+  { key: "auto", group: "Automatic", items: [ { v: "auto:d3", n: "Auto", t: "d3 picks the best model" } ] },
+  { key: "cloud", group: "AMD Token Lab", items: [
+    { v: "cloud:Gemma-4-31B-IT", n: "Gemma 4 31B", t: "vision + general" },
+    { v: "cloud:Qwen3.8-27B", n: "Qwen 3.8 27B", t: "code" },
+    { v: "cloud:DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: "1M context, reasoning" },
+    { v: "cloud:MiniCPM5-2B", n: "MiniCPM5 2B", t: "fast, short answers" } ] },
+  { key: "nv", group: "NVIDIA NIM", items: [
+    { v: "nv:qwen/qwen2.5-coder-32b-instruct", n: "Qwen 2.5 Coder 32B", t: "code" },
+    { v: "nv:meta/llama-3.3-70b-instruct", n: "Llama 3.3 70B", t: "general" },
+    { v: "nv:qwen/qwen2.5-7b-instruct", n: "Qwen 2.5 7B", t: "fast" } ] },
+  { key: "do", group: "DigitalOcean MI300X", items: [
+    { v: "do:Qwen/Qwen2.5-Coder-32B-Instruct", n: "Qwen 2.5 Coder 32B", t: "code" },
+    { v: "do:meta-llama/Llama-3.3-70B-Instruct", n: "Llama 3.3 70B", t: "general" } ] },
+  { key: "vllm", group: "DGX Spark - vLLM", items: [
+    { v: "vllm:Qwen/Qwen3.8-Flash-Next", n: "Qwen 3.8 Flash Next", t: ":8000" },
+    { v: "vllm:deepseek-ai/DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: ":8000" } ] },
+  { key: "flare", group: "DGX Spark - Flare", items: [
+    { v: "flare:Qwen3.8-Flash-Next", n: "Qwen 3.8 Flash Next", t: ":8080" },
+    { v: "flare:DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: ":8080" } ] },
+  { key: "ollama", group: "Local - Ollama", items: [] },
 ];
+const OLLAMA_DEFAULTS = ["raon-1-nano", "qwen2.5-coder:1.5b", "qwen2.5-coder:7b", "deepseek-r1:7b", "deepseek-r1:8b"];
 
-let selectedTarget = "auto:d3";
-let workspaceFiles = [];
-let selectedWorkspaceFiles = new Set();
-let uploadedFiles = [];
-let attachedImageBase64 = null;
-let attachedImageName = null;
-let chatHistory = [];
-let seqCounter = 0;
-let isGenerating = false;
-let currentAbortController = null;
-let scopeEnergy = 0.08;
-let scopeTokens = 0;
+let providers = {};
+let state = loadState();
+let busy = false, abortCtl = null;
+let attachments = [];       // {kind:'file'|'image', name, content}
+let workspaceFiles = [], selectedFiles = new Set();
+let palIndex = 0, palFlat = [];
 
-/* ── PATCHBAY RENDERING ──────────────────────────────────────────────── */
-function renderPatchbay() {
-  const root = document.getElementById("patchbay-container");
-  let total = 0;
-  root.innerHTML = PATCH_BUSES.map((bus) => {
-    total += bus.items.length;
-    const btns = bus.items.map((item) => {
-      const sel = item.value === selectedTarget ? "selected" : "";
-      return `<button class="patch-btn ${sel}" onclick="selectTarget('${item.value}', '${item.label}')">
-        <span class="patch-name">${escapeHtml(item.label)}</span>
-        <span class="patch-tag">${escapeHtml(item.tag)}</span>
-      </button>`;
-    }).join("");
-    return `<div class="bus-group">
-      <div class="bus-label"><span>${escapeHtml(bus.group)}</span><span>${escapeHtml(bus.busTag)}</span></div>
-      ${btns}
-    </div>`;
-  }).join("");
-  document.getElementById("patch-count").innerText = `${total} BUSES`;
-}
-
-function selectTarget(val, label) {
-  selectedTarget = val;
-  renderPatchbay();
-  const shortVal = val.split(":").slice(1).join(":") || val;
-  document.getElementById("m-target").innerText = shortVal.slice(0, 18).toUpperCase();
-  document.getElementById("deck-route-label").innerText = `BUS: ${val}`;
-  document.getElementById("p-target").innerText = (label || shortVal).slice(0, 16).toUpperCase();
-}
-
-/* ── THEME & INSPECTOR TOGGLES ───────────────────────────────────────── */
-function toggleTheme() {
-  const html = document.documentElement;
-  const next = html.getAttribute("data-theme") === "phosphor" ? "day" : "phosphor";
-  html.setAttribute("data-theme", next);
-  document.getElementById("btn-theme").innerText = next === "phosphor" ? "CERAMIC" : "PHOSPHOR";
-}
-
-function toggleInspector() {
-  const grid = document.getElementById("bench-grid");
-  const btn = document.getElementById("btn-inspector");
-  const hidden = grid.classList.toggle("no-inspector");
-  btn.classList.toggle("active", !hidden);
-}
-
-/* ── LIVE HARDWARE OSCILLOSCOPE ──────────────────────────────────────── */
-(function initOscilloscope() {
-  const canvas = document.getElementById("scope-canvas");
-  const ctx = canvas.getContext("2d");
-  const samples = new Array(120).fill(0);
-  let phase = 0;
-
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.max(120, Math.floor(rect.width * window.devicePixelRatio));
-    canvas.height = Math.max(30, Math.floor(rect.height * window.devicePixelRatio));
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
-  function frame() {
-    const w = canvas.width;
-    const h = canvas.height;
-    const cs = getComputedStyle(document.documentElement);
-    const bg = cs.getPropertyValue("--scope-bg").trim() || "#151614";
-    const grid = cs.getPropertyValue("--scope-grid").trim() || "rgba(255,77,0,0.14)";
-    const line = cs.getPropertyValue("--scope-line").trim() || "#ff6a26";
-
-    phase += isGenerating ? 0.32 : 0.08;
-    scopeEnergy = Math.max(0.08, scopeEnergy * 0.94);
-    const amp = isGenerating ? Math.min(0.85, 0.3 + scopeEnergy) : 0.14;
-    const pulse = Math.sin(phase) * amp + (Math.sin(phase * 3.7) * amp * 0.35);
-    samples.push(pulse);
-    if (samples.length > 120) samples.shift();
-
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, w, h);
-
-    // Graticule grid
-    ctx.strokeStyle = grid;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    ctx.lineTo(w, h / 2);
-    for (let x = 0; x < w; x += Math.max(24, w / 10)) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-    }
-    ctx.stroke();
-
-    // Waveform trace
-    ctx.strokeStyle = line;
-    ctx.lineWidth = Math.max(1.5, window.devicePixelRatio * 1.1);
-    ctx.beginPath();
-    const step = w / (samples.length - 1);
-    for (let i = 0; i < samples.length; i++) {
-      const x = i * step;
-      const y = h / 2 - samples[i] * (h * 0.36);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-})();
-
-/* ── STATUS & WORKSPACE FILES ────────────────────────────────────────── */
-async function loadStatus() {
+function loadState() {
   try {
-    const res = await fetch("/api/status");
-    const data = await res.json();
-    const gpu = data.gpu || {};
-    const cloud = data.cloud || {};
-    const policy = data.policy || {};
-    const health = data.health || null;
-
-    document.getElementById("hw-name").innerText = gpu.name || "CPU / Host Only";
-    document.getElementById("hw-vendor").innerText = (gpu.vendor || "HOST").toUpperCase();
-    const usedMb = Math.round(gpu.memory_used_mb || 0);
-    const totalMb = Math.round(gpu.memory_total_mb || 0);
-    document.getElementById("hw-vram").innerText = totalMb ? `${usedMb} / ${totalMb} MB` : `${usedMb} MB`;
-    document.getElementById("m-vram").innerText = `${usedMb} MB`;
-    document.getElementById("hw-src").innerText = gpu.telemetry_source || "live";
-    const gateMs = policy.zen3_gate_ms || "0.091 ms";
-    document.getElementById("hw-gate").innerText = gateMs;
-    document.getElementById("p-gate").innerText = gateMs;
-
-    const fmtLink = (v) => (v ? "READY" : "OFFLINE");
-    document.getElementById("c-tokenlab").innerText = fmtLink(cloud.tokenlab_configured);
-    document.getElementById("c-tokenlab").className = "kv-v " + (cloud.tokenlab_configured ? "ok" : "");
-    document.getElementById("c-nvidia").innerText = fmtLink(cloud.nvidia_configured);
-    document.getElementById("c-nvidia").className = "kv-v " + (cloud.nvidia_configured ? "ok" : "");
-    document.getElementById("c-do").innerText = fmtLink(cloud.digitalocean_configured);
-    document.getElementById("c-do").className = "kv-v " + (cloud.digitalocean_configured ? "ok" : "");
-
-    if (health) {
-      document.getElementById("health-score").innerText = health.score;
-      document.getElementById("health-grade").innerText = `GRADE ${health.grade}`;
-      document.getElementById("health-status").innerText = (health.status || "healthy").toUpperCase();
-      document.getElementById("health-bar").style.width = `${Math.max(0, Math.min(100, health.score))}%`;
-      if (health.components) {
-        document.getElementById("h-vram").innerText = `${health.components.vram_headroom}%`;
-        document.getElementById("h-therm").innerText = `${health.components.thermal_headroom}%`;
-      }
-    }
-  } catch (e) {}
+    const s = JSON.parse(localStorage.getItem("jupiter.v2") || "{}");
+    return { convs: s.convs || [], activeId: s.activeId || null, model: s.model || "auto:d3", theme: s.theme || "dark", drawer: !!s.drawer };
+  } catch { return { convs: [], activeId: null, model: "auto:d3", theme: "dark", drawer: false }; }
 }
+function save() {
+  const trimmed = state.convs.slice(0, 60);
+  localStorage.setItem("jupiter.v2", JSON.stringify({ ...state, convs: trimmed }));
+}
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800); }
 
-async function loadWorkspaceFiles() {
-  try {
-    const res = await fetch("/api/workspace/files");
-    const data = await res.json();
-    workspaceFiles = data.files || [];
-    renderWorkspaceFiles();
-  } catch (e) {
-    document.getElementById("workspace-file-list").innerHTML =
-      `<div class="file-row" style="color:var(--err);">Workspace scan failed</div>`;
+/* ---------- Conversations ---------- */
+function activeConv() { return state.convs.find((c) => c.id === state.activeId) || null; }
+function newChat() {
+  if (busy) stop();
+  state.activeId = null; save(); renderConvs(); renderThread(); $("prompt").focus();
+}
+function ensureConv(firstPrompt) {
+  let c = activeConv();
+  if (!c) {
+    c = { id: "c" + Date.now(), title: firstPrompt.slice(0, 60), created: Date.now(), messages: [] };
+    state.convs.unshift(c); state.activeId = c.id;
   }
+  return c;
+}
+function openConv(id) { if (busy) stop(); state.activeId = id; save(); renderConvs(); renderThread(); }
+function deleteConv(id, ev) {
+  ev.stopPropagation();
+  state.convs = state.convs.filter((c) => c.id !== id);
+  if (state.activeId === id) state.activeId = null;
+  save(); renderConvs(); renderThread();
+}
+function renderConvs() {
+  const now = Date.now(), day = 86400000;
+  const buckets = { Today: [], "Previous 7 days": [], Older: [] };
+  state.convs.forEach((c) => {
+    const age = now - c.created;
+    (age < day ? buckets.Today : age < 7 * day ? buckets["Previous 7 days"] : buckets.Older).push(c);
+  });
+  let html = "";
+  for (const [label, list] of Object.entries(buckets)) {
+    if (!list.length) continue;
+    html += `<div class="conv-group">${label}</div>`;
+    html += list.map((c) => `<div class="conv ${c.id === state.activeId ? "active" : ""}" onclick="openConv('${c.id}')">
+      <span class="conv-title">${esc(c.title || "Untitled")}</span>
+      <button class="conv-del" title="Delete" onclick="deleteConv('${c.id}', event)">&times;</button></div>`).join("");
+  }
+  $("conv-list").innerHTML = html || `<div class="conv-group">No chats yet</div>`;
 }
 
-function renderWorkspaceFiles() {
-  const q = (document.getElementById("file-filter").value || "").toLowerCase().trim();
-  const list = document.getElementById("workspace-file-list");
-  const filtered = q ? workspaceFiles.filter((f) => f.path.toLowerCase().includes(q)) : workspaceFiles;
-  if (!filtered.length) {
-    list.innerHTML = `<div class="file-row" style="color:var(--muted);">No matching files</div>`;
+/* ---------- Markdown ---------- */
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+function renderMarkdown(src, streaming) {
+  const codes = [];
+  let text = String(src || "");
+  // Close an unfinished fence while streaming so code renders live.
+  if (streaming && (text.match(/```/g) || []).length % 2 === 1) text += "\n```";
+  text = text.replace(/```([\w+#.-]*)[^\n]*\n([\s\S]*?)```/g, (_, lang, code) => {
+    codes.push({ lang: lang || "text", code: code.replace(/\n$/, "") });
+    return `\u0000${codes.length - 1}\u0000`;
+  });
+  const lines = esc(text).split("\n");
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const ln = lines[i];
+    const codeMatch = ln.match(/^\u0000(\d+)\u0000$/);
+    if (codeMatch) {
+      const b = codes[+codeMatch[1]];
+      out.push(`<div class="codeblock"><div class="codebar"><span>${esc(b.lang)}</span><button onclick="copyCode(this)">Copy</button></div><pre><code>${esc(b.code)}</code></pre></div>`);
+      i++; continue;
+    }
+    if (/^#{1,4} /.test(ln)) { const lvl = ln.match(/^#+/)[0].length; out.push(`<h${lvl}>${inline(ln.slice(lvl + 1))}</h${lvl}>`); i++; continue; }
+    if (/^(-{3,}|\*{3,})$/.test(ln.trim())) { out.push("<hr/>"); i++; continue; }
+    if (/^&gt; ?/.test(ln)) {
+      const q = []; while (i < lines.length && /^&gt; ?/.test(lines[i])) q.push(lines[i++].replace(/^&gt; ?/, ""));
+      out.push(`<blockquote>${inline(q.join("<br/>"))}</blockquote>`); continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      const row = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
+      const head = row(ln); i += 2; const body = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) body.push(row(lines[i++]));
+      out.push(`<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      continue;
+    }
+    if (/^\s*([-*+]|\d+[.)]) /.test(ln)) {
+      const ordered = /^\s*\d+[.)] /.test(ln); const items = [];
+      while (i < lines.length && /^\s*([-*+]|\d+[.)]) /.test(lines[i])) items.push(lines[i++].replace(/^\s*([-*+]|\d+[.)]) /, ""));
+      out.push(`<${ordered ? "ol" : "ul"}>${items.map((it) => `<li>${inline(it)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`); continue;
+    }
+    if (!ln.trim()) { i++; continue; }
+    const para = []; 
+    while (i < lines.length && lines[i].trim() && !/^(#{1,4} |\s*([-*+]|\d+[.)]) |&gt;|\u0000)/.test(lines[i]) && !/^\s*\|.*\|\s*$/.test(lines[i])) para.push(lines[i++]);
+    if (!para.length) { para.push(lines[i++]); }
+    out.push(`<p>${inline(para.join("<br/>"))}</p>`);
+  }
+  return out.join("");
+}
+function copyCode(btn) {
+  navigator.clipboard.writeText(btn.closest(".codeblock").querySelector("code").innerText);
+  btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy"), 1200);
+}
+
+/* ---------- Thread rendering ---------- */
+function labelFor(v) {
+  for (const g of CATALOG) for (const it of g.items) if (it.v === v) return { n: it.n, g: g.group };
+  const [p, ...rest] = v.split(":"); return { n: rest.join(":") || v, g: p };
+}
+function renderThread() {
+  const c = activeConv(), th = $("thread");
+  if (!c || !c.messages.length) {
+    th.innerHTML = `<div class="welcome">
+      <h1>What are we building?</h1>
+      <p>Chat with cloud models on AMD Instinct, NVIDIA NIM or your own machine. Attach files or pick repo files for context. Your local GPU stays free.</p>
+      <div class="starters">
+        <button class="starter" onclick="starter('Review the selected repo files for bugs and security problems. Be specific and show fixes.')"><b>Review my code</b><span>Pick files in Repo files first</span></button>
+        <button class="starter" onclick="starter('Explain, step by step, how MemoryOS keeps local VRAM at 0 MB while still running 31B models.')"><b>Explain the architecture</b><span>How zero-VRAM routing works</span></button>
+        <button class="starter" onclick="starter('Write focused unit tests for the attached file using unittest.')"><b>Write tests</b><span>For an attached or selected file</span></button>
+        <button class="starter" onclick="starter('I get this error. What is causing it and how do I fix it?\n\n')"><b>Debug an error</b><span>Paste a traceback or log</span></button>
+      </div></div>`;
     return;
   }
-  list.innerHTML = filtered.slice(0, 100).map((f) => {
-    const checked = selectedWorkspaceFiles.has(f.path);
-    const safePath = escapeHtml(f.path);
-    return `<label class="file-row ${checked ? "checked" : ""}">
-      <input type="checkbox" ${checked ? "checked" : ""} onchange="toggleWorkspaceFile('${safePath.replace(/'/g, "\\'")}')" />
-      <span class="fname" title="${safePath}">${safePath}</span>
-      <span class="fsize">${f.size_kb}K</span>
-    </label>`;
-  }).join("");
-  document.getElementById("selected-files-count").innerText = `${selectedWorkspaceFiles.size} STAGED`;
+  th.innerHTML = c.messages.map((m, idx) => messageHtml(m, idx, idx === c.messages.length - 1)).join("");
+  scrollDown(true);
 }
-
-function toggleWorkspaceFile(path) {
-  if (selectedWorkspaceFiles.has(path)) selectedWorkspaceFiles.delete(path);
-  else selectedWorkspaceFiles.add(path);
-  renderWorkspaceFiles();
+function messageHtml(m, idx, isLast) {
+  if (m.role === "user") {
+    const att = (m.attach || []).length ? `<div class="attach-line">${esc(m.attach.join(" · "))}</div>` : "";
+    return `<div class="msg user" data-i="${idx}"><div><div class="bubble">${esc(m.content)}</div>${att}
+      <div class="msg-tools" style="justify-content:flex-end"><button onclick="editMsg(${idx})">Edit</button><button onclick="copyMsg(${idx})">Copy</button></div></div></div>`;
+  }
+  const lbl = labelFor(m.model || state.model);
+  const body = m.error
+    ? `<div class="err-box"><b>Request failed</b>${esc(m.error)}</div>`
+    : (m.content ? renderMarkdown(m.content, m.streaming) : `<span class="waiting">${m.streaming ? "Thinking..." : "(empty response)"}</span>`);
+  const think = m.reasoning ? `<details class="think" ${m.streaming && !m.content ? "open" : ""}><summary>Reasoning (${m.reasoning.length.toLocaleString()} chars)</summary><div>${esc(m.reasoning)}</div></details>` : "";
+  const stat = m.stats ? `<span class="stat">${esc(m.stats)}</span>` : "";
+  const tools = m.streaming ? "" : `<div class="msg-tools"><button onclick="copyMsg(${idx})">Copy</button>${isLast ? `<button onclick="retry()">Retry</button><button onclick="openPalette(true)">Retry with...</button>` : ""}${stat}</div>`;
+  return `<div class="msg ai" data-i="${idx}"><div class="who"><span class="dot ${m.streaming ? "busy" : m.error ? "bad" : ""}"></span><b>${esc(lbl.n)}</b><span>${esc(m.provider || lbl.g)}</span></div>
+    ${think}<div class="md ${m.streaming && m.content ? "caret" : ""}">${body}</div>${tools}</div>`;
 }
-
-/* ── FILE UPLOAD & DRAG-AND-DROP ─────────────────────────────────────── */
-function handleFileUpload(ev) {
-  addFilesFromList(ev.target.files);
-  ev.target.value = "";
+function updateLast() {
+  const c = activeConv(); if (!c) return;
+  const idx = c.messages.length - 1;
+  const el = document.querySelector(`.msg[data-i="${idx}"]`);
+  const html = messageHtml(c.messages[idx], idx, true);
+  if (el) el.outerHTML = html; else renderThread();
+  scrollDown();
 }
+function scrollDown(force) {
+  const s = $("scroller");
+  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 160) s.scrollTop = s.scrollHeight;
+}
+function copyMsg(idx) { navigator.clipboard.writeText(activeConv().messages[idx].content || ""); toast("Copied"); }
+function editMsg(idx) {
+  if (busy) return;
+  const c = activeConv(); const m = c.messages[idx];
+  $("prompt").value = m.content; autosize();
+  c.messages = c.messages.slice(0, idx); save(); renderThread(); $("prompt").focus();
+}
+function starter(text) { $("prompt").value = text; autosize(); $("prompt").focus(); if (!text.endsWith("\n\n")) send(); }
 
-function handleImageUpload(ev) {
-  const file = ev.target.files && ev.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    attachedImageBase64 = reader.result;
-    attachedImageName = file.name;
-    renderStagingTray();
+/* ---------- Sending ---------- */
+function onSendClick() { busy ? stop() : send(); }
+function stop() { if (abortCtl) abortCtl.abort(); }
+function retry(modelOverride) {
+  if (busy) return;
+  const c = activeConv(); if (!c) return;
+  let lastUser = -1;
+  for (let k = c.messages.length - 1; k >= 0; k--) if (c.messages[k].role === "user") { lastUser = k; break; }
+  if (lastUser < 0) return;
+  const u = c.messages[lastUser];
+  c.messages = c.messages.slice(0, lastUser + 1);
+  if (modelOverride) setModel(modelOverride);
+  stream(c, u.content, u.payloadExtras || {});
+}
+async function send() {
+  const text = $("prompt").value.trim();
+  if (!text || busy) return;
+  const prov = state.model.split(":")[0];
+  const pstate = providers[prov === "auto" ? "auto" : prov];
+  if (pstate && !pstate.ready) { toast(pstate.reason || "That model is unavailable"); openPalette(); return; }
+
+  const c = ensureConv(text);
+  const extras = {
+    uploaded_files: attachments.filter((a) => a.kind === "file").map((a) => ({ name: a.name, content: a.content })),
+    image_base64: (attachments.find((a) => a.kind === "image") || {}).content || null,
+    workspace_files: Array.from(selectedFiles),
   };
-  reader.readAsDataURL(file);
-  ev.target.value = "";
+  const attachLabels = [...attachments.map((a) => a.name), ...extras.workspace_files.map((f) => f.split("/").pop())];
+  c.messages.push({ role: "user", content: text, attach: attachLabels, payloadExtras: extras });
+  $("prompt").value = ""; autosize();
+  attachments = []; renderChips();
+  renderConvs();
+  stream(c, text, extras);
 }
-
-function addFilesFromList(fileList) {
-  for (const file of Array.from(fileList || [])) {
-    if (file.type && file.type.startsWith("image/")) {
-      const r = new FileReader();
-      r.onload = () => {
-        attachedImageBase64 = r.result;
-        attachedImageName = file.name;
-        renderStagingTray();
-      };
-      r.readAsDataURL(file);
-    } else {
-      const r = new FileReader();
-      r.onload = () => {
-        uploadedFiles.push({ name: file.name, content: String(r.result || "").slice(0, 120000) });
-        renderStagingTray();
-      };
-      r.readAsText(file);
-    }
-  }
-}
-
-function renderStagingTray() {
-  const tray = document.getElementById("staging-tray");
-  const chips = [];
-  if (attachedImageBase64) {
-    chips.push(`<span class="stage-chip">IMG: ${escapeHtml(attachedImageName || "image")} <button onclick="removeImage()">x</button></span>`);
-  }
-  uploadedFiles.forEach((f, idx) => {
-    chips.push(`<span class="stage-chip">FILE: ${escapeHtml(f.name)} (${Math.max(1, Math.round(f.content.length / 1024))}KB) <button onclick="removeUploadedFile(${idx})">x</button></span>`);
-  });
-  tray.innerHTML = chips.join("");
-  tray.classList.toggle("has-items", chips.length > 0);
-}
-
-function removeImage() {
-  attachedImageBase64 = null;
-  attachedImageName = null;
-  renderStagingTray();
-}
-function removeUploadedFile(idx) {
-  uploadedFiles.splice(idx, 1);
-  renderStagingTray();
-}
-function clearAllAttachments() {
-  uploadedFiles = [];
-  attachedImageBase64 = null;
-  attachedImageName = null;
-  renderStagingTray();
-}
-
-const deckEl = document.getElementById("command-deck");
-["dragenter", "dragover"].forEach((ev) => deckEl.addEventListener(ev, (e) => {
-  e.preventDefault();
-  deckEl.classList.add("drag-over");
-}));
-["dragleave", "drop"].forEach((ev) => deckEl.addEventListener(ev, (e) => {
-  e.preventDefault();
-  deckEl.classList.remove("drag-over");
-}));
-deckEl.addEventListener("drop", (e) => {
-  if (e.dataTransfer && e.dataTransfer.files) addFilesFromList(e.dataTransfer.files);
-});
-
-/* ── MARKDOWN & TAPE RENDERING ───────────────────────────────────────── */
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function renderMarkdown(md) {
-  const blocks = [];
-  let text = String(md || "").replace(/```([\w-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    const id = blocks.length;
-    blocks.push({ lang: lang || "TEXT", code: code.replace(/\n$/, "") });
-    return `@@CODEBLOCK_${id}@@`;
-  });
-  text = escapeHtml(text);
-  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-  text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  text = text.replace(/^### (.+)$/gm, "<h4 style='margin:10px 0 4px; font-family:var(--font-mono); text-transform:uppercase; font-size:12px;'>$1</h4>");
-  text = text.replace(/^## (.+)$/gm, "<h3 style='margin:12px 0 6px; font-size:14.5px;'>$1</h3>");
-  text = text.replace(/\n/g, "<br/>");
-  text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (_, idx) => {
-    const b = blocks[Number(idx)];
-    const encoded = encodeURIComponent(b.code);
-    return `<pre><div class="code-bar"><span>${escapeHtml(b.lang)}</span><button class="code-copy" onclick="copyCodeBlock(this, '${encoded}')">COPY</button></div><code>${escapeHtml(b.code)}</code></pre>`;
-  });
-  return text;
-}
-
-function copyCodeBlock(btn, encoded) {
-  navigator.clipboard.writeText(decodeURIComponent(encoded));
-  btn.innerText = "COPIED";
-  setTimeout(() => (btn.innerText = "COPY"), 1200);
-}
-
-function utcStamp() {
-  return new Date().toISOString().slice(11, 19) + " UTC";
-}
-
-function clearTape() {
-  if (isGenerating) stopGeneration();
-  chatHistory = [];
-  seqCounter = 0;
-  document.getElementById("chat-log").innerHTML = "";
-  const empty = document.createElement("div");
-  empty.className = "tape-empty";
-  empty.id = "tape-empty";
-  empty.innerHTML = `<div class="tape-empty-kicker">Tape Cleared</div><h2>Ready for Next Sequence</h2><p>Select a bus in Bay 01 and transmit.</p>`;
-  document.getElementById("chat-log").appendChild(empty);
-}
-
-function quickPrompt(text) {
-  document.getElementById("prompt-input").value = text;
-  sendPrompt();
-}
-
-function setRunningState(running) {
-  isGenerating = running;
-  document.getElementById("btn-send").disabled = running;
-  document.getElementById("btn-stop").style.display = running ? "inline-flex" : "none";
-  document.getElementById("sys-led").classList.toggle("busy", running);
-  document.getElementById("tape-status").innerText = running ? "TRANSMITTING // STREAM ACTIVE" : "READY // ZERO LOCAL VRAM";
-  if (!running) {
-    document.getElementById("scope-readout").innerText = "0.091 ms IDLE";
-  }
-}
-
-function stopGeneration() {
-  if (currentAbortController) currentAbortController.abort();
-}
-
-/* ── TRANSMIT / SSE STREAM ───────────────────────────────────────────── */
-async function sendPrompt() {
-  if (isGenerating) return;
-  const input = document.getElementById("prompt-input");
-  const text = input.value.trim();
-  if (!text) return;
-
-  const emptyEl = document.getElementById("tape-empty");
-  if (emptyEl) emptyEl.remove();
-
-  input.value = "";
-  const chatLog = document.getElementById("chat-log");
-  seqCounter += 1;
-  const seqStr = String(seqCounter).padStart(3, "0");
-
-  const selectedFiles = Array.from(selectedWorkspaceFiles);
-  const filesToUpload = uploadedFiles.slice();
-  const imgData = attachedImageBase64;
-  const attachSummary = [
-    ...selectedFiles.map((f) => `CTX:${f}`),
-    ...filesToUpload.map((f) => `FILE:${f.name}`),
-    ...(imgData ? [`IMG:${attachedImageName || "image"}`] : []),
-  ];
-
-  // Append user sequence block
-  const uEntry = document.createElement("article");
-  uEntry.className = "entry user";
-  uEntry.innerHTML = `
-    <div class="entry-head">
-      <span><span class="entry-seq">SEQ ${seqStr} // TX</span> &middot; ${utcStamp()}</span>
-      <span class="entry-badge">${escapeHtml(selectedTarget)}</span>
-    </div>
-    <div class="entry-body">${escapeHtml(text).replace(/\n/g, "<br/>")}</div>
-    ${attachSummary.length ? `<div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">STAGED: ${escapeHtml(attachSummary.join(" | "))}</div>` : ""}
-  `;
-  chatLog.appendChild(uEntry);
-
-  // Append assistant response block
-  const aEntry = document.createElement("article");
-  aEntry.className = "entry assistant";
-  aEntry.innerHTML = `
-    <div class="entry-head">
-      <span><span class="entry-seq">SEQ ${seqStr} // RX</span> &middot; ${utcStamp()}</span>
-      <span class="entry-badge live" data-role="meta">ROUTING...</span>
-    </div>
-    <details class="reasoning-panel" data-role="rbox">
-      <summary>Reasoning Trace</summary>
-      <div data-role="rcontent"></div>
-    </details>
-    <div class="entry-body" data-role="content" style="font-family:var(--font-mono); color:var(--muted);">Awaiting stream...</div>
-  `;
-  chatLog.appendChild(aEntry);
-  chatLog.scrollTop = chatLog.scrollHeight;
-
-  const metaEl = aEntry.querySelector('[data-role="meta"]');
-  const contentEl = aEntry.querySelector('[data-role="content"]');
-  const rBox = aEntry.querySelector('[data-role="rbox"]');
-  const rContent = aEntry.querySelector('[data-role="rcontent"]');
-
-  const payload = {
-    prompt: text,
-    target: selectedTarget,
-    history: chatHistory.slice(-8),
-    image_base64: imgData,
-    workspace_files: selectedFiles,
-    uploaded_files: filesToUpload,
-  };
-  clearAllAttachments();
-
-  setRunningState(true);
-  currentAbortController = new AbortController();
-  const startedAt = performance.now();
-  scopeTokens = 0;
-  let accumulatedContent = "";
-  let accumulatedReasoning = "";
-  let timer = setInterval(() => {
-    const sec = ((performance.now() - startedAt) / 1000).toFixed(1);
-    document.getElementById("scope-readout").innerText = `RX ${sec}s // ${scopeTokens} CHUNKS`;
-  }, 150);
-
+async function stream(c, text, extras) {
+  const history = c.messages.filter((m) => !m.error && m.content).slice(0, -1).slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+  const ai = { role: "assistant", content: "", reasoning: "", model: state.model, streaming: true };
+  c.messages.push(ai);
+  renderThread(); setBusy(true);
+  abortCtl = new AbortController();
+  const t0 = performance.now(); let firstTok = 0, chunks = 0, pending = false;
+  const paint = () => { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; updateLast(); }); } };
   try {
-    const response = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: currentAbortController.signal,
+    const res = await fetch("/api/chat/stream", {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: abortCtl.signal,
+      body: JSON.stringify({ prompt: text, target: state.model, history, ...extras }),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
+    if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const chunks = buffer.split("\n\n");
-      buffer = chunks.pop();
-
-      for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        let evType = "delta";
-        let evData = "";
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("event:")) evType = line.slice(6).trim();
-          else if (line.startsWith("data:")) evData = line.slice(5).trim();
-        }
-        if (!evData) continue;
-        const parsed = JSON.parse(evData);
-
-        if (evType === "start") {
-          metaEl.innerText = `${parsed.model_used || selectedTarget} [${parsed.provider || "LIVE"}]`;
-          contentEl.style.fontFamily = "";
-          contentEl.style.color = "";
-          contentEl.innerHTML = "";
-        } else if (evType === "reasoning") {
-          scopeEnergy = 0.7;
-          scopeTokens += 1;
-          accumulatedReasoning += parsed.delta || "";
-          rBox.style.display = "block";
-          rContent.innerText = accumulatedReasoning;
-        } else if (evType === "delta") {
-          scopeEnergy = 0.85;
-          scopeTokens += 1;
-          contentEl.style.fontFamily = "";
-          contentEl.style.color = "";
-          accumulatedContent += parsed.delta || "";
-          contentEl.innerHTML = renderMarkdown(accumulatedContent);
-        } else if (evType === "done") {
-          const latMs = Math.round(parsed.latency_ms || (performance.now() - startedAt));
-          metaEl.className = "entry-badge ok";
-          metaEl.innerText = `${parsed.model_used || selectedTarget} // ${latMs} ms`;
-          document.getElementById("m-lat").innerText = `${latMs} ms`;
-          contentEl.style.fontFamily = "";
-          contentEl.style.color = "";
-          contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(Empty response)");
-        } else if (evType === "error") {
-          aEntry.classList.add("error");
-          metaEl.className = "entry-badge err";
-          metaEl.innerText = "ERROR";
-          contentEl.innerHTML = `<div style="color:var(--err); font-family:var(--font-mono);">${escapeHtml(parsed.error)}</div>`;
-        }
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split("\n\n"); buf = parts.pop();
+      for (const part of parts) {
+        let ev = "delta", data = "";
+        for (const l of part.split("\n")) { if (l.startsWith("event:")) ev = l.slice(6).trim(); else if (l.startsWith("data:")) data += l.slice(5).trim(); }
+        if (!data) continue;
+        let p; try { p = JSON.parse(data); } catch { continue; }
+        if (ev === "start") { ai.model = state.model.startsWith("auto") ? (p.model_used || ai.model) : ai.model; ai.provider = p.provider; paint(); }
+        else if (ev === "reasoning") { ai.reasoning += p.delta || ""; if (!firstTok) firstTok = performance.now(); paint(); }
+        else if (ev === "delta") { ai.content += p.delta || ""; chunks++; if (!firstTok) firstTok = performance.now(); paint(); }
+        else if (ev === "error") { ai.error = p.error || "Unknown error"; }
+        else if (ev === "notice") { ai.provider = p.message; paint(); }
+        else if (ev === "done") { /* stats below */ }
       }
-      chatLog.scrollTop = chatLog.scrollHeight;
     }
-
-    chatHistory.push({ role: "user", content: text });
-    chatHistory.push({ role: "assistant", content: accumulatedContent });
-  } catch (err) {
-    if (err.name === "AbortError") {
-      metaEl.className = "entry-badge";
-      metaEl.innerText += " // STOPPED";
-    } else {
-      aEntry.classList.add("error");
-      metaEl.className = "entry-badge err";
-      metaEl.innerText = "LINK FAILED";
-      contentEl.innerHTML = `<div style="color:var(--err); font-family:var(--font-mono);">${escapeHtml(err.message)}</div>`;
-    }
-  } finally {
-    clearInterval(timer);
-    setRunningState(false);
-    currentAbortController = null;
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-}
-
-/* ── EXPORT IDE BUNDLE ───────────────────────────────────────────────── */
-async function openExportBundle() {
-  const modal = document.getElementById("export-modal");
-  const ta = document.getElementById("export-textarea");
-  ta.value = "Packing workspace bundle...";
-  modal.classList.add("open");
-  try {
-    const res = await fetch("/api/workspace/copilot-bundle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ files: Array.from(selectedWorkspaceFiles) }),
-    });
-    const data = await res.json();
-    ta.value = data.bundle || JSON.stringify(data, null, 2);
+    if (!ai.content && !ai.error) ai.error = "The model returned no text. Try again or pick another model.";
   } catch (e) {
-    ta.value = `Export failed: ${e.message}`;
+    if (e.name === "AbortError") { ai.stats = "stopped"; if (!ai.content) ai.content = "_Stopped._"; }
+    else ai.error = e.message.includes("Failed to fetch") ? "Lost connection to Jupiter Studio. Is the app still running?" : e.message;
+  } finally {
+    const total = (performance.now() - t0) / 1000;
+    if (!ai.stats && !ai.error) {
+      const ttft = firstTok ? ((firstTok - t0) / 1000).toFixed(1) + "s to first token · " : "";
+      ai.stats = `${ttft}${total.toFixed(1)}s total`;
+    }
+    ai.streaming = false; abortCtl = null; setBusy(false);
+    save(); updateLast();
   }
 }
-function closeExportBundle() {
-  document.getElementById("export-modal").classList.remove("open");
-}
-function copyExportBundle() {
-  navigator.clipboard.writeText(document.getElementById("export-textarea").value);
+function setBusy(b) {
+  busy = b;
+  const s = $("send"); s.classList.toggle("stop", b); s.innerHTML = b ? "&#9632;" : "&uarr;"; s.title = b ? "Stop" : "Send (Enter)";
+  $("model-dot").className = "dot " + (b ? "busy" : (providers[state.model.split(":")[0]] || {}).ready === false ? "bad" : "");
 }
 
-/* ── KEYBOARD & CLOCK ────────────────────────────────────────────────── */
-document.getElementById("prompt-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendPrompt();
+/* ---------- Attachments ---------- */
+function addFiles(list) {
+  for (const f of Array.from(list || [])) {
+    const r = new FileReader();
+    if (f.type.startsWith("image/")) {
+      r.onload = () => { attachments = attachments.filter((a) => a.kind !== "image"); attachments.push({ kind: "image", name: f.name, content: r.result }); renderChips(); };
+      r.readAsDataURL(f);
+    } else {
+      if (f.size > 2_000_000) { toast(`${f.name} is too large (2 MB max)`); continue; }
+      r.onload = () => { attachments.push({ kind: "file", name: f.name, content: String(r.result) }); renderChips(); };
+      r.readAsText(f);
+    }
   }
+}
+function renderChips() {
+  const chips = attachments.map((a, i) => `<span class="chip">${a.kind === "image" ? `<img src="${a.content}" alt=""/>` : ""}${esc(a.name)}<button onclick="removeAttachment(${i})">&times;</button></span>`);
+  selectedFiles.forEach((p) => chips.push(`<span class="chip">repo: ${esc(p.split("/").pop())}<button onclick="toggleFile('${esc(p).replace(/'/g, "\\'")}')">&times;</button></span>`));
+  $("chips").innerHTML = chips.join("");
+}
+function removeAttachment(i) { attachments.splice(i, 1); renderChips(); }
+$("file-in").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+let dragDepth = 0;
+window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; $("composer").classList.add("drag"); });
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("composer").classList.remove("drag"); } });
+window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("composer").classList.remove("drag"); addFiles(e.dataTransfer.files); });
+$("prompt").addEventListener("paste", (e) => {
+  const imgs = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+  if (imgs.length) { e.preventDefault(); addFiles(imgs); }
 });
 
-setInterval(() => {
-  document.getElementById("insp-clock").innerText = utcStamp();
-}, 1000);
+/* ---------- Repo files ---------- */
+async function loadFiles() {
+  try { const d = await (await fetch("/api/workspace/files")).json(); workspaceFiles = d.files || []; renderFiles(); }
+  catch { $("files").innerHTML = `<div class="file">Could not scan workspace</div>`; }
+}
+function renderFiles() {
+  const q = $("file-q").value.toLowerCase();
+  const list = workspaceFiles.filter((f) => !q || f.path.toLowerCase().includes(q)).slice(0, 150);
+  $("files").innerHTML = list.map((f) => {
+    const p = esc(f.path), on = selectedFiles.has(f.path);
+    return `<label class="file"><input type="checkbox" ${on ? "checked" : ""} onchange="toggleFile('${p.replace(/'/g, "\\'")}')"/><span class="p" title="${p}">${p}</span><span class="s">${f.size_kb}K</span></label>`;
+  }).join("") || `<div class="file">No matches</div>`;
+  $("staged").textContent = `${selectedFiles.size} selected`;
+  $("ctx-tool").textContent = selectedFiles.size ? `Repo files (${selectedFiles.size})` : "Repo files";
+}
+function toggleFile(p) { selectedFiles.has(p) ? selectedFiles.delete(p) : selectedFiles.add(p); renderFiles(); renderChips(); }
 
-// Boot sequence
-renderPatchbay();
-loadStatus();
-loadWorkspaceFiles();
-setInterval(loadStatus, 5000);
+/* ---------- Model palette ---------- */
+async function loadModels(announce) {
+  try {
+    const d = await (await fetch("/api/models")).json();
+    providers = d.providers || {};
+    const installed = d.ollama_installed || [];
+    const names = installed.length ? installed : OLLAMA_DEFAULTS;
+    CATALOG.find((g) => g.key === "ollama").items = names.map((n) => ({ v: "ollama:" + n, n, t: installed.length ? "installed" : "not detected" }));
+    renderProviders(); setModel(state.model, true);
+    if (announce) toast("Providers refreshed");
+  } catch { /* keep previous */ }
+}
+function renderProviders() {
+  $("prov-list").innerHTML = CATALOG.filter((g) => g.key !== "auto").map((g) => {
+    const p = providers[g.key] || {};
+    return `<div class="kv"><span>${esc(g.group)}</span><span style="color:${p.ready ? "var(--ok)" : "var(--muted)"}" title="${esc(p.reason || "")}">${p.ready ? "ready" : "off"}</span></div>`;
+  }).join("");
+}
+let retryMode = false;
+function openPalette(forRetry) { retryMode = !!forRetry; $("overlay").classList.add("open"); $("pal-q").value = ""; palIndex = 0; renderPalette(); setTimeout(() => $("pal-q").focus(), 10); }
+function closePalette() { $("overlay").classList.remove("open"); $("prompt").focus(); }
+function renderPalette() {
+  const q = $("pal-q").value.toLowerCase(); palFlat = []; let html = "";
+  for (const g of CATALOG) {
+    const p = providers[g.key] || { ready: g.key === "auto" };
+    const items = g.items.filter((it) => !q || (it.n + " " + it.t + " " + g.group).toLowerCase().includes(q));
+    if (!items.length) continue;
+    html += `<div class="pal-group"><span>${esc(g.group)}</span>${p.ready ? "" : `<em>${esc(p.reason || "unavailable")}</em>`}</div>`;
+    for (const it of items) {
+      const k = palFlat.length; palFlat.push({ it, ready: p.ready });
+      html += `<button class="pal-item ${it.v === state.model ? "sel" : ""} ${p.ready ? "" : "off"} ${k === palIndex ? "kb" : ""}" onclick="pickModel(${k})">
+        <span class="dot ${p.ready ? "" : "bad"}"></span><span class="n">${esc(it.n)}</span><span class="t">${esc(it.t)}</span></button>`;
+    }
+  }
+  $("pal-list").innerHTML = html || `<div class="pal-group">No models match</div>`;
+  $("pal-count").textContent = `${palFlat.filter((x) => x.ready).length} ready / ${palFlat.length}`;
+}
+function pickModel(k) {
+  const entry = palFlat[k]; if (!entry) return;
+  if (!entry.ready) { toast("Unavailable: " + ((providers[entry.it.v.split(":")[0]] || {}).reason || "not configured")); return; }
+  setModel(entry.it.v); closePalette();
+  if (retryMode) { retryMode = false; retry(entry.it.v); }
+}
+function setModel(v, silent) {
+  state.model = v; save();
+  const l = labelFor(v); $("model-name").textContent = l.n; $("model-prov").textContent = v.startsWith("auto") ? "d3 router" : l.g;
+  const p = providers[v.split(":")[0]];
+  $("model-dot").className = "dot " + (p && !p.ready ? "bad" : "");
+  if (!silent) toast(`Model: ${l.n}`);
+}
+$("pal-q").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") { palIndex = Math.min(palFlat.length - 1, palIndex + 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { palIndex = Math.max(0, palIndex - 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === "Enter") { pickModel(palIndex); e.preventDefault(); }
+  else if (e.key === "Escape") closePalette();
+});
+
+/* ---------- Status ---------- */
+async function loadStatus() {
+  try {
+    const d = await (await fetch("/api/status")).json();
+    const g = d.gpu || {}, h = d.health || {}, pol = d.policy || {};
+    const used = Math.round(g.used_vram_mb || 0), total = Math.round(g.total_vram_mb || 0);
+    $("hw-name").textContent = g.device_name || "CPU only";
+    $("hw-vram").textContent = total ? `${used.toLocaleString()} / ${total.toLocaleString()} MB` : "--";
+    $("hw-temp").textContent = g.temperature_c != null ? `${Math.round(g.temperature_c)}°C · ${Math.round(g.utilization_pct || 0)}%` : "--";
+    $("hw-gate").textContent = `${pol.cpu_gate_ms ?? 0.091} ms`;
+    $("foot-gpu").textContent = (g.device_name || "CPU").replace(/NVIDIA GeForce |AMD Radeon /, "").replace(" Laptop GPU", " Laptop");
+    $("foot-vram").textContent = `${used.toLocaleString()} MB`;
+    $("vram-pill").textContent = `Studio VRAM 0 MB · GPU ${used.toLocaleString()} MB in use`;
+    if (h.score != null) {
+      $("h-score").textContent = h.score; $("h-grade").textContent = `grade ${h.grade}`;
+      $("h-status").textContent = h.status || ""; $("h-bar").style.width = h.score + "%";
+      $("h-bar").style.background = h.score >= 80 ? "var(--ok)" : h.score >= 60 ? "var(--accent)" : "var(--bad)";
+    }
+  } catch {}
+}
+
+/* ---------- Layout ---------- */
+function toggleTheme() { state.theme = state.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = state.theme; save(); }
+function toggleDrawer(force) {
+  state.drawer = force === true ? true : !state.drawer;
+  $("app").classList.toggle("drawer-open", state.drawer); $("drawer-btn").classList.toggle("on", state.drawer); save();
+}
+function toggleRail() { $("app").classList.toggle("rail-closed"); }
+function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(240, t.scrollHeight) + "px"; }
+$("prompt").addEventListener("input", autosize);
+$("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
+  else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "o") { e.preventDefault(); newChat(); }
+  else if (e.key === "Escape" && busy) stop();
+});
+
+/* ---------- Boot ---------- */
+document.documentElement.dataset.theme = state.theme;
+if (state.drawer) toggleDrawer(true);
+// Mark any message left mid-stream by a reload as finished.
+state.convs.forEach((c) => c.messages.forEach((m) => { if (m.streaming) { m.streaming = false; if (!m.content) m.error = "Interrupted by page reload."; } }));
+renderConvs(); renderThread(); setModel(state.model, true);
+loadModels(); loadStatus(); loadFiles();
+setInterval(loadStatus, 5000); setInterval(loadModels, 30000);
+$("prompt").focus();
 </script>
 </body>
 </html>
