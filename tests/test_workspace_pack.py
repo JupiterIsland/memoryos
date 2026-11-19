@@ -19,6 +19,10 @@ class TestWorkspacePack(unittest.TestCase):
         (self.root / "src" / "main.py").write_text("print('hello world')", encoding="utf-8")
         (self.root / "README.md").write_text("# Test Repo", encoding="utf-8")
         (self.root / ".env").write_text("SECRET_KEY=12345", encoding="utf-8")
+        (self.root / ".env.example").write_text("TOKENLAB_API_KEY=your_key", encoding="utf-8")
+        (self.root / ".aider.chat.history.md").write_text("huge chat log", encoding="utf-8")
+        (self.root / ".clinerules").write_text("rules", encoding="utf-8")
+        (self.root / ".gitignore").write_text("*.pyc\n", encoding="utf-8")
         (self.root / "image.png").write_bytes(b"\x89PNG\r\n\x1a\n")
         (self.root / "__pycache__").mkdir()
         (self.root / "__pycache__" / "main.cpython-310.pyc").write_bytes(b"\x00\x00")
@@ -31,7 +35,11 @@ class TestWorkspacePack(unittest.TestCase):
         rel_paths = [f["rel_path"] for f in files]
         self.assertIn("src/main.py", rel_paths)
         self.assertIn("README.md", rel_paths)
+        self.assertIn(".env.example", rel_paths)
         self.assertNotIn(".env", rel_paths)
+        self.assertNotIn(".aider.chat.history.md", rel_paths)
+        self.assertNotIn(".clinerules", rel_paths)
+        self.assertNotIn(".gitignore", rel_paths)
         self.assertNotIn("image.png", rel_paths)
         self.assertNotIn("__pycache__/main.cpython-310.pyc", rel_paths)
 

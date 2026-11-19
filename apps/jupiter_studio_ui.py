@@ -397,115 +397,6 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     background: radial-gradient(circle at top right, rgba(237, 28, 36, 0.11) 0%, var(--bg) 55%);
   }
 
-  /* DAYLIGHT CERAMIC THEME (100% High-Contrast Light Mode) */
-  html[data-studio-theme="daylight"] {
-    --bg: #f5f2eb;
-    --sidebar-bg: #ebe6dc;
-    --panel: #ebe6dc;
-    --card-bg: #ffffff;
-    --border: #d4cdc0;
-    --border-highlight: #b5ac9c;
-    --text: #161614;
-    --muted: #5e5a52;
-    --orange: #e84800;
-    --cyan: #0b6e58;
-    --green: #0a7a4b;
-    --red: #c81e1e;
-    --code-bg: #18181b;
-  }
-  html[data-studio-theme="daylight"] .main {
-    background: var(--bg);
-  }
-  html[data-studio-theme="daylight"] .sidebar {
-    background: var(--sidebar-bg);
-    box-shadow: 2px 0 12px rgba(20, 18, 14, 0.06);
-  }
-  html[data-studio-theme="daylight"] .card {
-    background: #ffffff;
-    border-color: var(--border);
-    box-shadow: 0 1px 3px rgba(20, 18, 14, 0.05);
-  }
-  html[data-studio-theme="daylight"] .select-box,
-  html[data-studio-theme="daylight"] input,
-  html[data-studio-theme="daylight"] textarea,
-  html[data-studio-theme="daylight"] .workspace-file-list {
-    background: #ffffff;
-    color: #161614;
-    border-color: var(--border-highlight);
-  }
-  html[data-studio-theme="daylight"] .workspace-file-item:hover {
-    background: #f0ece3;
-  }
-  html[data-studio-theme="daylight"] .btn-secondary,
-  html[data-studio-theme="daylight"] .btn-icon {
-    background: #ffffff !important;
-    color: #161614 !important;
-    border: 1px solid var(--border-highlight) !important;
-  }
-  html[data-studio-theme="daylight"] .btn-secondary:hover,
-  html[data-studio-theme="daylight"] .btn-icon:hover {
-    background: #e3ddd1 !important;
-    border-color: #161614 !important;
-  }
-  html[data-studio-theme="daylight"] .chat-header,
-  html[data-studio-theme="daylight"] .input-bar-wrapper {
-    background: #ebe6dc;
-    border-color: var(--border);
-  }
-  html[data-studio-theme="daylight"] .msg.assistant {
-    background: #ffffff;
-    color: #161614;
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--orange);
-    box-shadow: 0 2px 8px rgba(20, 18, 14, 0.05);
-  }
-  html[data-studio-theme="daylight"] .msg.user {
-    background: #1a1a18;
-    border-color: #1a1a18;
-    color: #faf8f3;
-  }
-  html[data-studio-theme="daylight"] .md-body h1,
-  html[data-studio-theme="daylight"] .md-body h2,
-  html[data-studio-theme="daylight"] .md-body h3 {
-    color: #161614;
-  }
-  html[data-studio-theme="daylight"] .md-body code {
-    background: #ebe6dc;
-    color: #161614;
-  }
-  html[data-studio-theme="daylight"] .code-block-container {
-    color: #f1f5f9;
-  }
-  html[data-studio-theme="daylight"] .theme-pill-group {
-    background: #ded8cc;
-    border-color: var(--border-highlight);
-  }
-  html[data-studio-theme="daylight"] .spec-radar {
-    background: #e5dfd3;
-    border-top: 1px solid var(--border-highlight);
-  }
-  html[data-studio-theme="daylight"] .radar-cell {
-    background: #ffffff;
-    border: 1px solid var(--border);
-  }
-  html[data-studio-theme="daylight"] .btn-arena {
-    background: #ffffff;
-    color: #0b6e58;
-    border-color: #0b6e58;
-  }
-  html[data-studio-theme="daylight"] .btn-arena.active {
-    background: linear-gradient(135deg, #e84800, #c81e1e);
-    color: #ffffff;
-    border-color: #c81e1e;
-  }
-  html[data-studio-theme="daylight"] .arena-col {
-    background: #faf8f3;
-  }
-  html[data-studio-theme="daylight"] .reasoning-box {
-    background: #f5f2eb;
-    color: #4a4740;
-  }
-
   .sidebar {
     backdrop-filter: blur(16px);
     box-shadow: 4px 0 30px rgba(0, 0, 0, 0.35);
@@ -668,11 +559,11 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
-  html[data-studio-theme="daylight"] * {
-    scrollbar-color: rgba(22, 22, 20, 0.22) transparent;
+  html[data-studio-theme="atari"] * {
+    scrollbar-color: #000000 #ffffff;
   }
-  html[data-studio-theme="daylight"] ::-webkit-scrollbar-thumb {
-    background: rgba(22, 22, 20, 0.20);
+  html[data-studio-theme="atari"] ::-webkit-scrollbar-thumb {
+    background: #000000;
   }
 
   /* Sidebar polish */
@@ -725,10 +616,10 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     background: #111520;
     color: #eef1f7;
   }
-  html[data-studio-theme="daylight"] .select-box option,
-  html[data-studio-theme="daylight"] .select-box optgroup {
+  html[data-studio-theme="atari"] .select-box option,
+  html[data-studio-theme="atari"] .select-box optgroup {
     background: #ffffff;
-    color: #161614;
+    color: #000000;
   }
 
   /* Custom sleek checkboxes inside workspace file list */
@@ -779,13 +670,6 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     border: solid #fff;
     border-width: 0 1.8px 1.8px 0;
     transform: rotate(45deg);
-  }
-  html[data-studio-theme="daylight"] .workspace-file-list {
-    background: #f8f6f1 !important;
-  }
-  html[data-studio-theme="daylight"] .workspace-file-item input[type="checkbox"] {
-    border-color: #b5ac9c;
-    background: #ffffff;
   }
 
   /* Header & Theme Pill polish */
@@ -899,15 +783,6 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     letter-spacing: 0.06em;
     margin-bottom: 2px;
   }
-  html[data-studio-theme="daylight"] .starter-chip {
-    background: #f5f2eb;
-    border-color: #d4cdc0;
-    color: #161614;
-  }
-  html[data-studio-theme="daylight"] .starter-chip:hover {
-    background: #ebe6dc;
-    border-color: #e84800;
-  }
 
   /* Speculative Neural Radar — sleek pill bar with tabular-nums */
   .spec-radar {
@@ -955,10 +830,6 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   .input-bar:focus-within {
     border-color: var(--orange);
     box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.14);
-  }
-  html[data-studio-theme="daylight"] .input-bar {
-    background: #ffffff;
-    border-color: #c5bdb0;
   }
   #prompt-input {
     background: transparent !important;
@@ -1262,7 +1133,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
 
   /* ATARI ST / COMMODORE HI-RES MONOCHROME BLACK & WHITE THEME */
-  html[data-studio-theme="daylight"] {
+  html[data-studio-theme="atari"] {
     --bg: #ffffff;
     --sidebar-bg: #ffffff;
     --panel: #ffffff;
@@ -1277,7 +1148,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     --red: #000000;
     --code-bg: #000000;
   }
-  html[data-studio-theme="daylight"] body {
+  html[data-studio-theme="atari"] body {
     font-family: var(--font-mono) !important;
     background:
       radial-gradient(#000000 0.55px, transparent 0.55px),
@@ -1286,119 +1157,119 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     background-position: 0 0, 2px 2px !important;
     color: #000000 !important;
   }
-  html[data-studio-theme="daylight"] * {
+  html[data-studio-theme="atari"] * {
     border-radius: 0px !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  html[data-studio-theme="daylight"] .sidebar {
+  html[data-studio-theme="atari"] .sidebar {
     background: #ffffff !important;
     border-right: 2px solid #000000 !important;
     box-shadow: none !important;
   }
-  html[data-studio-theme="daylight"] .card,
-  html[data-studio-theme="daylight"] .msg.assistant,
-  html[data-studio-theme="daylight"] .radar-cell,
-  html[data-studio-theme="daylight"] .input-bar {
+  html[data-studio-theme="atari"] .card,
+  html[data-studio-theme="atari"] .msg.assistant,
+  html[data-studio-theme="atari"] .radar-cell,
+  html[data-studio-theme="atari"] .input-bar {
     background: #ffffff !important;
     border: 2px solid #000000 !important;
     box-shadow: 3px 3px 0px #000000 !important;
     color: #000000 !important;
   }
-  html[data-studio-theme="daylight"] .msg.assistant {
+  html[data-studio-theme="atari"] .msg.assistant {
     border-left: 5px solid #000000 !important;
   }
-  html[data-studio-theme="daylight"] .msg.user {
+  html[data-studio-theme="atari"] .msg.user {
     background: #000000 !important;
     color: #ffffff !important;
     border: 2px solid #000000 !important;
     box-shadow: 3px 3px 0px #555555 !important;
   }
-  html[data-studio-theme="daylight"] .chat-header,
-  html[data-studio-theme="daylight"] .input-bar-wrapper,
-  html[data-studio-theme="daylight"] .spec-radar {
+  html[data-studio-theme="atari"] .chat-header,
+  html[data-studio-theme="atari"] .input-bar-wrapper,
+  html[data-studio-theme="atari"] .spec-radar {
     background: #ffffff !important;
     border-color: #000000 !important;
     border-width: 2px !important;
     box-shadow: none !important;
   }
-  html[data-studio-theme="daylight"] #quantum-canvas {
+  html[data-studio-theme="atari"] #quantum-canvas {
     filter: grayscale(100%) contrast(300%);
     opacity: 0.25;
   }
-  html[data-studio-theme="daylight"] .chat-header .badge,
-  html[data-studio-theme="daylight"] .meta-tag,
-  html[data-studio-theme="daylight"] .rc-pill {
+  html[data-studio-theme="atari"] .chat-header .badge,
+  html[data-studio-theme="atari"] .meta-tag,
+  html[data-studio-theme="atari"] .rc-pill {
     background: #000000 !important;
     color: #ffffff !important;
     border: 1px solid #000000 !important;
     box-shadow: none !important;
   }
-  html[data-studio-theme="daylight"] .md-body,
-  html[data-studio-theme="daylight"] .md-body h1,
-  html[data-studio-theme="daylight"] .md-body h2,
-  html[data-studio-theme="daylight"] .md-body h3,
-  html[data-studio-theme="daylight"] .select-box,
-  html[data-studio-theme="daylight"] .starter-chip,
-  html[data-studio-theme="daylight"] .starter-chip span,
-  html[data-studio-theme="daylight"] .theme-pill-btn,
-  html[data-studio-theme="daylight"] .hw-val,
-  html[data-studio-theme="daylight"] .radar-k,
-  html[data-studio-theme="daylight"] .radar-v,
-  html[data-studio-theme="daylight"] #prompt-input {
+  html[data-studio-theme="atari"] .md-body,
+  html[data-studio-theme="atari"] .md-body h1,
+  html[data-studio-theme="atari"] .md-body h2,
+  html[data-studio-theme="atari"] .md-body h3,
+  html[data-studio-theme="atari"] .select-box,
+  html[data-studio-theme="atari"] .starter-chip,
+  html[data-studio-theme="atari"] .starter-chip span,
+  html[data-studio-theme="atari"] .theme-pill-btn,
+  html[data-studio-theme="atari"] .hw-val,
+  html[data-studio-theme="atari"] .radar-k,
+  html[data-studio-theme="atari"] .radar-v,
+  html[data-studio-theme="atari"] #prompt-input {
     color: #000000 !important;
   }
-  html[data-studio-theme="daylight"] .select-box,
-  html[data-studio-theme="daylight"] .starter-chip,
-  html[data-studio-theme="daylight"] .workspace-file-list,
-  html[data-studio-theme="daylight"] .btn-secondary,
-  html[data-studio-theme="daylight"] .btn-icon,
-  html[data-studio-theme="daylight"] .btn-arena {
+  html[data-studio-theme="atari"] .select-box,
+  html[data-studio-theme="atari"] .starter-chip,
+  html[data-studio-theme="atari"] .workspace-file-list,
+  html[data-studio-theme="atari"] .btn-secondary,
+  html[data-studio-theme="atari"] .btn-icon,
+  html[data-studio-theme="atari"] .btn-arena {
     background: #ffffff !important;
     color: #000000 !important;
     border: 2px solid #000000 !important;
     box-shadow: 2px 2px 0px #000000 !important;
   }
-  html[data-studio-theme="daylight"] .starter-chip:hover,
-  html[data-studio-theme="daylight"] .btn-secondary:hover,
-  html[data-studio-theme="daylight"] .btn-icon:hover,
-  html[data-studio-theme="daylight"] .btn-arena:hover,
-  html[data-studio-theme="daylight"] .btn-arena.active,
-  html[data-studio-theme="daylight"] .theme-pill-btn.active,
-  html[data-studio-theme="daylight"] .btn {
+  html[data-studio-theme="atari"] .starter-chip:hover,
+  html[data-studio-theme="atari"] .btn-secondary:hover,
+  html[data-studio-theme="atari"] .btn-icon:hover,
+  html[data-studio-theme="atari"] .btn-arena:hover,
+  html[data-studio-theme="atari"] .btn-arena.active,
+  html[data-studio-theme="atari"] .theme-pill-btn.active,
+  html[data-studio-theme="atari"] .btn {
     background: #000000 !important;
     color: #ffffff !important;
     border: 2px solid #000000 !important;
     box-shadow: 2px 2px 0px #555555 !important;
   }
-  html[data-studio-theme="daylight"] .starter-chip:hover span {
+  html[data-studio-theme="atari"] .starter-chip:hover span {
     color: #ffffff !important;
   }
-  html[data-studio-theme="daylight"] .theme-pill-group {
+  html[data-studio-theme="atari"] .theme-pill-group {
     background: #ffffff !important;
     border: 2px solid #000000 !important;
   }
-  html[data-studio-theme="daylight"] input[type="checkbox"],
-  html[data-studio-theme="daylight"] .ws-file-cb {
+  html[data-studio-theme="atari"] input[type="checkbox"],
+  html[data-studio-theme="atari"] .ws-file-cb {
     border: 2px solid #000000 !important;
     background: #ffffff !important;
   }
-  html[data-studio-theme="daylight"] input[type="checkbox"]:checked,
-  html[data-studio-theme="daylight"] .ws-file-cb:checked {
+  html[data-studio-theme="atari"] input[type="checkbox"]:checked,
+  html[data-studio-theme="atari"] .ws-file-cb:checked {
     background: #000000 !important;
     border-color: #000000 !important;
     box-shadow: none !important;
   }
-  html[data-studio-theme="daylight"] #rad-mlp-bar {
+  html[data-studio-theme="atari"] #rad-mlp-bar {
     background: repeating-linear-gradient(45deg, #000000, #000000 2px, #ffffff 2px, #ffffff 5px) !important;
     opacity: 0.14;
   }
-  html[data-studio-theme="daylight"] .code-block-container {
+  html[data-studio-theme="atari"] .code-block-container {
     background: #000000 !important;
     color: #ffffff !important;
     border: 2px solid #000000 !important;
   }
-  html[data-studio-theme="daylight"] .logo-badge img {
+  html[data-studio-theme="atari"] .logo-badge img {
     filter: grayscale(100%) contrast(220%);
   }
 
@@ -1523,7 +1394,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <div class="theme-pill-group" title="Switch Studio Surface Theme">
           <button class="theme-pill-btn active" data-t="quantum" onclick="setStudioTheme('quantum')">QUANTUM</button>
           <button class="theme-pill-btn" data-t="radeon" onclick="setStudioTheme('radeon')">RADEON</button>
-          <button class="theme-pill-btn" data-t="daylight" onclick="setStudioTheme('daylight')">ATARI B&amp;W</button>
+          <button class="theme-pill-btn" data-t="atari" onclick="setStudioTheme('atari')">ATARI B&amp;W</button>
         </div>
         <button class="btn-secondary" onclick="clearChat()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Clear</button>
       </div>
@@ -2169,8 +2040,9 @@ loadStatus();
 loadWorkspaceFiles();
 setInterval(loadStatus, 5000);
 
-/* ── 1. THEME SWITCHER (QUANTUM / RADEON / DAYLIGHT) ─────────────────── */
+/* ── 1. THEME SWITCHER (QUANTUM / RADEON / ATARI B&W) ────────────────── */
 function setStudioTheme(theme) {
+  if (theme === "daylight") theme = "atari";
   document.documentElement.setAttribute("data-studio-theme", theme);
   document.querySelectorAll(".theme-pill-btn").forEach((b) => {
     b.classList.toggle("active", b.getAttribute("data-t") === theme);
@@ -2208,8 +2080,8 @@ let quantumPulse = 0.15;
     const speed = isGenerating ? 3.2 : (1.0 + quantumPulse * 2.0);
     quantumPulse = Math.max(0.05, quantumPulse * 0.95);
     const theme = document.documentElement.getAttribute("data-studio-theme") || "quantum";
-    const colA = theme === "radeon" ? "237, 28, 36" : (theme === "daylight" ? "255, 77, 0" : "255, 106, 0");
-    const colB = theme === "radeon" ? "255, 176, 0" : (theme === "daylight" ? "10, 123, 92" : "0, 240, 255");
+    const colA = theme === "radeon" ? "237, 28, 36" : (theme === "atari" ? "0, 0, 0" : "255, 106, 0");
+    const colB = theme === "radeon" ? "255, 176, 0" : (theme === "atari" ? "0, 0, 0" : "0, 240, 255");
 
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];

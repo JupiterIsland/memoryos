@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 IGNORED_DIRS: Set[str] = {
     ".git",
     ".github",
+    ".aider",
     ".vscode",
     ".idea",
     ".venv",
@@ -23,6 +24,10 @@ IGNORED_DIRS: Set[str] = {
     ".mypy_cache",
     ".ruff_cache",
     "site-packages",
+}
+
+ALLOWED_DOTFILES: Set[str] = {
+    ".env.example",
 }
 
 IGNORED_FILES: Set[str] = {
@@ -74,8 +79,12 @@ def is_binary_or_ignored(rel_path: Path) -> bool:
     parts = set(rel_path.parts)
     if parts.intersection(IGNORED_DIRS):
         return True
+    if any(p.startswith(".") and p not in {".", ".."} for p in rel_path.parts[:-1]):
+        return True
     name = rel_path.name
-    if name in IGNORED_FILES or name.startswith(".env"):
+    if name in IGNORED_FILES:
+        return True
+    if name.startswith(".") and name not in ALLOWED_DOTFILES:
         return True
     if rel_path.suffix.lower() in BINARY_EXTENSIONS:
         return True

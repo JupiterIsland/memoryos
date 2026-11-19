@@ -187,7 +187,7 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
     total_chars = len(prompt) + extra_chars
     est_tokens = max(1, total_chars // 4)
 
-    t0 = time.perf_counter_ns()
+    mlp_us = 0.0
     try:
         if _SPEC_MODEL is None:
             try:
@@ -205,12 +205,19 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
             "secs_since_offload": 0.45,
             "model_switch_rate": 0.20,
         }
+        t0 = time.perf_counter_ns()
         p_offload = _SPEC_MODEL.predict_proba(features)
-        action = _SPEC_MODEL.decide(features)
+        if p_offload >= _SPEC_MODEL.tau_hi:
+            action = "offload_now"
+        elif p_offload <= _SPEC_MODEL.tau_lo:
+            action = "skip"
+        else:
+            action = "digest"
+        mlp_us = round((time.perf_counter_ns() - t0) / 1000.0, 2)
     except Exception:
         p_offload = 0.88
         action = "offload_now"
-    mlp_us = round((time.perf_counter_ns() - t0) / 1000.0, 2)
+        mlp_us = 0.0
 
     decision = select_model_with_d3(prompt_text=prompt or "code", has_image=has_image, context_chars=total_chars)
     selected_model = decision.get("selected_model", "Gemma-4-31B-IT")
