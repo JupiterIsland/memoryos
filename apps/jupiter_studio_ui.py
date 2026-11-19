@@ -1004,6 +1004,326 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     letter-spacing: -0.01em;
   }
 
+
+  /* ── ARCHITECTURAL SHARP GLASSMORPHISM (SMOKED CRYSTAL EDITION) ────── */
+  :root {
+    --bg: #05070c;
+    --sidebar-bg: rgba(11, 15, 24, 0.72);
+    --card-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.02) 100%);
+    --border: rgba(255, 255, 255, 0.13);
+    --border-highlight: rgba(255, 255, 255, 0.24);
+    --rim: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    --depth: 0 14px 36px rgba(0, 0, 0, 0.52);
+    --text: #ffffff;
+    --muted: #98a4b8;
+    --orange: #ff6a00;
+    --cyan: #22d3ee;
+    --green: #10b981;
+    --red: #fb7185;
+  }
+
+  /* Optical light-pool + faint architectural grid so frosted glass actually refracts depth */
+  body {
+    background:
+      radial-gradient(ellipse 55% 45% at 78% 8%, rgba(34, 211, 238, 0.14), transparent 65%),
+      radial-gradient(ellipse 48% 42% at 22% 92%, rgba(255, 106, 0, 0.13), transparent 65%),
+      linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+      #05070c !important;
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
+  }
+  .main {
+    background: transparent !important;
+  }
+
+  /* Smoked-glass sidebar with crisp 1px edge */
+  .sidebar {
+    background: var(--sidebar-bg) !important;
+    backdrop-filter: blur(26px) saturate(165%) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(165%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06), 12px 0 40px rgba(0, 0, 0, 0.55) !important;
+  }
+
+  /* Sharper architectural geometry + crystalline top-rim highlight */
+  .card {
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--border) !important;
+    border-radius: 5px !important;
+    box-shadow: var(--rim), 0 8px 24px rgba(0, 0, 0, 0.34);
+  }
+  .select-box {
+    border-radius: 4px !important;
+    background: rgba(8, 12, 20, 0.72) !important;
+    border: 1px solid var(--border-highlight) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    color: #ffffff !important;
+  }
+  .select-box:focus {
+    border-color: var(--cyan) !important;
+    box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(34, 211, 238, 0.22);
+  }
+
+  /* Kill glaring white native checkboxes (.ws-file-cb) -> sharp smoked-glass squares */
+  .workspace-file-list {
+    border-radius: 4px !important;
+    background: rgba(4, 7, 13, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  }
+  input[type="checkbox"],
+  .ws-file-cb {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 2px !important;
+    border: 1px solid rgba(255, 255, 255, 0.30) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    transition: all 0.12s ease;
+  }
+  input[type="checkbox"]:hover,
+  .ws-file-cb:hover {
+    border-color: var(--cyan) !important;
+  }
+  input[type="checkbox"]:checked,
+  .ws-file-cb:checked {
+    background: var(--orange) !important;
+    border-color: var(--orange) !important;
+    box-shadow: 0 0 10px rgba(255, 106, 0, 0.45);
+  }
+  input[type="checkbox"]:checked::after,
+  .ws-file-cb:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #ffffff;
+    border-width: 0 1.8px 1.8px 0;
+    transform: rotate(45deg);
+  }
+
+  /* Crisp frosted top header */
+  .chat-header {
+    background: rgba(10, 14, 22, 0.66) !important;
+    backdrop-filter: blur(22px) saturate(165%) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(165%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+  .chat-header .badge {
+    border-radius: 3px !important;
+    background: rgba(34, 211, 238, 0.12) !important;
+    border: 1px solid rgba(34, 211, 238, 0.48) !important;
+    color: #67e8f9 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+  .theme-pill-group {
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  }
+  .theme-pill-btn {
+    border-radius: 2px !important;
+    color: #c5cedd;
+  }
+  .theme-pill-btn.active {
+    background: linear-gradient(135deg, #ff6a00, #ff8533) !important;
+    color: #ffffff !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  }
+
+  /* Sharp cut-crystal glass message panes */
+  .msg {
+    border-radius: 6px !important;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: var(--rim), var(--depth);
+  }
+  .msg.assistant {
+    background: linear-gradient(155deg, rgba(19, 25, 39, 0.78) 0%, rgba(11, 15, 24, 0.68) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-left: 2px solid var(--cyan) !important;
+  }
+  .msg.user {
+    background: linear-gradient(155deg, rgba(255, 106, 0, 0.16) 0%, rgba(255, 106, 0, 0.06) 100%) !important;
+    border: 1px solid rgba(255, 106, 0, 0.42) !important;
+    color: #ffffff !important;
+  }
+  .meta-tag {
+    border-radius: 3px !important;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .md-body { color: #e2e8f2; }
+  .md-body h1, .md-body h2, .md-body h3 { color: #ffffff; font-weight: 700; }
+
+  /* Sharp faceted starter tiles */
+  .starter-chip {
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color: #f8fafc !important;
+  }
+  .starter-chip:hover {
+    background: rgba(34, 211, 238, 0.09) !important;
+    border-color: rgba(34, 211, 238, 0.55) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .starter-chip span { color: var(--cyan); font-weight: 700; }
+
+  /* Sharp glass Speculative Neural Radar strip */
+  .spec-radar {
+    background: rgba(8, 12, 20, 0.62) !important;
+    backdrop-filter: blur(20px) saturate(160%);
+    border-top: 1px solid rgba(255, 255, 255, 0.13) !important;
+  }
+  .radar-cell {
+    border-radius: 4px !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+
+  /* Precision glass composer dock + sharp controls */
+  .input-bar-wrapper {
+    background: rgba(8, 11, 18, 0.72) !important;
+    backdrop-filter: blur(24px) saturate(170%) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  }
+  .input-bar {
+    border-radius: 6px !important;
+    background: rgba(16, 22, 34, 0.74) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
+  .input-bar:focus-within {
+    border-color: var(--orange) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 0 1px var(--orange), 0 0 24px rgba(255, 106, 0, 0.22) !important;
+  }
+  .btn, .btn-secondary, .btn-icon, .btn-arena {
+    border-radius: 4px !important;
+  }
+  .btn {
+    background: linear-gradient(135deg, #ff6a00 0%, #ff4500 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.26) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 16px rgba(255, 106, 0, 0.35);
+    color: #ffffff !important;
+  }
+  .btn-arena {
+    background: rgba(34, 211, 238, 0.10) !important;
+    border: 1px solid rgba(34, 211, 238, 0.48) !important;
+    color: #67e8f9 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .btn-arena:hover {
+    background: rgba(34, 211, 238, 0.18) !important;
+    border-color: #67e8f9 !important;
+  }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    color: #ffffff !important;
+  }
+  .btn-icon {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    color: #cbd5e1 !important;
+  }
+  .code-block-container {
+    border-radius: 5px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  }
+
+  /* RADEON SHARP CRYSTAL THEME */
+  html[data-studio-theme="radeon"] body {
+    background:
+      radial-gradient(ellipse 55% 45% at 78% 10%, rgba(237, 28, 36, 0.20), transparent 65%),
+      radial-gradient(ellipse 48% 42% at 22% 90%, rgba(255, 176, 0, 0.14), transparent 65%),
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      #080507 !important;
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
+  }
+  html[data-studio-theme="radeon"] .sidebar {
+    background: rgba(18, 9, 13, 0.76) !important;
+    border-right-color: rgba(237, 28, 36, 0.30) !important;
+  }
+
+  /* DAYLIGHT FROSTED CRYSTAL THEME */
+  html[data-studio-theme="daylight"] body {
+    background:
+      radial-gradient(ellipse 55% 45% at 80% 10%, rgba(11, 110, 88, 0.10), transparent 65%),
+      radial-gradient(ellipse 48% 42% at 18% 92%, rgba(232, 72, 0, 0.09), transparent 65%),
+      linear-gradient(rgba(22, 22, 20, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(22, 22, 20, 0.04) 1px, transparent 1px),
+      #f2efe9 !important;
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
+  }
+  html[data-studio-theme="daylight"] .sidebar {
+    background: rgba(242, 239, 233, 0.78) !important;
+    border-right: 1px solid rgba(22, 22, 20, 0.14) !important;
+  }
+  html[data-studio-theme="daylight"] .card,
+  html[data-studio-theme="daylight"] .msg.assistant,
+  html[data-studio-theme="daylight"] .radar-cell,
+  html[data-studio-theme="daylight"] .input-bar {
+    background: rgba(255, 255, 255, 0.78) !important;
+    border: 1px solid rgba(22, 22, 20, 0.14) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.90), 0 8px 24px rgba(22, 22, 20, 0.07) !important;
+  }
+  html[data-studio-theme="daylight"] .msg.assistant {
+    border-left: 2px solid #e84800 !important;
+  }
+  html[data-studio-theme="daylight"] .chat-header,
+  html[data-studio-theme="daylight"] .input-bar-wrapper,
+  html[data-studio-theme="daylight"] .spec-radar {
+    background: rgba(235, 230, 220, 0.76) !important;
+    border-color: rgba(22, 22, 20, 0.14) !important;
+  }
+  html[data-studio-theme="daylight"] .md-body,
+  html[data-studio-theme="daylight"] .md-body h1,
+  html[data-studio-theme="daylight"] .md-body h2,
+  html[data-studio-theme="daylight"] .md-body h3,
+  html[data-studio-theme="daylight"] .select-box,
+  html[data-studio-theme="daylight"] .starter-chip,
+  html[data-studio-theme="daylight"] .theme-pill-btn {
+    color: #161614 !important;
+  }
+  html[data-studio-theme="daylight"] .select-box {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(22, 22, 20, 0.22) !important;
+  }
+  html[data-studio-theme="daylight"] .starter-chip {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border-color: rgba(22, 22, 20, 0.16) !important;
+  }
+  html[data-studio-theme="daylight"] .workspace-file-list {
+    background: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(22, 22, 20, 0.16) !important;
+  }
+  html[data-studio-theme="daylight"] input[type="checkbox"],
+  html[data-studio-theme="daylight"] .ws-file-cb {
+    border-color: rgba(22, 22, 20, 0.35) !important;
+    background: #ffffff !important;
+  }
+  html[data-studio-theme="daylight"] .btn-arena {
+    background: rgba(11, 110, 88, 0.10) !important;
+    border-color: #0b6e58 !important;
+    color: #0b6e58 !important;
+  }
+
 </style>
 </head>
 <body>
