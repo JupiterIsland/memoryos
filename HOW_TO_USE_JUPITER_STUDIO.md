@@ -78,11 +78,33 @@ As you type—**before you even click `Run`**—watch the 4-box telemetry strip 
 In the top-right bar, click any of the three theme pills:
 * **`QUANTUM`** — Obsidian dark glass with liquid amber & cyan accents.
 * **`RADEON`** — Deep carbon with Radeon crimson & sunset gold accents.
-* **`DAYLIGHT`** — Warm light ceramic with crisp dark ink (great for bright rooms).
+* **`ATARI B&W`** — High-contrast Atari ST / Commodore monochrome black & white mode (`0px` corners, crisp hairline grids, zero distractions).
 
 ---
 
-## 6. Quick Troubleshooting
+## 6. The Real Talk (Honest Limitations)
+
+Jupiter Studio doesn't hide the seams of how AI actually works. There is more going on under the hood than a casual chat box lets on—here is the straight truth on consumer hardware:
+
+* **Context windows aren't magic:** Pasting 50,000+ tokens of raw logs causes models to lose track of details buried in the middle. Use the **Workspace Picker** and **Attach Files** to send only the exact files relevant to your task.
+* **Local VRAM vs. Cloud Offload:** Using **AMD Token Lab** or **Hugging Face Cloud** keeps your local GPU at **0 MB** of AI VRAM. If you switch to **Local Models (Ollama)**, it *will* consume local GPU VRAM and system RAM—the live Hardware Profile sidebar shows you exactly what your GPU is doing.
+* **Free grants expire & rate limits happen:** Cloud grants are generous, not infinite. If a cloud endpoint returns `HTTP 429` (rate limit), Jupiter Studio automatically fails over to another available model and shows you the exact route instead of hiding it behind an endless spinner.
+* **Models hallucinate:** Even 27B, 31B, and 72B models can sound completely confident while being wrong. Always inspect generated diffs and run your test suite before trusting code in production.
+* **Benchmark vs. live server latency:** The `5.37 μs` Speculative MLP number is the hot-cache pure-Python microbenchmark (`tests/run_gamer_hardware_tests.py`). Inside the live HTTP web server, the Speculative Neural Radar reports real per-request inference latency (`~30–90 μs`)—both are real measurements with zero mocks.
+
+---
+
+## 7. Honest Credits — Naming the Models
+
+Real software today is built by humans steering real models—and users deserve to know which models helped build and run it:
+
+* **DeepSeek 3 (Essential Special Thanks):** DeepSeek 3 literally **brought Jupiter Studio back from the dead**—delivering brutally honest architecture audits, spotting real bugs (broken theme attributes, dotfile clutter in the workspace picker, cold-start MLP timer artifacts, and bloated UI drafts), and keeping the entire build grounded, minimal, and shippable.
+* **AMD Token Lab Cloud Models:** `Gemma-4-31B-IT` (*Vision & Architecture*), `Qwen3.8-27B` (*Code & Surgical Diffs*), `DeepSeek-V4.1-Flash` (*Long Context / Logs*), and `MiniCPM5-2B` (*Fast Edge Triage*).
+* **Google Gemini / Antigravity:** Hands-on implementation, SQLite security hardening, test verification, visual QA, and cross-platform release engineering.
+
+---
+
+## 8. Quick Troubleshooting
 
 * **Chat says "API key not configured in .env":** Add the matching key (`TOKENLAB_API_KEY`, `HF_TOKEN`, `NVIDIA_API_KEY`, or `DO_MODEL_ACCESS_KEY`) to `.env` and restart Jupiter Studio.
 * **Local Ollama model fails to connect:** Make sure the **Ollama** desktop app is open (or run `ollama serve`) and that you've pulled the model (`ollama pull qwen2.5-coder:7b`).

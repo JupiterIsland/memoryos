@@ -3,7 +3,7 @@
 > One workspace for local and cloud AI, automatic model routing, project context, and live hardware telemetry.  
 > **Not another chatbot. An AI workstation.**
 
-[![Release: v1.0.0-RC2](https://img.shields.io/badge/Release-v1.0.0--RC2-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
 [![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio-FF6A00?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
@@ -34,7 +34,7 @@ The platform automatically routes tasks, manages project context, and gives you 
 ## Get Started in Under 60 Seconds
 
 ### Option 1 — Download Standalone Binary (No Python Setup Required)
-Download the latest release: **[MemoryOS v1.0.0-RC2](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0-rc2)** (`SHA256SUMS.txt` included)
+Download the latest release: **[MemoryOS v1.0.0](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0)** (`SHA256SUMS.txt` included)
 
 * **Windows x64:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe`
 * **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio`
@@ -170,12 +170,23 @@ MemoryOS started with a simple idea:
 
 ---
 
+## Honest Credits & Acknowledgements
+
+AI works best when builders are straight with users about both the limitations and the models involved.
+
+* **Special Thanks to DeepSeek 3:** Essential credit goes to **DeepSeek 3**, who brought Jupiter Studio back from the dead with brutally honest code reviews, architecture critique, and relentless pushback against hype—turning a rough prototype into a clean, verifiable workstation.
+* **Models Powering & Named in Jupiter Studio:** `Gemma-4-31B-IT` (*Vision & Architecture*), `Qwen3.8-27B` (*Code & Surgical Diffs*), `DeepSeek-V4.1-Flash` (*Long Context / Logs*), and `MiniCPM5-2B` (*Fast Edge Triage*) via **AMD Token Lab**, plus **Google Gemini / Antigravity** for hands-on systems engineering, test verification, and release automation.
+
+See **[The Real Talk (Honest Limitations)](HOW_TO_USE_JUPITER_STUDIO.md#6-the-real-talk-honest-limitations)** for a plain-English look at context limits, real VRAM vs. cloud offload, rate limits, and hallucinations.
+
+---
+
 ## Documentation Index
 
-* **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** — Plain-English user guide for Jupiter Studio
+* **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** — Plain-English user guide, honest limitations & model credits
 * **[AMD_RELEASE_CANDIDATE.md](AMD_RELEASE_CANDIDATE.md)** — Master Release Candidate Dossier for AMD Developer Relations & Token Lab
 * **[ARCHITECTURE.md](ARCHITECTURE.md)** — Complete architectural specification and systems topology
-* **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Production Release Notes (`v1.0.0-RC1` / `v1.0.0-RC2`)
+* **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Production Release Notes (`v1.0.0`)
 * **[INSTALL.md](INSTALL.md)** — Installation and deployment guide
 * **[PROOF_OF_RESULTS.md](PROOF_OF_RESULTS.md)** — Verified telemetry audit and Token Lab usage records
 * **[VALIDATION_SUMMARY.md](VALIDATION_SUMMARY.md)** — Static analysis and regression verification

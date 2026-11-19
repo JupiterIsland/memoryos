@@ -1279,11 +1279,11 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="brand">
-      <div class="logo-badge" title="Jupiter Studio RC2 — Powered by AMD Token Lab">
+      <div class="logo-badge" title="Jupiter Studio v1.0.0 — Powered by AMD Token Lab">
         <img src="/assets/jupiter_studio_icon.png" alt="Jupiter Studio" width="40" height="40" style="width:40px; height:40px; border-radius:10px; display:block; object-fit:cover;" />
       </div>
       <div>
-        <h1>Jupiter Studio <span class="rc-pill">RC2</span></h1>
+        <h1>Jupiter Studio <span class="rc-pill">v1.0</span></h1>
         <p>MemoryOS Hybrid Workstation // AMD Token Lab</p>
       </div>
     </div>
@@ -1294,10 +1294,10 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <select class="select-box" id="target-selector" onchange="onTargetChange()">
         <option value="auto:d3" selected>⚡ Auto-Route (d3 Smart Router)</option>
         <optgroup label="AMD Token Lab Cloud (Zero VRAM)" id="opt-tokenlab">
-          <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Tactical / Vision)</option>
-          <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code Architecture)</option>
-          <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (1M Context)</option>
-          <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Scout)</option>
+          <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Vision &amp; Architecture)</option>
+          <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code &amp; Surgical Diffs)</option>
+          <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Long Context / Logs)</option>
+          <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Edge Triage)</option>
         </optgroup>
         <optgroup label="NVIDIA NIM / Brev Cloud" id="opt-nvidia">
           <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
@@ -1402,7 +1402,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 
     <div class="chat-log" id="chat-log">
       <div class="msg assistant">
-        <div class="meta-tag meta-auto">MEMORYOS v1.0.0-RC2 // ZERO LOCAL VRAM</div>
+        <div class="meta-tag meta-auto">MEMORYOS v1.0.0 // ZERO LOCAL VRAM</div>
         <div class="md-body">
           <h3 style="margin-top:2px; font-size:18px; letter-spacing:-0.02em;">Jupiter Studio Workstation</h3>
           <p style="color:var(--muted);">Hardware-aware routing via 0.091 ms AMD Zen 3 gate and 5.37 μs Speculative Offload MLP. Local GPU VRAM remains completely free for native apps.</p>

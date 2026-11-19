@@ -35,7 +35,8 @@ class TestJupiterStudioHandler(unittest.TestCase):
         self.handler.end_headers = MagicMock()
 
     def test_resolve_target_auto_d3(self) -> None:
-        model, provider, is_local = self.handler._resolve_target("auto:d3", "Write a Python script", False)
+        with patch.dict(os.environ, {"TOKENLAB_API_KEY": "test-ci-tokenlab-key"}):
+            model, provider, is_local = self.handler._resolve_target("auto:d3", "Write a Python script", False)
         self.assertFalse(is_local)
         self.assertIn("AMD Token Lab", provider)
 

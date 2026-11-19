@@ -1,7 +1,10 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-memory/
+memory/*
+!memory/models/
+memory/models/*
+!memory/models/speculative_offload_v1.json
 .env
 .env.*
 .env-backups/
