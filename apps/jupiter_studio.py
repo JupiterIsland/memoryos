@@ -587,14 +587,18 @@ HTML_PAGE = r"""<!DOCTYPE html>
     </div>
 
     <!-- Input Bar -->
-    <div class="input-bar-wrapper">
-      <div class="attachment-preview" id="attachment-preview" style="display:none;"></div>
+    <div class="input-bar-wrapper" id="input-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <div class="attachment-preview" id="attachment-preview" style="display:none; flex-wrap:wrap; gap:6px;"></div>
       <div class="input-bar">
         <input type="file" id="image-file-input" accept="image/*" style="display:none;" onchange="handleImageSelected(event)" />
-        <button class="btn-icon" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
+        <input type="file" id="doc-file-input" multiple style="display:none;" onchange="handleFilesSelected(event)" />
+        <button class="btn-icon" id="upload-file-btn" title="Upload Files (Code, Logs, JSON, Markdown, CSV, Text)" onclick="document.getElementById('doc-file-input').click()">
+          📎
+        </button>
+        <button class="btn-icon" id="upload-image-btn" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
           🖼️
         </button>
-        <textarea id="prompt-input" rows="2" placeholder="Ask your model anything... (Ctrl+Enter to send)" onkeydown="if(event.ctrlKey && event.key==='Enter') sendPrompt()"></textarea>
+        <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag & drop files here... (Ctrl+Enter to send)" onkeydown="if(event.ctrlKey && event.key==='Enter') sendPrompt()"></textarea>
         <div class="input-actions">
           <button class="btn" id="run-btn" onclick="sendPrompt()">Run</button>
           <button class="btn btn-stop" id="stop-btn" style="display:none;" onclick="stopGeneration()">⏹ Stop</button>
@@ -782,30 +786,122 @@ async function exportCopilotBundle() {
   }
 }
 
+let currentAttachedImageName = "";
+let uploadedFiles = [];
+
+function renderAttachmentPreview() {
+  const preview = document.getElementById("attachment-preview");
+  const chips = [];
+  if (currentAttachedImage) {
+    chips.push(`
+      <div class="attachment-chip">
+        <span>🖼️ ${currentAttachedImageName || "Image"}</span>
+        <span class="remove-btn" onclick="removeAttachedImage()">✕</span>
+      </div>
+    `);
+  }
+  uploadedFiles.forEach((f, idx) => {
+    const kb = Math.max(1, Math.round((f.size || f.content.length) / 1024));
+    const safeName = f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    chips.push(`
+      <div class="attachment-chip">
+        <span>📄 ${safeName} (${kb} KB)</span>
+        <span class="remove-btn" onclick="removeUploadedFile(${idx})">✕</span>
+      </div>
+    `);
+  });
+  if (chips.length) {
+    preview.style.display = "flex";
+    preview.innerHTML = chips.join("");
+  } else {
+    preview.style.display = "none";
+    preview.innerHTML = "";
+  }
+}
+
 function handleImageSelected(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
     currentAttachedImage = evt.target.result;
-    const preview = document.getElementById("attachment-preview");
-    preview.style.display = "flex";
-    preview.innerHTML = `
-      <div class="attachment-chip">
-        <span>🖼️ ${file.name} (${Math.round(file.size / 1024)} KB)</span>
-        <span class="remove-btn" onclick="removeAttachedImage()">✕</span>
-      </div>
-    `;
+    currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+    renderAttachmentPreview();
   };
   reader.readAsDataURL(file);
 }
 
+function addFilesFromList(fileList) {
+  const files = Array.from(fileList || []);
+  for (const file of files) {
+    if (file.type && file.type.startsWith("image/")) {
+      const imgReader = new FileReader();
+      imgReader.onload = function(evt) {
+        currentAttachedImage = evt.target.result;
+        currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+        renderAttachmentPreview();
+      };
+      imgReader.readAsDataURL(file);
+      continue;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(`⚠️ Skipped ${file.name}: exceeds 2 MB upload limit`);
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const content = String(evt.target.result || "");
+      uploadedFiles.push({ name: file.name, size: file.size, content: content });
+      renderAttachmentPreview();
+      showToast(`📎 Uploaded ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
+}
+
+function handleFilesSelected(e) {
+  addFilesFromList(e.target.files);
+  e.target.value = "";
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  const zone = document.getElementById("input-drop-zone");
+  if (zone) zone.style.borderColor = "var(--cyan)";
+}
+
+function handleDragLeave(e) {
+  const zone = document.getElementById("input-drop-zone");
+  if (zone) zone.style.borderColor = "";
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  handleDragLeave(e);
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+    addFilesFromList(e.dataTransfer.files);
+  }
+}
+
+function removeUploadedFile(idx) {
+  uploadedFiles.splice(idx, 1);
+  renderAttachmentPreview();
+}
+
 function removeAttachedImage() {
   currentAttachedImage = null;
+  currentAttachedImageName = "";
   document.getElementById("image-file-input").value = "";
-  const preview = document.getElementById("attachment-preview");
-  preview.style.display = "none";
-  preview.innerHTML = "";
+  renderAttachmentPreview();
+}
+
+function clearAllAttachments() {
+  currentAttachedImage = null;
+  currentAttachedImageName = "";
+  uploadedFiles = [];
+  document.getElementById("image-file-input").value = "";
+  document.getElementById("doc-file-input").value = "";
+  renderAttachmentPreview();
 }
 
 function onTargetChange() {
@@ -879,12 +975,16 @@ function setRunningState(running) {
 async function sendPrompt() {
   if (isGenerating) return;
   const input = document.getElementById("prompt-input");
-  const text = input.value.trim();
-  if (!text) return;
+  let text = input.value.trim();
+  if (!text && !currentAttachedImage && !uploadedFiles.length) return;
+  if (!text) {
+    text = uploadedFiles.length ? "Analyze the uploaded file(s)." : "Analyze the attached image.";
+  }
 
   const target = document.getElementById("target-selector").value;
   const chatLog = document.getElementById("chat-log");
   const selectedFiles = getSelectedFiles();
+  const filesToUpload = uploadedFiles.slice();
 
   // Append user message
   const uMsg = document.createElement("div");
@@ -892,6 +992,10 @@ async function sendPrompt() {
   let userHtml = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   if (currentAttachedImage) {
     userHtml += `<br/><img src="${currentAttachedImage}" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
+  }
+  if (filesToUpload.length) {
+    const names = filesToUpload.map(f => f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${names.join(", ")}</div>`;
   }
   if (selectedFiles.length) {
     userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${selectedFiles.join(", ")}</div>`;
@@ -949,9 +1053,10 @@ async function sendPrompt() {
     history: chatHistory.slice(-8),
     image_base64: currentAttachedImage,
     workspace_files: selectedFiles,
+    uploaded_files: filesToUpload,
   };
 
-  removeAttachedImage();
+  clearAllAttachments();
 
   try {
     const response = await fetch("/api/chat/stream", {
@@ -1148,12 +1253,41 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         self._send_json({"error": "Unknown endpoint"}, status=404)
 
+    @staticmethod
+    def _format_uploaded_files(
+        uploaded_files: List[Dict[str, Any]],
+        max_chars_per_file: int = 40000,
+        max_total_chars: int = 120000,
+    ) -> str:
+        """Format browser-uploaded text/code files into safe fenced Markdown context blocks."""
+        if not uploaded_files:
+            return ""
+        blocks: List[str] = []
+        used_chars = 0
+        for item in uploaded_files:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "uploaded_file.txt").strip()
+            raw_content = str(item.get("content") or "")
+            remaining = max_total_chars - used_chars
+            if remaining <= 0:
+                blocks.append(f"#### {name}\n*(omitted: total upload context limit reached)*")
+                continue
+            cap = min(max_chars_per_file, remaining)
+            snippet = raw_content[:cap]
+            truncated = len(raw_content) > cap
+            suffix = "\n... [truncated]" if truncated else ""
+            blocks.append(f"#### {name}\n```\n{snippet}{suffix}\n```")
+            used_chars += len(snippet)
+        return "\n\n".join(blocks)
+
     def _handle_chat_stream(self, body: Dict[str, Any]) -> None:
         prompt = body.get("prompt", "")
         target = body.get("target", "auto:d3")
         history = body.get("history") or []
         image_base64 = body.get("image_base64")
         workspace_files = body.get("workspace_files") or []
+        uploaded_files = body.get("uploaded_files") or []
 
         # Send SSE headers
         self.send_response(HTTPStatus.OK)
@@ -1173,12 +1307,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         t0 = time.perf_counter()
 
-        # Build context if workspace files were attached
+        # Build context if workspace or uploaded files were attached
         effective_prompt = prompt
+        if uploaded_files:
+            formatted_uploads = self._format_uploaded_files(uploaded_files)
+            if formatted_uploads:
+                effective_prompt = (
+                    f"{effective_prompt}\n\n---\n### Uploaded User Files:\n{formatted_uploads}"
+                )
         if workspace_files:
             pack = pack_workspace_context(REPO_ROOT, selected_files=workspace_files, include_git=True)
             effective_prompt = (
-                f"{prompt}\n\n---\n### Attached Project Workspace Context:\n{pack['bundle_text']}"
+                f"{effective_prompt}\n\n---\n### Attached Project Workspace Context:\n{pack['bundle_text']}"
             )
 
         # Resolve model and provider
@@ -1201,17 +1341,26 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         prompt = body.get("prompt", "")
         target = body.get("target", "auto:d3")
         image_base64 = body.get("image_base64")
+        uploaded_files = body.get("uploaded_files") or []
         t0 = time.perf_counter()
 
-        model_name, provider_key, is_local = self._resolve_target(target, prompt, bool(image_base64))
+        effective_prompt = prompt
+        if uploaded_files:
+            formatted_uploads = self._format_uploaded_files(uploaded_files)
+            if formatted_uploads:
+                effective_prompt = (
+                    f"{effective_prompt}\n\n---\n### Uploaded User Files:\n{formatted_uploads}"
+                )
+
+        model_name, provider_key, is_local = self._resolve_target(target, effective_prompt, bool(image_base64))
         content = ""
         err = ""
 
         try:
             if is_local:
-                content = self._call_ollama(model_name, prompt)
+                content = self._call_ollama(model_name, effective_prompt)
             else:
-                content, err = self._call_cloud_direct(provider_key, model_name, prompt)
+                content, err = self._call_cloud_direct(provider_key, model_name, effective_prompt)
         except Exception as exc:
             err = str(exc)
 

@@ -107,6 +107,20 @@ class TestJupiterStudioHandler(unittest.TestCase):
         self.assertNotIn("Authorization", captured_reqs[0].headers)
         self.assertNotIn("Authorization", captured_reqs[1].headers)
 
+    def test_format_uploaded_files_and_truncation(self) -> None:
+        formatted = self.handler._format_uploaded_files(
+            [
+                {"name": "notes.py", "size": 24, "content": "print('hello studio')"},
+                {"name": "big.log", "size": 500, "content": "A" * 500},
+            ],
+            max_chars_per_file=50,
+            max_total_chars=80,
+        )
+        self.assertIn("#### notes.py", formatted)
+        self.assertIn("print('hello studio')", formatted)
+        self.assertIn("#### big.log", formatted)
+        self.assertIn("... [truncated]", formatted)
+
 
 if __name__ == "__main__":
     unittest.main()
