@@ -2,7 +2,7 @@
 
 ### Active Beta Staging for AMD Developer Relations & Multi-Cloud Systems Validation
 
-![MemoryOS // The Quiet Advisor — Powered by AMD Token Lab](docs/memoryos_executive_banner.svg)
+![MemoryOS // The Quiet Advisor — Powered by AMD Token Lab](docs/memoryos_executive_banner.png)
 
 [![Release: v1.0.0-RC1](https://img.shields.io/badge/Release-v1.0.0--RC1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](RELEASE_NOTES.md)
 [![Branch: beta](https://img.shields.io/badge/Branch-beta-38BDF8?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/tree/beta)

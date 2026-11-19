@@ -2,7 +2,7 @@
 
 ### High-Performance Hardware-Aware AI Orchestration, Zero-VRAM Cloud Offloading, and Closed-Loop System Protection
 
-![MemoryOS System Architecture](docs/memoryos_executive_banner.svg)
+![MemoryOS System Architecture](docs/memoryos_executive_banner.png)
 
 [![Release: v1.0.0-RC1](https://img.shields.io/badge/Release-v1.0.0--RC1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](RELEASE_NOTES.md)
 [![Status: AMD Release Candidate](https://img.shields.io/badge/Status-AMD_Release_Candidate-2E8B57?style=for-the-badge)](AMD_RELEASE_CANDIDATE.md)
