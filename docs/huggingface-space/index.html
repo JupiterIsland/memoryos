@@ -3,134 +3,184 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Jupiter-One // MemoryOS &amp; Jupiter Studio</title>
+<title>MemoryOS // Jupiter Studio — AI Workstation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #080a0f;
-    --card: #111520;
-    --border: rgba(255, 106, 0, 0.28);
-    --text: #f3f5fa;
+    --bg: #05070c;
+    --glass: linear-gradient(155deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 100%);
+    --border: rgba(255, 255, 255, 0.14);
+    --rim: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    --text: #ffffff;
+    --body: #d8e0ec;
     --muted: #93a1b8;
-    --amber: #ff6a00;
-    --ruby: #ed1c24;
-    --cyan: #00e5ff;
+    --orange: #ff6a00;
+    --cyan: #22d3ee;
     --green: #10b981;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: radial-gradient(circle at 85% 10%, rgba(237,28,36,0.14), transparent 45%),
-                radial-gradient(circle at 15% 10%, rgba(255,106,0,0.14), transparent 45%),
-                var(--bg);
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
-    padding: 24px;
-    line-height: 1.55;
+    background:
+      radial-gradient(ellipse 55% 45% at 82% 8%, rgba(34, 211, 238, 0.16), transparent 65%),
+      radial-gradient(ellipse 48% 42% at 18% 92%, rgba(255, 106, 0, 0.14), transparent 65%),
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      var(--bg);
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100%;
+    padding: 28px 20px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-  .hero {
-    background: var(--card);
+  .wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .card {
+    background: var(--glass);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
     border: 1px solid var(--border);
-    border-top: 4px solid var(--amber);
-    border-radius: 12px;
+    border-radius: 6px;
+    box-shadow: var(--rim), 0 14px 36px rgba(0, 0, 0, 0.5);
     padding: 24px 26px;
   }
-  .kicker {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  .hero { border-left: 3px solid var(--orange); }
+  .badge {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
     font-size: 11px;
-    letter-spacing: 0.14em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--amber);
-    margin-bottom: 8px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    color: #67e8f9;
+    margin-bottom: 12px;
   }
-  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
-  .lead { color: var(--muted); font-size: 14.5px; max-width: 720px; }
-  .metrics {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-top: 20px;
-  }
-  .m {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  .m-k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-  .m-v { font-size: 18px; font-weight: 800; margin-top: 4px; color: var(--cyan); }
-  .m-v.ok { color: var(--green); }
-  .m-v.hot { color: var(--amber); }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .box {
-    background: var(--card);
-    border: 1px solid rgba(255,255,255,0.09);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .box h2 { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #fff; }
-  .box p { font-size: 13px; color: var(--muted); }
-  .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 6px; }
+  .sub { font-size: 15px; color: var(--body); max-width: 720px; margin-bottom: 10px; }
+  .sub-2 { font-size: 14px; color: var(--muted); max-width: 720px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
   .btn {
     display: inline-flex;
     align-items: center;
-    padding: 9px 15px;
-    border-radius: 8px;
+    padding: 9px 16px;
+    border-radius: 4px;
     font-size: 13px;
     font-weight: 700;
     text-decoration: none;
-    color: #fff;
-    background: linear-gradient(135deg, var(--amber), var(--ruby));
+    color: #ffffff;
+    background: linear-gradient(135deg, #ff6a00 0%, #ff4500 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 16px rgba(255, 106, 0, 0.32);
   }
   .btn.sec {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.16);
-    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
   .btn:hover { filter: brightness(1.1); }
-  @media (max-width: 720px) {
-    .metrics, .grid { grid-template-columns: 1fr 1fr; }
+
+  .two-col { display: grid; grid-template-columns: 1.35fr 0.95fr; gap: 16px; }
+  h2 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 12px;
   }
+  ul { list-style: none; display: grid; gap: 8px; }
+  ul li {
+    font-size: 13.5px;
+    color: var(--body);
+    padding-left: 16px;
+    position: relative;
+  }
+  ul li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 6px;
+    height: 6px;
+    background: var(--orange);
+  }
+  ol { padding-left: 18px; display: grid; gap: 9px; }
+  ol li { font-size: 13.5px; color: var(--body); }
+  ol li::marker { color: var(--cyan); font-family: "JetBrains Mono", monospace; font-weight: 700; }
+
+  .quote {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    border-left: 3px solid var(--cyan);
+    padding: 16px 22px;
+  }
+  .quote span {
+    display: block;
+    margin-top: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
   <div class="wrap">
-    <section class="hero">
-      <div class="kicker">JUPITER-ONE // MEMORYOS v1.0.0-RC1</div>
-      <h1>Zero-VRAM AI Workstation &amp; Hardware-Aware Router</h1>
-      <p class="lead">
-        Built for consumer laptops and workstations where GPU VRAM is tight. MemoryOS pairs a 0.091 ms
-        AMD Zen 3 SIMD gate and a 5.37 &mu;s pure-Python Speculative Offload MLP with zero-download remote
-        inference across AMD Token Lab, Hugging Face Inference Router, NVIDIA NIM, and local DGX Spark.
+    <section class="card hero">
+      <div class="badge">MemoryOS // Jupiter Studio v1.0.0-RC1</div>
+      <h1>MemoryOS — AI Workstation</h1>
+      <p class="sub">
+        MemoryOS is a desktop AI workstation that brings multiple models, project context, and live hardware telemetry into a single interface.
       </p>
-
-      <div class="metrics">
-        <div class="m"><div class="m-k">Local Studio VRAM</div><div class="m-v ok">0 MB</div></div>
-        <div class="m"><div class="m-k">AMD Zen 3 Gate</div><div class="m-v">0.091 ms</div></div>
-        <div class="m"><div class="m-k">Speculative MLP</div><div class="m-v hot">5.37 &mu;s</div></div>
-        <div class="m"><div class="m-k">LTE Data Saved</div><div class="m-v ok">94.0%</div></div>
-      </div>
-
-      <div class="links">
-        <a class="btn" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener">Open GitHub Repository</a>
-        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos/blob/main/AMD_RELEASE_CANDIDATE.md" target="_blank" rel="noopener">RC1 Technical Dossier</a>
-        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos/blob/main/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+      <p class="sub-2">
+        Instead of switching between AI tools, Jupiter Studio lets you compare models side-by-side, attach repository files, route tasks automatically, and keep local GPU VRAM free.
+      </p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0-rc1" target="_blank" rel="noopener">Download v1.0.0-RC1</a>
+        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener">GitHub Repository</a>
+        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos/blob/main/HOW_TO_USE_JUPITER_STUDIO.md" target="_blank" rel="noopener">User Guide</a>
       </div>
     </section>
 
-    <section class="grid">
-      <div class="box">
-        <h2>1. MemoryOS Core</h2>
-        <p>Sub-millisecond Zen 3 frame-delta gate, 4&rarr;8&rarr;1 SpeculativeOffloadModel MLP, and atomic 3.07 ms NVMe checkpoint recovery.</p>
+    <section class="two-col">
+      <div class="card">
+        <h2>Key Features</h2>
+        <ul>
+          <li>Multi-model AI workstation (Quantum, Radeon &amp; Atari B&amp;W themes)</li>
+          <li>Smart model routing (<code>d3</code> Auto-Route + 5.37 &mu;s Speculative MLP)</li>
+          <li>Dual Arena side-by-side model comparison</li>
+          <li>Repository-aware conversations &amp; secret-file upload guard</li>
+          <li>AMD Token Lab, Ollama, NVIDIA NIM, Hugging Face &amp; DGX Spark support</li>
+          <li>Real-time hardware telemetry &amp; Workstation Health Score</li>
+          <li>One-click Copilot bundle export</li>
+          <li>Standalone Windows, macOS &amp; Linux builds</li>
+        </ul>
       </div>
-      <div class="box">
-        <h2>2. The Quiet Advisor</h2>
-        <p>Autonomous SQLite telemetry engine detecting VRAM pressure, thermal throttling, context waste, and model thrashing with closed-loop routing rules.</p>
+
+      <div class="card">
+        <h2>Quick Start</h2>
+        <ol>
+          <li>Download the latest release (<code>v1.0.0-rc1</code>)</li>
+          <li>Launch <strong>Jupiter Studio</strong></li>
+          <li>Select a model (or keep <strong>Auto-Route</strong>)</li>
+          <li>Attach project files or screenshots</li>
+          <li>Start working — 0 MB local studio VRAM</li>
+        </ol>
       </div>
-      <div class="box">
-        <h2>3. Jupiter Studio</h2>
-        <p>Zero-dependency Python hybrid workstation with live pre-send Speculative Neural Radar, Dual-Model Split Arena, and multi-provider SSE streaming.</p>
-      </div>
+    </section>
+
+    <section class="card quote">
+      &ldquo;AI should feel less like opening a website and more like sitting down at a workstation.&rdquo;
+      <span>BUILT INDEPENDENTLY BY RICHARD JOHN MURRAY // JUPITERISLAND</span>
     </section>
   </div>
 </body>
