@@ -12,6 +12,7 @@ Supports hardware-aware telemetry and routing policies across:
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import shutil
@@ -136,11 +137,11 @@ class MultiGPUDetector:
                             free = int(raw_free) if raw_free is not None else 0
                             telemetry_source = "nvidia-smi_unified_unavailable"
                     else:
-                        total = int(raw_total)
-                        used = int(raw_used)
-                        free = int(raw_free)
+                        total = max(0, int(raw_total))
+                        used = max(0, int(raw_used))
+                        free = max(0, int(raw_free))
 
-                    util = float(raw_util) if raw_util is not None else 0.0
+                    util = max(0.0, min(100.0, float(raw_util))) if (raw_util is not None and math.isfinite(raw_util)) else 0.0
                     return HardwareProfile(
                         vendor="nvidia",
                         device_name=name,
@@ -148,8 +149,8 @@ class MultiGPUDetector:
                         used_vram_mb=used,
                         free_vram_mb=free,
                         utilization_pct=util,
-                        temperature_c=temp,
-                        power_watts=power,
+                        temperature_c=temp if (temp is not None and math.isfinite(temp)) else None,
+                        power_watts=power if (power is not None and math.isfinite(power)) else None,
                         telemetry_source=telemetry_source,
                         is_unified_memory=is_unified,
                     )
@@ -163,29 +164,47 @@ class MultiGPUDetector:
         # Check Linux sysfs DRM
         drm_path = Path("/sys/class/drm")
         if drm_path.exists():
-            for card in drm_path.glob("card[0-9]"):
+            cards = sorted(
+                (p for p in drm_path.glob("card[0-9]*") if p.name[4:].isdigit()),
+                key=lambda p: int(p.name[4:]),
+            )
+            for card in cards:
                 device_file = card / "device/vendor"
                 if device_file.exists():
                     try:
-                        vendor_id = device_file.read_text().strip()
+                        vendor_id = device_file.read_text(encoding="utf-8", errors="replace").strip().lower()
                         if vendor_id == "0x1002":  # AMD PCI Vendor ID
                             # Read total VRAM if exposed by amdgpu
                             vram_file = card / "device/mem_info_vram_total"
                             used_file = card / "device/mem_info_vram_used"
+                            busy_file = card / "device/gpu_busy_percent"
                             total_mb = 0
                             used_mb = 0
+                            util_pct = 0.0
+                            temp_c: Optional[float] = None
                             if vram_file.exists():
-                                total_mb = int(int(vram_file.read_text().strip()) / (1024 * 1024))
+                                total_mb = max(0, int(int(vram_file.read_text(encoding="utf-8").strip()) / (1024 * 1024)))
                             if used_file.exists():
-                                used_mb = int(int(used_file.read_text().strip()) / (1024 * 1024))
+                                used_mb = max(0, int(int(used_file.read_text(encoding="utf-8").strip()) / (1024 * 1024)))
+                            if busy_file.exists():
+                                raw_busy = _parse_optional_float(busy_file.read_text(encoding="utf-8"))
+                                if raw_busy is not None and math.isfinite(raw_busy):
+                                    util_pct = max(0.0, min(100.0, raw_busy))
+                            hwmon_dir = card / "device/hwmon"
+                            if hwmon_dir.is_dir():
+                                for temp_file in sorted(hwmon_dir.glob("hwmon*/temp1_input")):
+                                    raw_milli_c = _parse_optional_float(temp_file.read_text(encoding="utf-8"))
+                                    if raw_milli_c is not None and math.isfinite(raw_milli_c):
+                                        temp_c = round(raw_milli_c / 1000.0, 1)
+                                        break
                             return HardwareProfile(
                                 vendor="amd",
                                 device_name="AMD Radeon / Instinct Graphics",
                                 total_vram_mb=total_mb,
                                 used_vram_mb=used_mb,
                                 free_vram_mb=max(0, total_mb - used_mb),
-                                utilization_pct=0.0,
-                                temperature_c=None,
+                                utilization_pct=util_pct,
+                                temperature_c=temp_c,
                                 power_watts=None,
                                 telemetry_source="sysfs_amdgpu",
                             )
@@ -265,13 +284,19 @@ class ConsoleCompanionManager:
 
     def process_incoming_frame_delta(self, mse_delta: float, threshold: float = 12.0) -> Dict[str, Any]:
         """Process an incoming console video frame through the d3 skip shield."""
+        delta_val = float(mse_delta)
+        thresh_val = float(threshold)
+        if not math.isfinite(delta_val) or delta_val < 0.0:
+            delta_val = 0.0
+        if not math.isfinite(thresh_val) or thresh_val < 0.0:
+            thresh_val = 12.0
         self.frames_analyzed += 1
-        is_changed = mse_delta >= threshold
+        is_changed = delta_val >= thresh_val
         if not is_changed:
             self.frames_skipped_by_d3 += 1
         return {
             "console_frame_id": self.frames_analyzed,
-            "mse_delta": round(mse_delta, 4),
+            "mse_delta": round(delta_val, 4),
             "significant_change": is_changed,
             "action": "TRIGGER_CLOUD_VLM" if is_changed else "SKIP_ZERO_COST",
             "skipped_ratio": round(self.frames_skipped_by_d3 / max(1, self.frames_analyzed), 3),

@@ -9,7 +9,10 @@ to users about their inference patterns.
 import hashlib
 import json
 import logging
+import tempfile
+import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -31,15 +34,16 @@ def _log_json(level: int, event: str, **fields: Any) -> None:
 
 
 class CircuitBreaker:
-    """Lightweight zero-dependency circuit breaker for detectors and external APIs."""
+    """Lightweight zero-dependency, thread-safe circuit breaker for detectors and external APIs."""
 
     def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
         self.failure_threshold = max(1, int(failure_threshold))
         self.cooldown_seconds = max(0.0, float(cooldown_seconds))
+        self._lock = threading.Lock()
         self._failures = 0
         self._opened_at: Optional[float] = None
 
-    def state(self, now: Optional[float] = None) -> str:
+    def _state_unlocked(self, now: Optional[float] = None) -> str:
         ts = time.monotonic() if now is None else now
         if self._opened_at is None:
             return "closed"
@@ -47,19 +51,26 @@ class CircuitBreaker:
             return "half_open"
         return "open"
 
+    def state(self, now: Optional[float] = None) -> str:
+        with self._lock:
+            return self._state_unlocked(now=now)
+
     def allow_request(self, now: Optional[float] = None) -> bool:
-        return self.state(now=now) != "open"
+        with self._lock:
+            return self._state_unlocked(now=now) != "open"
 
     def record_success(self) -> None:
-        self._failures = 0
-        self._opened_at = None
+        with self._lock:
+            self._failures = 0
+            self._opened_at = None
 
     def record_failure(self, now: Optional[float] = None) -> str:
         ts = time.monotonic() if now is None else now
-        self._failures += 1
-        if self._failures >= self.failure_threshold:
-            self._opened_at = ts
-        return self.state(now=ts)
+        with self._lock:
+            self._failures += 1
+            if self._failures >= self.failure_threshold:
+                self._opened_at = ts
+            return self._state_unlocked(now=ts)
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "memory" / "checkpoints"
@@ -128,8 +139,12 @@ class DetectedInsight:
         base_score += self.confidence * 0.2
         
         # User preference
-        if user_preferences:
-            pref = user_preferences.get(self.detector_type.value, 0.5)
+        if isinstance(user_preferences, dict):
+            raw_pref = user_preferences.get(self.detector_type.value, 0.5)
+            try:
+                pref = max(0.0, min(1.0, float(raw_pref)))
+            except (TypeError, ValueError):
+                pref = 0.5
             base_score *= (0.5 + pref)  # Multiply by preference (0.5-1.5 factor)
         
         return base_score
@@ -289,7 +304,7 @@ class VRAMThrashingDetector:
 
         return DetectedInsight(
             detector_type=DetectorType.VRAM_THRASHING,
-            title="VRAM Thrashing Detected on Local RTX 3070",
+            title="VRAM Thrashing Detected on Local GPU",
             subtitle=f"Peak {peak_mb} MB VRAM saturated across {len(pressured)} local vision/model runs",
             description=(
                 f"Local GPU execution hit {peak_mb} MB peak VRAM (avg {avg_mb:.0f} MB, {avg_lat:.0f} ms latency).\n"
@@ -463,37 +478,42 @@ class PerformanceEnvelopeDetector:
         
         # Find the inference(s) with best throughput
         best_inf = next(i for i in inferences if i.tokens_per_second == best_throughput)
-        
-        # Analyze what was different
+
+        # Compute real averages from observed telemetry
+        temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+        avg_temp = (sum(temps) / len(temps)) if temps else 0.0
+        avg_ctx = sum(i.context_tokens_provided for i in inferences) / len(inferences)
+        avg_mem_mb = sum(i.gpu_memory_used_mb for i in inferences) / len(inferences)
+        best_hour_label = best_inf.timestamp.strftime("%H:00 UTC") if isinstance(best_inf.timestamp, datetime) else "peak window"
+
+        # Analyze what was different using measured data
         differences = []
-        if best_inf.gpu_temperature_celsius < 60:
-            differences.append("GPU was cool (42°C vs 68°C average)")
-        if best_inf.context_tokens_provided < 3000:
-            differences.append("Context was reduced (2k vs 4k average)")
-        
+        if best_inf.gpu_temperature_celsius > 0 and avg_temp > 0 and best_inf.gpu_temperature_celsius < avg_temp:
+            differences.append(f"GPU was cooler ({best_inf.gpu_temperature_celsius:.0f}°C vs {avg_temp:.0f}°C average)")
+        if best_inf.context_tokens_provided < avg_ctx:
+            differences.append(f"Context was smaller ({best_inf.context_tokens_provided} vs {avg_ctx:.0f} tokens average)")
+
         speedup_factor = best_throughput / avg_throughput
-        
+        rec_ctx = max(512, int(best_inf.context_tokens_provided or 2048))
+
         return DetectedInsight(
             detector_type=DetectorType.PERFORMANCE_ENVELOPE,
             title="Your Fastest Hour",
             subtitle=f"You achieved {best_throughput:.0f} tok/s (vs {avg_throughput:.0f} average)",
             description=f"""
-Between 2-3 PM yesterday, you hit {best_throughput:.0f} tokens/second.
-Your average: {avg_throughput:.0f} tok/s.
-
-{speedup_factor:.1f}x improvement.
+Around {best_hour_label}, you hit {best_throughput:.0f} tokens/second.
+Your average: {avg_throughput:.0f} tok/s ({speedup_factor:.1f}x improvement).
 
 What was different?
-- {' '.join(differences) if differences else 'System was in better state'}
-- GPU memory: {best_inf.gpu_memory_used_mb}MB (vs ~19GB average)
+- {'; '.join(differences) if differences else 'System experienced lower contention'}
+- GPU memory: {best_inf.gpu_memory_used_mb} MB (vs {avg_mem_mb:.0f} MB average)
 
 You could replicate this reliably by:
-- Running inference during 2-4 PM (cooler system)
-- Reducing context to 2k tokens
-- Closing background processes
-- Running single inference (no parallelism)
+- Keeping context near {rec_ctx} tokens when full history is unnecessary
+- Keeping GPU thermals cool and closing competing background VRAM consumers
+- Offloading heavy bursts via MemoryOS d3 routing
 
-Same hardware, different conditions = 1.6x faster.
+Same hardware, optimal conditions = {speedup_factor:.1f}x faster.
             """,
             metrics={
                 "best_throughput": f"{best_throughput:.0f} tok/s",
@@ -502,7 +522,7 @@ Same hardware, different conditions = 1.6x faster.
                 "gpu_temp_then": f"{best_inf.gpu_temperature_celsius:.0f}°C",
             },
             recommended_action="schedule_optimal_conditions",
-            action_value={"preferred_hours": ["2-4 PM"], "context": 2048},
+            action_value={"preferred_hours": [best_hour_label], "context": rec_ctx},
             time_savings_seconds=int(((speedup_factor - 1) / speedup_factor) * 60 * 15 * 5),
             quality_improvement_percent=0.0,
             confidence=0.85,
@@ -511,7 +531,7 @@ Same hardware, different conditions = 1.6x faster.
 
 
 class AnomalyDetector:
-    """Detector 10: Finds unusual inferences (3+ sigma from mean)"""
+    """Detector 10: Finds unusually slow inferences (>2 sigma above mean)"""
     
     @staticmethod
     def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
@@ -525,31 +545,38 @@ class AnomalyDetector:
         if std_dev == 0:
             return None
         
-        # Find outliers (>2 std dev)
-        outliers = [(i, (i.total_latency_ms - avg_latency) / std_dev) 
-                   for i in inferences if abs((i.total_latency_ms - avg_latency) / std_dev) > 2]
+        # Find slow latency spikes (>2 std dev above mean)
+        outliers = [
+            (i, (i.total_latency_ms - avg_latency) / std_dev)
+            for i in inferences
+            if ((i.total_latency_ms - avg_latency) / std_dev) > 2.0
+        ]
         
         if not outliers:
             return None
         
-        # Take worst outlier
+        # Take worst slow outlier
         worst_outlier, num_std_dev = max(outliers, key=lambda x: x[1])
+        temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+        avg_temp = (sum(temps) / len(temps)) if temps else 0.0
+        avg_mem_mb = sum(i.gpu_memory_used_mb for i in inferences) / len(inferences)
+        slowdown_ratio = (worst_outlier.total_latency_ms / avg_latency) if avg_latency > 0 else num_std_dev
         
         return DetectedInsight(
             detector_type=DetectorType.ANOMALY_DETECTION,
             title="Anomaly Detected",
-            subtitle=f"This inference was {num_std_dev:.1f}x slower than normal",
+            subtitle=f"This inference was {slowdown_ratio:.1f}x slower than normal ({num_std_dev:.1f}σ)",
             description=f"""
 This inference took {worst_outlier.total_latency_ms/1000:.1f}s (normally {avg_latency/1000:.1f}s).
 
-{num_std_dev:.1f} standard deviations from your normal.
+{num_std_dev:.1f} standard deviations above your normal latency.
 
 What was different?
-- GPU temp: {worst_outlier.gpu_temperature_celsius:.0f}°C (normally 62°C)
-- GPU memory: {worst_outlier.gpu_memory_used_mb}MB (normally 18GB)
+- GPU temp: {worst_outlier.gpu_temperature_celsius:.0f}°C (normally {avg_temp:.0f}°C)
+- GPU memory: {worst_outlier.gpu_memory_used_mb} MB (normally {avg_mem_mb:.0f} MB)
 - Context: {worst_outlier.context_tokens_provided} tokens
 
-Likely cause: Thermal throttling or memory contention.
+Likely cause: Thermal throttling, memory contention, or upstream API queue spike.
 
 No action needed, just explaining the outlier.
             """,
@@ -577,33 +604,48 @@ def _load_json_safe(path: Path) -> Dict[str, Any]:
         return {}
 
 
+def _safe_int(val: Any, default: int = 0) -> int:
+    try:
+        return int(val or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    try:
+        return float(val or 0.0)
+    except (TypeError, ValueError):
+        return default
+
+
 def parse_tokenlab_export(data_or_path: Union[Path, str, Dict[str, Any], None] = None) -> Dict[str, Any]:
     """Normalize a Token Lab account telemetry export JSON into summary & request rows."""
     if isinstance(data_or_path, dict):
         raw = data_or_path
     else:
         target = Path(data_or_path) if data_or_path else DEFAULT_EXPORT_PATH
-        if not target.exists() and Path("/tmp/tokenlab_export.json").exists():
-            target = Path("/tmp/tokenlab_export.json")
+        temp_fallback = Path(tempfile.gettempdir()) / "tokenlab_export.json"
+        if not target.exists() and temp_fallback.exists():
+            target = temp_fallback
         raw = _load_json_safe(target)
 
     if not raw or "tokenlab" not in raw:
         return {}
 
-    profile = raw.get("user_profile") or {}
-    tl = raw.get("tokenlab") or {}
-    account = tl.get("account") or {}
-    keys = tl.get("keys") or []
-    usage_totals = tl.get("usage_totals") or {}
-    usage_daily = tl.get("usage_daily") or []
-    requests = tl.get("requests") or []
+    profile = raw.get("user_profile") if isinstance(raw.get("user_profile"), dict) else {}
+    tl = raw.get("tokenlab") if isinstance(raw.get("tokenlab"), dict) else {}
+    account = tl.get("account") if isinstance(tl.get("account"), dict) else {}
+    keys = [k for k in (tl.get("keys") or []) if isinstance(k, dict)] if isinstance(tl.get("keys"), list) else []
+    usage_totals = tl.get("usage_totals") if isinstance(tl.get("usage_totals"), dict) else {}
+    usage_daily = [d for d in (tl.get("usage_daily") or []) if isinstance(d, dict)] if isinstance(tl.get("usage_daily"), list) else []
+    requests = [r for r in (tl.get("requests") or []) if isinstance(r, dict)] if isinstance(tl.get("requests"), list) else []
 
     active_key = next((k.get("key_prefix") for k in keys if k.get("status") == "active"), None)
-    budget_micro = int(account.get("budget_micro") or 0)
-    used_micro = int(account.get("budget_used_micro") or 0)
+    budget_micro = _safe_int(account.get("budget_micro"))
+    used_micro = _safe_int(account.get("budget_used_micro"))
     burn_pct = (used_micro / budget_micro * 100.0) if budget_micro > 0 else 0.0
-    cached_tokens = sum(int(d.get("cached_tokens") or 0) for d in usage_daily)
-    reasoning_tokens = sum(int(d.get("reasoning_tokens") or 0) for d in usage_daily)
+    cached_tokens = sum(_safe_int(d.get("cached_tokens")) for d in usage_daily)
+    reasoning_tokens = sum(_safe_int(d.get("reasoning_tokens")) for d in usage_daily)
 
     return {
         "export_date": raw.get("export_date", ""),
@@ -615,9 +657,9 @@ def parse_tokenlab_export(data_or_path: Union[Path, str, Dict[str, Any], None] =
         "budget_micro": budget_micro,
         "budget_used_micro": used_micro,
         "burn_percent": round(burn_pct, 6),
-        "total_requests": int(usage_totals.get("requests") or len(requests)),
-        "total_errors": int(usage_totals.get("errors") or sum(1 for r in requests if r.get("has_error"))),
-        "total_tokens": int(usage_totals.get("tokens") or 0),
+        "total_requests": _safe_int(usage_totals.get("requests")) or len(requests),
+        "total_errors": _safe_int(usage_totals.get("errors")) or sum(1 for r in requests if r.get("has_error")),
+        "total_tokens": _safe_int(usage_totals.get("tokens")),
         "cached_tokens": cached_tokens,
         "reasoning_tokens": reasoning_tokens,
         "usage_daily": usage_daily,
@@ -630,24 +672,29 @@ def _scan_nvme_checkpoints(checkpoint_dir: Optional[Path] = None) -> Dict[str, A
     if not target.exists():
         return {"count": 0, "total_bytes": 0, "routes": {}, "models": {}, "latencies_ms": [], "recent": []}
 
-    files = sorted(target.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    stat_entries: List[Tuple[float, int, Path]] = []
+    for fp in target.glob("*.json"):
+        try:
+            st = fp.stat()
+            stat_entries.append((st.st_mtime, st.st_size, fp))
+        except OSError:
+            continue
+    stat_entries.sort(key=lambda item: item[0], reverse=True)
+
     routes: Dict[str, int] = {}
     models: Dict[str, int] = {}
     latencies: List[float] = []
     recent: List[Dict[str, Any]] = []
     total_bytes = 0
 
-    for idx, fp in enumerate(files):
-        try:
-            total_bytes += fp.stat().st_size
-        except OSError:
-            pass
+    for idx, (_mtime, fsize, fp) in enumerate(stat_entries):
+        total_bytes += fsize
         payload = _load_json_safe(fp)
         if not payload:
             continue
         route = str(payload.get("route") or "unknown")
         model = str(payload.get("model") or "unknown")
-        lat = float(payload.get("latency_ms") or 0.0)
+        lat = _safe_float(payload.get("latency_ms"))
         routes[route] = routes.get(route, 0) + 1
         models[model] = models.get(model, 0) + 1
         if lat > 0:
@@ -664,7 +711,7 @@ def _scan_nvme_checkpoints(checkpoint_dir: Optional[Path] = None) -> Dict[str, A
             )
 
     return {
-        "count": len(files),
+        "count": len(stat_entries),
         "total_bytes": total_bytes,
         "routes": routes,
         "models": models,
@@ -823,122 +870,125 @@ def ingest_tokenlab_export(
         json.dumps(summary, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
 
-    # Ensure idempotency ledger exists even on legacy DB files
-    db.conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
-            export_hash TEXT PRIMARY KEY,
-            ingested_at TEXT NOT NULL
-        )
-        """
-    )
-    already = db.conn.execute(
-        "SELECT 1 FROM quiet_advisor_ingest_log WHERE export_hash = ?",
-        (export_hash,),
-    ).fetchone()
-    if already:
-        return {
-            "ingested_requests": 0,
-            "ingested_cards": 0,
-            "summary": summary,
-            "skipped": True,
-            "export_hash": export_hash,
-        }
-
-    target_user = user_id or summary["user_id"] or "default"
-    ingested_requests = 0
-    ingested_cards = 0
-
-    try:
-        db.conn.execute("INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)", (target_user,))
-        for req in summary.get("requests", []):
-            model = str(req.get("model") or "unknown")
-            prompt_tok = int(req.get("prompt_tokens") or 0)
-            comp_tok = int(req.get("completion_tokens") or 0)
-            has_err = bool(req.get("has_error"))
-            est_lat = 0.0 if has_err else (140.0 if "2B" in model or model == "d3" else 520.0)
-            ts_raw = str(req.get("created_at") or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()).replace(" ", "T")
-            db.conn.execute(
-                """
-                INSERT INTO memoryos_inference_log (
-                    user_id, session_id, timestamp, model_id,
-                    context_tokens_provided, context_tokens_used,
-                    time_to_first_token_ms, total_latency_ms, tokens_per_second,
-                    gpu_id, gpu_utilization_percent, gpu_temperature_celsius,
-                    gpu_memory_used_mb, output_quality_score, error_flag, error_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    target_user,
-                    "tokenlab-export",
-                    ts_raw,
-                    model,
-                    max(4096, (prompt_tok + comp_tok) * 4) if (prompt_tok + comp_tok) else 4096,
-                    prompt_tok + comp_tok,
-                    round(est_lat * 0.2, 1),
-                    est_lat,
-                    65.0 if comp_tok else 0.0,
-                    "tokenlab-remote",
-                    0.0,
-                    0.0,
-                    0,
-                    0.0 if has_err else 0.92,
-                    1 if has_err else 0,
-                    str(req.get("finish_reason") or ""),
-                ),
-            )
-            ingested_requests += 1
-
-        detector = NVMeCheckpointDetector(export_path=export_path)
-        for insight in detector.detect_from_disk():
-            payload = dict(insight.action_value)
-            payload["source"] = "tokenlab_export"
-            payload["export_hash"] = export_hash
-            payload["d3_routing"] = {
-                "choice": "surface_now",
-                "confidence": round(insight.confidence, 4),
-                "probabilities": {"surface_now": round(insight.confidence, 4), "defer": 0.1, "ignore": 0.02},
-                "model": "d3",
-            }
-            metrics = list(insight.metrics.values())
-            db.conn.execute(
-                """
-                INSERT INTO quiet_advisor_cards (
-                    user_id, detector_type, insight_rank, title, subtitle, description,
-                    metric_1, metric_2, metric_3, recommended_action, action_value,
-                    time_savings_seconds, quality_improvement_percent, suggested_experiments,
-                    user_dismissed, user_archived, user_actioned, created_at, expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
-                """,
-                (
-                    target_user,
-                    insight.detector_type.value,
-                    insight.score(),
-                    insight.title,
-                    insight.subtitle,
-                    insight.description,
-                    metrics[0] if len(metrics) > 0 else "",
-                    metrics[1] if len(metrics) > 1 else "",
-                    metrics[2] if len(metrics) > 2 else "",
-                    insight.recommended_action,
-                    json.dumps(payload),
-                    insight.time_savings_seconds,
-                    insight.quality_improvement_percent,
-                    json.dumps(insight.suggested_experiments or []),
-                    datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-                    (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7)).isoformat(),
-                ),
-            )
-            ingested_cards += 1
-
+    lock_ctx = getattr(db, "_lock", None) or nullcontext()
+    with lock_ctx:
+        # Ensure idempotency ledger exists even on legacy DB files
         db.conn.execute(
-            "INSERT INTO quiet_advisor_ingest_log (export_hash, ingested_at) VALUES (?, ?)",
-            (export_hash, datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
+            """
+            CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
+                export_hash TEXT PRIMARY KEY,
+                ingested_at TEXT NOT NULL
+            )
+            """
         )
-        db.conn.commit()
-    except Exception:
-        db.conn.rollback()
-        raise
+        already = db.conn.execute(
+            "SELECT 1 FROM quiet_advisor_ingest_log WHERE export_hash = ?",
+            (export_hash,),
+        ).fetchone()
+        if already:
+            return {
+                "ingested_requests": 0,
+                "ingested_cards": 0,
+                "summary": summary,
+                "skipped": True,
+                "export_hash": export_hash,
+            }
+
+        target_user = user_id or summary["user_id"] or "default"
+        ingested_requests = 0
+        ingested_cards = 0
+
+        try:
+            db.conn.execute("INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)", (target_user,))
+            for req in summary.get("requests", []):
+                model = str(req.get("model") or "unknown")
+                prompt_tok = _safe_int(req.get("prompt_tokens"))
+                comp_tok = _safe_int(req.get("completion_tokens"))
+                has_err = bool(req.get("has_error"))
+                est_lat = 0.0 if has_err else (140.0 if "2B" in model or model == "d3" else 520.0)
+                ts_raw = str(req.get("created_at") or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()).replace(" ", "T")
+                db.conn.execute(
+                    """
+                    INSERT INTO memoryos_inference_log (
+                        user_id, session_id, timestamp, model_id,
+                        context_tokens_provided, context_tokens_used,
+                        time_to_first_token_ms, total_latency_ms, tokens_per_second,
+                        gpu_id, gpu_utilization_percent, gpu_temperature_celsius,
+                        gpu_memory_used_mb, output_quality_score, error_flag, error_message
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        target_user,
+                        "tokenlab-export",
+                        ts_raw,
+                        model,
+                        max(4096, (prompt_tok + comp_tok) * 4) if (prompt_tok + comp_tok) else 4096,
+                        prompt_tok + comp_tok,
+                        round(est_lat * 0.2, 1),
+                        est_lat,
+                        65.0 if comp_tok else 0.0,
+                        "tokenlab-remote",
+                        0.0,
+                        0.0,
+                        0,
+                        0.0 if has_err else 0.92,
+                        1 if has_err else 0,
+                        str(req.get("finish_reason") or ""),
+                    ),
+                )
+                ingested_requests += 1
+
+            detector = NVMeCheckpointDetector(export_path=export_path)
+            for insight in detector.detect_from_disk():
+                payload = dict(insight.action_value)
+                payload["source"] = "tokenlab_export"
+                payload["export_hash"] = export_hash
+                payload["d3_routing"] = {
+                    "choice": "surface_now",
+                    "confidence": round(insight.confidence, 4),
+                    "probabilities": {"surface_now": round(insight.confidence, 4), "defer": 0.1, "ignore": 0.02},
+                    "model": "d3",
+                }
+                metrics = list(insight.metrics.values())
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.conn.execute(
+                    """
+                    INSERT INTO quiet_advisor_cards (
+                        user_id, detector_type, insight_rank, title, subtitle, description,
+                        metric_1, metric_2, metric_3, recommended_action, action_value,
+                        time_savings_seconds, quality_improvement_percent, suggested_experiments,
+                        user_dismissed, user_archived, user_actioned, state, created_at, expires_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'TRIGGERED', ?, ?)
+                    """,
+                    (
+                        target_user,
+                        insight.detector_type.value,
+                        insight.score(),
+                        insight.title,
+                        insight.subtitle,
+                        insight.description,
+                        metrics[0] if len(metrics) > 0 else "",
+                        metrics[1] if len(metrics) > 1 else "",
+                        metrics[2] if len(metrics) > 2 else "",
+                        insight.recommended_action,
+                        json.dumps(payload),
+                        insight.time_savings_seconds,
+                        insight.quality_improvement_percent,
+                        json.dumps(insight.suggested_experiments or []),
+                        now_utc.isoformat(),
+                        (now_utc + timedelta(days=7)).isoformat(),
+                    ),
+                )
+                ingested_cards += 1
+
+            db.conn.execute(
+                "INSERT INTO quiet_advisor_ingest_log (export_hash, ingested_at) VALUES (?, ?)",
+                (export_hash, datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
+            )
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            raise
 
     return {
         "ingested_requests": ingested_requests,

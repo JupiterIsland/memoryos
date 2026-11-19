@@ -3,6 +3,8 @@
 import json
 import re
 import sqlite3
+import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -102,63 +104,91 @@ _TABLE_MAP = {
     "quiet_advisor.user_preferences": "quiet_advisor_user_preferences",
 }
 
+_ALLOWED_TABLES = {
+    "users",
+    "memoryos_inference_log",
+    "quiet_advisor_cards",
+    "quiet_advisor_card_actions",
+    "quiet_advisor_user_preferences",
+    "quiet_advisor_ingest_log",
+    "schema_migrations",
+    "kv_store",
+}
+
+_SQL_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 def _normalize_sql(sql: str) -> str:
     """Translate schema-qualified Postgres-style SQL from scheduler into SQLite SQL."""
     out = sql
     for src, dst in _TABLE_MAP.items():
         out = out.replace(src, dst)
+    # Normalize ISO 'T' timestamps against SQLite datetime('now') comparisons
+    out = re.sub(
+        r"\bexpires_at\s*(>=|<=|>|<)\s*NOW\(\)",
+        r"datetime(expires_at) \1 datetime('now')",
+        out,
+        flags=re.IGNORECASE,
+    )
     out = re.sub(r"\bNOW\(\)", "datetime('now')", out, flags=re.IGNORECASE)
-    out = re.sub(r"\btrue\b", "1", out, flags=re.IGNORECASE)
-    out = re.sub(r"\bfalse\b", "0", out, flags=re.IGNORECASE)
-    return out
+
+    # Replace boolean literals outside single-quoted string literals
+    parts = re.split(r"('(?:''|[^'])*')", out)
+    for idx in range(0, len(parts), 2):
+        parts[idx] = re.sub(r"\btrue\b", "1", parts[idx], flags=re.IGNORECASE)
+        parts[idx] = re.sub(r"\bfalse\b", "0", parts[idx], flags=re.IGNORECASE)
+    return "".join(parts)
 
 
 class QuietAdvisorDB:
-    """Async-compatible SQLite adapter matching QuietAdvisorScheduler's DB contract."""
+    """Async-compatible, thread-safe SQLite adapter matching QuietAdvisorScheduler's DB contract."""
 
     def __init__(self, db_path: Optional[Path] = None):
+        self._lock = threading.RLock()
         target = Path(db_path) if db_path else DEFAULT_DB_PATH
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            self.conn = sqlite3.connect(str(target), check_same_thread=False)
+            self.conn = sqlite3.connect(str(target), timeout=10.0, check_same_thread=False)
             self.db_path = target
             self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA busy_timeout = 5000")
             self._init_schema()
         except (sqlite3.OperationalError, OSError):
-            fallback = Path("/tmp/QuietAdvisorDB.sqlite")
+            fallback = Path(tempfile.gettempdir()) / "QuietAdvisorDB.sqlite"
             fallback.parent.mkdir(parents=True, exist_ok=True)
-            self.conn = sqlite3.connect(str(fallback), check_same_thread=False)
+            self.conn = sqlite3.connect(str(fallback), timeout=10.0, check_same_thread=False)
             self.db_path = fallback
             self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA busy_timeout = 5000")
             self._init_schema()
 
     def _init_schema(self) -> None:
-        ddl = SCHEMA_SQL_PATH.read_text(encoding="utf-8") if SCHEMA_SQL_PATH.exists() else SCHEMA_SQL
-        # Ensure legacy databases missing the 'state' column upgrade cleanly before index creation
-        self.conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                version INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                applied_at TEXT NOT NULL
+        with self._lock:
+            ddl = SCHEMA_SQL_PATH.read_text(encoding="utf-8") if SCHEMA_SQL_PATH.exists() else SCHEMA_SQL
+            # Ensure legacy databases missing the 'state' column upgrade cleanly before index creation
+            self.conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    applied_at TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
-        existing_tables = {
-            row[0]
-            for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-        }
-        if "quiet_advisor_cards" in existing_tables:
-            cols = {
-                row[1]
-                for row in self.conn.execute("PRAGMA table_info(quiet_advisor_cards)").fetchall()
+            existing_tables = {
+                row[0]
+                for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
-            if "state" not in cols:
-                self.conn.execute("ALTER TABLE quiet_advisor_cards ADD COLUMN state TEXT DEFAULT 'TRIGGERED'")
-        self.conn.executescript(ddl)
-        self._run_migrations()
-        self.conn.commit()
+            if "quiet_advisor_cards" in existing_tables:
+                cols = {
+                    row[1]
+                    for row in self.conn.execute("PRAGMA table_info(quiet_advisor_cards)").fetchall()
+                }
+                if "state" not in cols:
+                    self.conn.execute("ALTER TABLE quiet_advisor_cards ADD COLUMN state TEXT DEFAULT 'TRIGGERED'")
+            self.conn.executescript(ddl)
+            self._run_migrations()
+            self.conn.commit()
 
     def _run_migrations(self) -> None:
         """Apply idempotent, versioned SQLite schema migrations."""
@@ -199,40 +229,51 @@ class QuietAdvisorDB:
 
     def insert_sync(self, table: str, record: Dict[str, Any]) -> int:
         table_name = _TABLE_MAP.get(table, table)
-        clean_record = {
-            k: (1 if v is True else 0 if v is False else v)
-            for k, v in record.items()
-        }
-        if table_name == "memoryos_inference_log" and "user_id" in clean_record:
-            self.conn.execute(
-                "INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)",
-                (clean_record["user_id"],),
-            )
+        if table_name not in _ALLOWED_TABLES:
+            raise ValueError(f"Refusing insert into disallowed table: {table!r}")
+        if not record:
+            raise ValueError("Cannot insert an empty record")
 
-        cols = ", ".join(clean_record.keys())
-        placeholders = ", ".join("?" for _ in clean_record)
-        cur = self.conn.execute(
-            f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})",
-            list(clean_record.values()),
-        )
-        self.conn.commit()
-        return cur.lastrowid
+        clean_record: Dict[str, Any] = {}
+        for k, v in record.items():
+            if not isinstance(k, str) or not _SQL_IDENT_RE.match(k):
+                raise ValueError(f"Invalid SQL column identifier: {k!r}")
+            clean_record[k] = 1 if v is True else 0 if v is False else v
+
+        with self._lock:
+            if table_name == "memoryos_inference_log" and "user_id" in clean_record:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)",
+                    (clean_record["user_id"],),
+                )
+
+            cols = ", ".join(clean_record.keys())
+            placeholders = ", ".join("?" for _ in clean_record)
+            cur = self.conn.execute(
+                f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})",
+                list(clean_record.values()),
+            )
+            self.conn.commit()
+            return int(cur.lastrowid)
 
     async def insert(self, table: str, record: Dict[str, Any]) -> int:
         return self.insert_sync(table, record)
 
     async def query(self, sql: str, params: Sequence[Any] = ()) -> List[Dict[str, Any]]:
-        cur = self.conn.execute(_normalize_sql(sql), tuple(params))
-        return [dict(row) for row in cur.fetchall()]
+        with self._lock:
+            cur = self.conn.execute(_normalize_sql(sql), tuple(params))
+            return [dict(row) for row in cur.fetchall()]
 
     async def query_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[Dict[str, Any]]:
-        cur = self.conn.execute(_normalize_sql(sql), tuple(params))
-        row = cur.fetchone()
-        return dict(row) if row else None
+        with self._lock:
+            cur = self.conn.execute(_normalize_sql(sql), tuple(params))
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     async def execute(self, sql: str, params: Sequence[Any] = ()) -> None:
-        self.conn.execute(_normalize_sql(sql), tuple(params))
-        self.conn.commit()
+        with self._lock:
+            self.conn.execute(_normalize_sql(sql), tuple(params))
+            self.conn.commit()
 
     def record_user_preference(
         self,
@@ -247,67 +288,85 @@ class QuietAdvisorDB:
         Called when user clicks [Acknowledge & Apply] on a Quiet Advisor card.
         Stores penalty weight (e.g., vram_thrashing_penalty=1.5) in quiet_advisor_user_preferences.
         """
-        existing = self.conn.execute(
-            "SELECT card_type_preferences FROM quiet_advisor_user_preferences WHERE user_id = ? LIMIT 1",
-            (user_id,),
-        ).fetchone()
+        with self._lock:
+            existing = self.conn.execute(
+                "SELECT card_type_preferences FROM quiet_advisor_user_preferences WHERE user_id = ? LIMIT 1",
+                (user_id,),
+            ).fetchone()
 
-        prefs: Dict[str, Any] = {}
-        if existing and existing[0]:
-            try:
-                parsed = json.loads(existing[0])
-                if isinstance(parsed, dict):
-                    prefs = parsed
-            except Exception:
-                prefs = {}
+            prefs: Dict[str, Any] = {}
+            if existing and existing[0]:
+                try:
+                    parsed = json.loads(existing[0])
+                    if isinstance(parsed, dict):
+                        prefs = parsed
+                except Exception:
+                    prefs = {}
 
-        penalty_key = f"{card_type}_penalty"
-        prefs[penalty_key] = float(penalty)
-        prefs[f"{card_type}_action"] = action
-        prefs[f"{card_type}_updated_at"] = datetime.now(timezone.utc).isoformat()
-        if card_type in ("vram_thrashing", "model_thrashing") and float(penalty) > 1.0:
-            prefs["force_remote_offload"] = True
-            prefs["preferred_vision_model"] = "Gemma-4-31B-IT"
+            penalty_key = f"{card_type}_penalty"
+            prefs[penalty_key] = float(penalty)
+            prefs[f"{card_type}_action"] = action
+            prefs[f"{card_type}_updated_at"] = datetime.now(timezone.utc).isoformat()
+            if card_type in ("vram_thrashing", "model_thrashing") and float(penalty) > 1.0:
+                prefs["force_remote_offload"] = True
+                prefs["preferred_vision_model"] = "Gemma-4-31B-IT"
 
-        self.conn.execute(
-            "INSERT OR REPLACE INTO quiet_advisor_user_preferences (user_id, card_type_preferences) VALUES (?, ?)",
-            (user_id, json.dumps(prefs)),
-        )
-
-        if card_id is not None:
             self.conn.execute(
-                "UPDATE quiet_advisor_cards SET user_actioned = 1 WHERE id = ?",
-                (int(card_id),),
+                "INSERT OR REPLACE INTO quiet_advisor_user_preferences (user_id, card_type_preferences) VALUES (?, ?)",
+                (user_id, json.dumps(prefs)),
             )
-            self.conn.execute(
-                """
-                INSERT INTO quiet_advisor_card_actions (user_id, card_id, action_type, action_result, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    user_id,
-                    str(card_id),
-                    action,
-                    json.dumps({"card_type": card_type, "penalty": float(penalty)}),
-                    datetime.now(timezone.utc).isoformat(),
-                ),
-            )
-        self.conn.commit()
-        return prefs
+
+            if card_id is not None:
+                new_state = "ACKNOWLEDGED" if action in ("action", "acknowledge") else "RESOLVED"
+                self.conn.execute(
+                    "UPDATE quiet_advisor_cards SET user_actioned = 1, state = ? WHERE id = ? AND user_id = ?",
+                    (new_state, int(card_id), user_id),
+                )
+                self.conn.execute(
+                    """
+                    INSERT INTO quiet_advisor_card_actions (user_id, card_id, action_type, action_result, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        str(card_id),
+                        action,
+                        json.dumps({"card_type": card_type, "penalty": float(penalty)}),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
+            self.conn.commit()
+            return prefs
 
     def close(self) -> None:
-        self.conn.close()
+        with self._lock:
+            self.conn.close()
+
+    def __enter__(self) -> "QuietAdvisorDB":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        self.close()
+        return False
 
 
 def row_to_inference_log(row: Dict[str, Any]):
     """Convert a SQLite inference_log dict row into quiet_advisor_detectors.InferenceLog."""
     from quiet_advisor_detectors import InferenceLog
 
-    ts_raw = row["timestamp"]
-    ts = datetime.fromisoformat(ts_raw) if isinstance(ts_raw, str) else ts_raw
+    ts_raw = row.get("timestamp")
+    if isinstance(ts_raw, str):
+        try:
+            ts = datetime.fromisoformat(ts_raw)
+        except ValueError:
+            ts = datetime.now(timezone.utc).replace(tzinfo=None)
+    elif isinstance(ts_raw, datetime):
+        ts = ts_raw
+    else:
+        ts = datetime.now(timezone.utc).replace(tzinfo=None)
     return InferenceLog(
         timestamp=ts,
-        model_id=row["model_id"],
+        model_id=str(row.get("model_id") or "unknown"),
         context_tokens_provided=int(row.get("context_tokens_provided") or 0),
         context_tokens_used=int(row.get("context_tokens_used") or 0),
         time_to_first_token_ms=float(row.get("time_to_first_token_ms") or 0.0),
@@ -399,7 +458,7 @@ def record_routed_inference_sync(
     finally:
         db.close()
 
-    live_ui_db = Path("/tmp/quiet_advisor_live.db")
+    live_ui_db = Path(tempfile.gettempdir()) / "quiet_advisor_live.db"
     if db_path is None and live_ui_db.exists() and db.db_path != live_ui_db:
         try:
             mirror = QuietAdvisorDB(live_ui_db)
@@ -483,26 +542,32 @@ def get_routing_advice_sync(
     """Return active Quiet Advisor routing hints & learned preferences from SQLite."""
     db = QuietAdvisorDB(db_path)
     try:
-        card_row = db.conn.execute(
-            """
+        card_query = """
             SELECT id, detector_type, title, recommended_action, action_value
             FROM quiet_advisor_cards
-            WHERE COALESCE(user_dismissed, 0) = 0
+            WHERE user_id = ?
+              AND COALESCE(user_dismissed, 0) = 0
               AND COALESCE(user_archived, 0) = 0
+              AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
             ORDER BY insight_rank DESC, id DESC
             LIMIT 1
-            """
-        ).fetchone()
-        pref_row = db.conn.execute(
-            "SELECT card_type_preferences FROM quiet_advisor_user_preferences WHERE user_id = ? LIMIT 1",
-            (user_id,),
-        ).fetchone()
-        if (not pref_row or not pref_row["card_type_preferences"]) and user_id in ("default", "jupiter-desktop"):
-            alt_user = "jupiter-desktop" if user_id == "default" else "default"
+        """
+        with db._lock:
+            card_row = db.conn.execute(card_query, (user_id,)).fetchone()
+            if not card_row and user_id in ("default", "jupiter-desktop"):
+                alt_user = "jupiter-desktop" if user_id == "default" else "default"
+                card_row = db.conn.execute(card_query, (alt_user,)).fetchone()
+
             pref_row = db.conn.execute(
                 "SELECT card_type_preferences FROM quiet_advisor_user_preferences WHERE user_id = ? LIMIT 1",
-                (alt_user,),
+                (user_id,),
             ).fetchone()
+            if (not pref_row or not pref_row["card_type_preferences"]) and user_id in ("default", "jupiter-desktop"):
+                alt_user = "jupiter-desktop" if user_id == "default" else "default"
+                pref_row = db.conn.execute(
+                    "SELECT card_type_preferences FROM quiet_advisor_user_preferences WHERE user_id = ? LIMIT 1",
+                    (alt_user,),
+                ).fetchone()
     finally:
         db.close()
 

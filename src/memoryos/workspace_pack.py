@@ -23,6 +23,10 @@ IGNORED_DIRS: Set[str] = {
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    ".tox",
+    ".nox",
+    ".eggs",
+    "htmlcov",
     "site-packages",
 }
 
@@ -35,9 +39,42 @@ IGNORED_FILES: Set[str] = {
     ".env.local",
     ".env.development",
     ".env.production",
+    ".env.staging",
+    ".env.test",
+    "credentials.json",
+    "secrets.json",
+    "token.json",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "id_dsa",
+    ".npmrc",
+    ".netrc",
+    ".pypirc",
     "QuietAdvisorDB.sqlite",
     "QuietAdvisorDB.sqlite-journal",
+    "QuietAdvisorDB.sqlite-wal",
+    "QuietAdvisorDB.sqlite-shm",
     "quiet_advisor.db",
+    "quiet_advisor.db-wal",
+    "quiet_advisor.db-shm",
+}
+
+_IGNORED_FILES_LOWER: Set[str] = {name.lower() for name in IGNORED_FILES}
+_IGNORED_DIRS_LOWER: Set[str] = {name.lower() for name in IGNORED_DIRS}
+
+SENSITIVE_EXTENSIONS: Set[str] = {
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    ".jks",
+    ".keystore",
+    ".kdbx",
+    ".sqlite-wal",
+    ".sqlite-shm",
+    ".db-wal",
+    ".db-shm",
 }
 
 BINARY_EXTENSIONS: Set[str] = {
@@ -70,29 +107,127 @@ BINARY_EXTENSIONS: Set[str] = {
     ".eot",
 }
 
+CODE_PRIORITY_EXTENSIONS: Set[str] = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".rs",
+    ".go",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".sql",
+    ".sh",
+    ".ps1",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".json",
+    ".md",
+    ".html",
+    ".css",
+}
+
+PRIORITY_TOP_DIRS: Set[str] = {"apps", "src", "tests", "apex_core", "backend", "engine", "scripts"}
+
 DEFAULT_MAX_FILE_BYTES = 250_000  # 250 KB max per file
 DEFAULT_MAX_BUNDLE_CHARS = 240_000  # ~60K tokens max bundle
 
 
-def is_binary_or_ignored(rel_path: Path) -> bool:
-    """Check if a path should be excluded from workspace context."""
-    parts = set(rel_path.parts)
-    if parts.intersection(IGNORED_DIRS):
+def _normalize_rel_path(rel_path: Path | str) -> Path:
+    """Normalize separators so Windows-style paths are checked safely on POSIX too."""
+    return Path(str(rel_path).replace("\\", "/"))
+
+
+def _is_ignored_dir_name(name: str) -> bool:
+    low = name.lower()
+    if low in _IGNORED_DIRS_LOWER:
         return True
-    if any(p.startswith(".") and p not in {".", ".."} for p in rel_path.parts[:-1]):
+    if name.startswith(".") and name not in {".", ".."}:
         return True
-    name = rel_path.name
-    if name in IGNORED_FILES:
-        return True
-    if name.startswith(".") and name not in ALLOWED_DOTFILES:
-        return True
-    if rel_path.suffix.lower() in BINARY_EXTENSIONS:
+    if low.endswith(".egg-info") or low.endswith(".dist-info"):
         return True
     return False
 
 
-def get_git_status_and_diff(root_dir: Path, max_diff_chars: int = 15_000) -> Dict[str, str]:
+def _make_markdown_fence(content: str, lang: str = "") -> tuple[str, str]:
+    """Return opening and closing code fences guaranteed not to collide with content."""
+    longest = 2
+    run = 0
+    for ch in content:
+        if ch == "`":
+            run += 1
+            if run > longest:
+                longest = run
+        else:
+            run = 0
+    fence = "`" * (longest + 1)
+    safe_lang = "".join(ch for ch in (lang or "text") if ch.isalnum() or ch in ("_", "-", "+", ".")) or "text"
+    return f"{fence}{safe_lang}", fence
+
+
+def is_binary_or_ignored(rel_path: Path | str) -> bool:
+    """Check if a path should be excluded from workspace context (case-insensitive & separator-safe)."""
+    norm_path = _normalize_rel_path(rel_path)
+    parts = norm_path.parts
+    if not parts:
+        return True
+
+    for part in parts[:-1]:
+        if _is_ignored_dir_name(part):
+            return True
+
+    name = norm_path.name
+    low_name = name.lower()
+    if not name or name in {".", ".."}:
+        return True
+    if low_name in _IGNORED_FILES_LOWER:
+        return True
+    if low_name.startswith(".env.") and low_name not in ALLOWED_DOTFILES:
+        return True
+    if name.startswith(".") and low_name not in ALLOWED_DOTFILES:
+        return True
+
+    suffix = norm_path.suffix.lower()
+    if suffix in BINARY_EXTENSIONS or suffix in SENSITIVE_EXTENSIONS:
+        return True
+    return False
+
+
+def get_git_branch(root_dir: Path | str) -> str:
+    """Fast, pure-Python git branch reader with subprocess fallback."""
+    root = Path(root_dir)
+    git_entry = root / ".git"
+    try:
+        head_file: Optional[Path] = None
+        if git_entry.is_dir():
+            head_file = git_entry / "HEAD"
+        elif git_entry.is_file():
+            pointer = git_entry.read_text(encoding="utf-8", errors="replace").strip()
+            if pointer.startswith("gitdir:"):
+                git_dir = Path(pointer.split(":", 1)[1].strip())
+                if not git_dir.is_absolute():
+                    git_dir = (root / git_dir).resolve()
+                head_file = git_dir / "HEAD"
+        if head_file and head_file.is_file():
+            head_txt = head_file.read_text(encoding="utf-8", errors="replace").strip()
+            if head_txt.startswith("ref:"):
+                ref = head_txt.split(":", 1)[1].strip()
+                prefix = "refs/heads/"
+                return ref[len(prefix):] if ref.startswith(prefix) else ref
+            if head_txt:
+                return head_txt[:12]
+    except OSError:
+        pass
+    return ""
+
+
+def get_git_status_and_diff(root_dir: Path | str, max_diff_chars: int = 15_000) -> Dict[str, str]:
     """Retrieve git branch, status --short, and diff summary for the workspace."""
+    root_dir = Path(root_dir)
     git_dir = root_dir / ".git"
     if not git_dir.exists():
         return {"branch": "", "status": "", "diff": "", "diff_stat": ""}
@@ -109,7 +244,7 @@ def get_git_status_and_diff(root_dir: Path, max_diff_chars: int = 15_000) -> Dic
         except Exception:
             return ""
 
-    branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+    branch = get_git_branch(root_dir) or _run_git(["rev-parse", "--abbrev-ref", "HEAD"])
     status = _run_git(["status", "-s"])
     diff_stat = _run_git(["diff", "--stat"])
     diff = _run_git(["diff"])
@@ -125,51 +260,129 @@ def get_git_status_and_diff(root_dir: Path, max_diff_chars: int = 15_000) -> Dic
     }
 
 
-def scan_workspace_files(root_dir: Path, max_files: int = 250) -> List[Dict[str, Any]]:
-    """Scan readable workspace files, sorted with code and configs first."""
-    if not root_dir.exists() or not root_dir.is_dir():
+def _file_sort_key(item: Dict[str, Any]) -> tuple[int, int, int, str]:
+    rel = item["rel_path"]
+    ext = item["extension"]
+    parts = rel.split("/")
+    is_code = 0 if ext in CODE_PRIORITY_EXTENSIONS else 1
+    if len(parts) == 1:
+        dir_rank = 1 if ext == ".md" else 0
+    elif parts[0] in PRIORITY_TOP_DIRS:
+        dir_rank = 0
+    else:
+        dir_rank = 2
+    depth = len(parts)
+    return (is_code, dir_rank, depth, rel.lower())
+
+
+def scan_workspace_files(root_dir: Path | str, max_files: int = 250) -> List[Dict[str, Any]]:
+    """Scan readable workspace files using os.scandir, prioritizing source/config dirs first."""
+    root_path = Path(root_dir)
+    if not root_path.exists() or not root_path.is_dir():
         return []
 
+    resolved_root = root_path.resolve()
+    max_files = max(1, int(max_files))
+    scan_cap = max(max_files * 3, 400)
     results: List[Dict[str, Any]] = []
-    count = 0
 
-    for root, dirs, files in os.walk(root_dir):
-        # Prune ignored directories in place
-        dirs[:] = [d for d in dirs if d not in IGNORED_DIRS and not d.startswith(".")]
+    def _dir_order(name: str, depth: int) -> tuple[int, str]:
+        if depth == 0 and name in PRIORITY_TOP_DIRS:
+            return (0, name.lower())
+        return (1, name.lower())
 
-        rel_root = Path(root).relative_to(root_dir)
-        for fname in sorted(files):
-            rel_file = rel_root / fname if str(rel_root) != "." else Path(fname)
-            if is_binary_or_ignored(rel_file):
-                continue
+    def _walk(cur_dir: Path, rel_prefix: str, depth: int) -> None:
+        if len(results) >= scan_cap:
+            return
+        try:
+            with os.scandir(cur_dir) as it:
+                entries = list(it)
+        except OSError:
+            return
 
-            full_file = root_dir / rel_file
+        subdirs: List[tuple[str, Path]] = []
+        files: List[os.DirEntry] = []
+        for entry in entries:
+            name = entry.name
             try:
-                st = full_file.stat()
-                results.append({
-                    "rel_path": str(rel_file).replace("\\", "/"),
-                    "size_bytes": st.st_size,
-                    "extension": rel_file.suffix.lower(),
-                })
-                count += 1
-                if count >= max_files:
-                    return results
+                is_sym = entry.is_symlink()
+                if entry.is_dir(follow_symlinks=False):
+                    if is_sym or _is_ignored_dir_name(name):
+                        continue
+                    subdir_path = Path(entry.path)
+                    if depth <= 1 and (subdir_path / "pyvenv.cfg").is_file():
+                        continue
+                    subdirs.append((name, subdir_path))
+                elif entry.is_file(follow_symlinks=True):
+                    files.append(entry)
             except OSError:
                 continue
 
-    return results
+        files.sort(key=lambda e: e.name)
+        for entry in files:
+            rel_str = f"{rel_prefix}/{entry.name}" if rel_prefix else entry.name
+            rel_path = Path(rel_str)
+            if is_binary_or_ignored(rel_path):
+                continue
+            try:
+                if entry.is_symlink():
+                    target = Path(entry.path).resolve()
+                    target_rel = target.relative_to(resolved_root)
+                    if is_binary_or_ignored(target_rel):
+                        continue
+                st = entry.stat(follow_symlinks=True)
+                results.append({
+                    "rel_path": rel_str,
+                    "size_bytes": st.st_size,
+                    "extension": rel_path.suffix.lower(),
+                })
+                if len(results) >= scan_cap:
+                    return
+            except (OSError, ValueError):
+                continue
+
+        subdirs.sort(key=lambda pair: _dir_order(pair[0], depth))
+        for name, subdir_path in subdirs:
+            next_prefix = f"{rel_prefix}/{name}" if rel_prefix else name
+            _walk(subdir_path, next_prefix, depth + 1)
+            if len(results) >= scan_cap:
+                return
+
+    _walk(resolved_root, "", 0)
+    results.sort(key=_file_sort_key)
+    return results[:max_files]
+
+
+def _read_text_bounded(full_path: Path, max_bytes: int) -> Optional[tuple[str, bool]]:
+    """Read up to max_bytes from a text file; returns None if binary (NUL bytes) or unreadable."""
+    try:
+        with full_path.open("rb") as fh:
+            raw = fh.read(max_bytes + 1)
+    except OSError:
+        return None
+
+    # Detect binary files without known extensions via NUL byte check
+    if b"\x00" in raw[:4096]:
+        return None
+
+    truncated = len(raw) > max_bytes
+    if truncated:
+        raw = raw[:max_bytes]
+    return raw.decode("utf-8", errors="replace"), truncated
 
 
 def pack_workspace_context(
-    root_dir: Path,
+    root_dir: Path | str,
     selected_files: Optional[List[str]] = None,
     include_git: bool = True,
     max_total_chars: int = DEFAULT_MAX_BUNDLE_CHARS,
 ) -> Dict[str, Any]:
     """Pack selected workspace files and git context into a structured markdown bundle."""
-    root_dir = root_dir.resolve()
+    root_dir = Path(root_dir).resolve()
+    max_total_chars = max(1024, int(max_total_chars))
     packed_blocks: List[str] = []
     packed_files: List[str] = []
+    seen_resolved: Set[Path] = set()
     total_chars = 0
 
     git_info = get_git_status_and_diff(root_dir) if include_git else {}
@@ -187,7 +400,7 @@ def pack_workspace_context(
         packed_blocks.append(git_block)
         total_chars += len(git_block)
 
-    target_files = selected_files or []
+    target_files = selected_files if isinstance(selected_files, list) else []
     # If no files specified, pick sensible default core files
     if not target_files:
         all_scanned = scan_workspace_files(root_dir, max_files=40)
@@ -199,41 +412,56 @@ def pack_workspace_context(
             and f["size_bytes"] < DEFAULT_MAX_FILE_BYTES
         ][:12]
 
-    for rel_str in target_files:
-        rel_path = Path(rel_str)
-        if is_binary_or_ignored(rel_path):
+    for item in target_files:
+        if not isinstance(item, str) or not item.strip() or "\x00" in item:
             continue
-
-        full_path = (root_dir / rel_path).resolve()
-        # Security check: must reside inside root_dir
-        try:
-            full_path.relative_to(root_dir)
-        except ValueError:
-            continue
-
-        if not full_path.is_file():
+        rel_str = item.strip().replace("\\", "/")
+        rel_path = _normalize_rel_path(rel_str)
+        if rel_path.is_absolute() or is_binary_or_ignored(rel_path):
             continue
 
         try:
-            content = full_path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+            full_path = (root_dir / rel_path).resolve()
+            # Security check: resolved target must reside inside root_dir AND pass ignore checks
+            resolved_rel = full_path.relative_to(root_dir)
+        except (OSError, ValueError):
             continue
 
-        lang = rel_path.suffix.lstrip(".").lower() or "text"
-        block = f"### File: `{rel_str}`\n```{lang}\n{content}\n```\n\n"
+        if is_binary_or_ignored(resolved_rel):
+            continue
+
+        if full_path in seen_resolved or not full_path.is_file():
+            continue
+        seen_resolved.add(full_path)
+
+        read_res = _read_text_bounded(full_path, min(DEFAULT_MAX_FILE_BYTES, max_total_chars))
+        if read_res is None:
+            continue
+        content, was_size_capped = read_res
+        if was_size_capped:
+            content += "\n... [file truncated at size limit] ..."
+
+        clean_rel_str = str(resolved_rel).replace("\\", "/")
+        lang = resolved_rel.suffix.lstrip(".").lower() or "text"
+        open_fence, close_fence = _make_markdown_fence(content, lang)
+        block = f"### File: `{clean_rel_str}`\n{open_fence}\n{content}\n{close_fence}\n\n"
 
         if total_chars + len(block) > max_total_chars:
             allowed = max(0, max_total_chars - total_chars - 200)
             if allowed > 1000:
                 truncated_content = content[:allowed]
-                block = f"### File: `{rel_str}` (Truncated)\n```{lang}\n{truncated_content}\n... [file truncated] ...\n```\n\n"
+                open_fence, close_fence = _make_markdown_fence(truncated_content, lang)
+                block = (
+                    f"### File: `{clean_rel_str}` (Truncated)\n"
+                    f"{open_fence}\n{truncated_content}\n... [file truncated] ...\n{close_fence}\n\n"
+                )
                 packed_blocks.append(block)
-                packed_files.append(rel_str)
+                packed_files.append(clean_rel_str)
                 total_chars += len(block)
             break
 
         packed_blocks.append(block)
-        packed_files.append(rel_str)
+        packed_files.append(clean_rel_str)
         total_chars += len(block)
 
     bundle_text = "".join(packed_blocks)
@@ -250,7 +478,7 @@ def pack_workspace_context(
 
 
 def export_copilot_bundle(
-    root_dir: Path,
+    root_dir: Path | str,
     user_goal: str = "",
     selected_files: Optional[List[str]] = None,
     assistant_advice: str = "",
@@ -259,27 +487,30 @@ def export_copilot_bundle(
     Format a complete, structured prompt ready to copy-paste into GitHub Copilot / Cursor / ChatGPT.
     Answers: 'how do i send the folder send advice to my co pilot'.
     """
-    pack = pack_workspace_context(root_dir, selected_files=selected_files)
+    root_path = Path(root_dir)
+    pack = pack_workspace_context(root_path, selected_files=selected_files)
+    safe_goal = str(user_goal or "").strip()
+    safe_advice = str(assistant_advice or "").strip()
 
     header = [
         "# Workspace Context Bundle for Copilot",
-        f"**Repository**: `{root_dir.name}`",
+        f"**Repository**: `{root_path.name}`",
         f"**Estimated Context Tokens**: ~{pack['estimated_tokens']:,}",
         f"**Included Files ({len(pack['packed_files'])} total)**: " + ", ".join(f"`{f}`" for f in pack["packed_files"]),
         "",
     ]
 
-    if user_goal.strip():
+    if safe_goal:
         header.extend([
             "## Task / Objective",
-            user_goal.strip(),
+            safe_goal,
             "",
         ])
 
-    if assistant_advice.strip():
+    if safe_advice:
         header.extend([
             "## Architectural Recommendations & Analysis (from Jupiter Studio)",
-            assistant_advice.strip(),
+            safe_advice,
             "",
         ])
 

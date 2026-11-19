@@ -370,6 +370,136 @@ class TestQuietAdvisorDetectors(unittest.TestCase):
 
         asyncio.run(_run())
 
+    def test_idor_ownership_state_machine_and_same_day_expiration(self):
+        async def _run():
+            with tempfile.TemporaryDirectory() as tmp:
+                db = QuietAdvisorDB(Path(tmp) / "security.sqlite")
+                try:
+                    handler = CardActionHandler(db)
+                    display = CardDisplayService(db)
+                    scheduler = QuietAdvisorScheduler(db, QuietAdvisorEngine())
+                    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+                    # Bob owns an active card
+                    bob_card_id = await db.insert(
+                        "quiet_advisor.cards",
+                        {
+                            "user_id": "bob",
+                            "detector_type": "thermal_throttling",
+                            "insight_rank": 0.9,
+                            "title": "Bob Card",
+                            "subtitle": "Sub",
+                            "description": "Desc",
+                            "recommended_action": "force_tokenlab_offload",
+                            "action_value": "{}",
+                            "user_dismissed": False,
+                            "user_archived": False,
+                            "user_actioned": False,
+                            "state": CardState.TRIGGERED.value,
+                            "created_at": now.isoformat(),
+                            "expires_at": (now + timedelta(hours=2)).isoformat(),
+                        },
+                    )
+
+                    # Alice must NOT be able to dismiss or acknowledge Bob's card (IDOR guard)
+                    ok_idor = await handler.handle_action("alice", str(bob_card_id), "dismiss")
+                    self.assertFalse(ok_idor)
+                    row = await db.query_one("SELECT user_dismissed, state FROM quiet_advisor.cards WHERE id = ?", (bob_card_id,))
+                    self.assertEqual(row["user_dismissed"], 0)
+                    self.assertEqual(row["state"], CardState.TRIGGERED.value)
+
+                    # Bob dismisses card -> RESOLVED; subsequent acknowledge must NOT regress state
+                    ok_dismiss = await handler.handle_action("bob", str(bob_card_id), "dismiss")
+                    self.assertTrue(ok_dismiss)
+                    ok_regress = await handler.handle_action("bob", str(bob_card_id), "acknowledge")
+                    self.assertFalse(ok_regress)
+                    row = await db.query_one("SELECT state FROM quiet_advisor.cards WHERE id = ?", (bob_card_id,))
+                    self.assertEqual(row["state"], CardState.RESOLVED.value)
+
+                    # Same-day ISO 'T' expiration: card expired 60 seconds ago MUST be treated as expired
+                    expired_id = await db.insert(
+                        "quiet_advisor.cards",
+                        {
+                            "user_id": "carol",
+                            "detector_type": "thermal_throttling",
+                            "insight_rank": 0.8,
+                            "title": "Expired Same-Day Card",
+                            "subtitle": "Sub",
+                            "description": "Desc",
+                            "recommended_action": "force_tokenlab_offload",
+                            "action_value": "{}",
+                            "user_dismissed": False,
+                            "user_archived": False,
+                            "user_actioned": False,
+                            "state": CardState.TRIGGERED.value,
+                            "created_at": (now - timedelta(minutes=10)).isoformat(),
+                            "expires_at": (now - timedelta(seconds=60)).isoformat(),
+                        },
+                    )
+                    self.assertIsNone(await display.get_card_for_user("carol"))
+                    archived = await display.get_card_archive("carol")
+                    self.assertEqual([c["id"] for c in archived], [expired_id])
+
+                    # Expired card must NOT block inserting a fresh card for the same detector
+                    insight = DetectedInsight(
+                        detector_type=DetectorType.THERMAL_THROTTLING,
+                        title="Fresh Thermal Card",
+                        subtitle="88C",
+                        description="Offload",
+                        metrics={"peak_temp": "88C"},
+                        recommended_action="force_tokenlab_offload",
+                        action_value={"thermal_penalty": 1.4},
+                    )
+                    self.assertTrue(await scheduler._store_card("carol", insight))
+                finally:
+                    db.close()
+
+        asyncio.run(_run())
+
+    def test_anomaly_ignores_fast_outliers_and_db_rejects_bad_identifiers(self):
+        # 11 slow-normal runs and 1 super-fast run (z < -2): must NOT emit negative-sigma slow anomaly
+        fast_outlier_set = [_make_inference(total_latency_ms=1000.0) for _ in range(11)]
+        fast_outlier_set.append(_make_inference(total_latency_ms=50.0))
+        self.assertIsNone(AnomalyDetector.detect(fast_outlier_set))
+
+        # DB identifier SQLi guard & concurrent thread safety
+        import threading
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db = QuietAdvisorDB(Path(tmp) / "concurrent.sqlite")
+            try:
+                with self.assertRaises(ValueError):
+                    db.insert_sync("users; DROP TABLE users;--", {"user_id": "x"})
+                with self.assertRaises(ValueError):
+                    db.insert_sync("users", {"user_id) VALUES ('x'); DROP TABLE users;--": "x"})
+
+                errors = []
+
+                def worker(idx: int):
+                    try:
+                        db.insert_sync(
+                            "memoryos.inference_log",
+                            {
+                                "user_id": f"u{idx}",
+                                "session_id": "s",
+                                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                                "model_id": "Qwen3.8-27B",
+                            },
+                        )
+                    except Exception as exc:
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+                self.assertEqual(errors, [])
+                cnt = db.conn.execute("SELECT COUNT(*) FROM memoryos_inference_log").fetchone()[0]
+                self.assertEqual(cnt, 12)
+            finally:
+                db.close()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

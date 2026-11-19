@@ -46,8 +46,19 @@ DO_MODEL_ACCESS_KEY=your_digitalocean_key
 | **AMD Token Lab Cloud** | Fast 27B–31B models running on AMD Instinct GPUs. | **0 MB** |
 | **Hugging Face Cloud (`HF_TOKEN`)** | Giant 70B–72B models (`Qwen2.5-72B`, `Llama-3.3-70B`, `DeepSeek-R1`) with zero local downloads. | **0 MB** |
 | **NVIDIA NIM / DigitalOcean MI300X** | Cloud failover if you add those API keys to `.env`. | **0 MB** |
+| **AMD Lemonade Server (Ryzen AI NPU / FastFlowLM)** | Local AMD Ryzen AI XDNA 2 NPU, iGPU/ROCm, or CPU models via `lemonade-server` (`127.0.0.1:13305/api/v1`). | Runs on Ryzen AI NPU / Local |
 | **DGX Spark / GB10 Local (`vLLM` / `Flare`)** | Local LAN servers running on ports `:8000` or `:8080`. | Runs on Spark |
 | **Local Models (Ollama)** | 100% offline chat (`raon-1-nano`, `qwen2.5-coder:7b`, `deepseek-r1:7b`). Requires the Ollama app running on your PC. | Local RAM/VRAM |
+
+### Using AMD Lemonade Server (Ryzen AI XDNA 2 NPU + FastFlowLM)
+If you have an **AMD Ryzen AI 300 / Strix / Strix Halo** PC with an XDNA 2 NPU (or want local `llama.cpp` / ROCm serving via Lemonade):
+1. Install and start **Lemonade Server** (`lemonade-sdk/lemonade`), which exposes an OpenAI-compatible API on `http://127.0.0.1:13305/api/v1` by default (customizable in `.env` via `LEMONADE_BASE_URL`).
+2. Pull or load a **FastFlowLM (`FLM`)** or hybrid model in Lemonade Server, or verify it is live:
+   ```bash
+   curl http://127.0.0.1:13305/api/v1/models
+   ```
+3. In Jupiter Studio's **Execution Target** dropdown, look under **AMD Lemonade Server (Ryzen AI NPU / FastFlowLM)** — when Lemonade is running, Jupiter Studio automatically detects it (`● Ready`) and appends any live loaded model IDs directly to the menu.
+4. **Honest hardware note:** Older Ryzen CPUs without an NPU (such as the Ryzen 7 5800H) do **not** have XDNA hardware, so NPU acceleration only applies on supported Ryzen AI silicon; Jupiter Studio never fakes NPU telemetry on non-NPU machines.
 
 ---
 

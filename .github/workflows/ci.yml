@@ -32,7 +32,8 @@ jobs:
             src/memoryos/quiet_advisor_db.py \
             src/memoryos/speculative_offload.py \
             src/memoryos/gpu_backends.py \
-            src/memoryos/workspace_pack.py
+            src/memoryos/workspace_pack.py \
+            src/memoryos/router.py
 
       - name: Run unit test suite
         env:
@@ -44,4 +45,5 @@ jobs:
             tests/test_speculative_offload.py \
             tests/test_nvidia_telemetry_safety.py \
             tests/test_workspace_pack.py \
+            tests/test_nvidia_brev_router.py \
             -v

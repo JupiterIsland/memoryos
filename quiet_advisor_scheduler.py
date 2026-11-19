@@ -123,42 +123,45 @@ class QuietAdvisorScheduler:
             
             for user in users:
                 user_id = user["user_id"]
-                
-                # Get recent inferences in lookback window
-                since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=lookback_hours)
-                inferences = await self._get_user_inferences(user_id, since, window_hours=lookback_hours)
-                
-                if len(inferences) < 3:
-                    # Not enough data for meaningful patterns
-                    logger.debug(f"Skipping user {user_id}: insufficient data")
-                    continue
-                
-                # Get user preferences (what they care about)
-                preferences = await self._get_user_preferences(user_id)
-                
-                # Run detectors
-                insights = self.engine.detect_patterns(inferences, preferences)
-                
-                if not insights:
-                    logger.debug(f"No insights for user {user_id}")
-                    continue
-                
-                # Select top insight
-                top_insight = insights[0]
+                try:
+                    # Get recent inferences in lookback window
+                    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=lookback_hours)
+                    inferences = await self._get_user_inferences(user_id, since, window_hours=lookback_hours)
 
-                # Gate / route insight through Token Lab d3 aux-router
-                d3_decision = self._route_with_d3(top_insight, preferences)
-                if d3_decision and d3_decision.get("choice") == "ignore":
-                    logger.info(
-                        f"d3 suppressed low-signal card for user {user_id}: {top_insight.title} "
-                        f"(confidence={d3_decision.get('confidence', 0.0):.2f})"
-                    )
-                    continue
+                    if len(inferences) < 3:
+                        # Not enough data for meaningful patterns
+                        logger.debug(f"Skipping user {user_id}: insufficient data")
+                        continue
 
-                # Store card in database
-                await self._store_card(user_id, top_insight, d3_decision=d3_decision)
-                
-                logger.info(f"Generated card for user {user_id}: {top_insight.title}")
+                    # Get user preferences (what they care about)
+                    preferences = await self._get_user_preferences(user_id)
+
+                    # Run detectors
+                    insights = self.engine.detect_patterns(inferences, preferences)
+
+                    if not insights:
+                        logger.debug(f"No insights for user {user_id}")
+                        continue
+
+                    # Select top insight
+                    top_insight = insights[0]
+
+                    # Gate / route insight through Token Lab d3 aux-router
+                    d3_decision = self._route_with_d3(top_insight, preferences)
+                    if d3_decision and d3_decision.get("choice") == "ignore":
+                        logger.info(
+                            f"d3 suppressed low-signal card for user {user_id}: {top_insight.title} "
+                            f"(confidence={d3_decision.get('confidence', 0.0):.2f})"
+                        )
+                        continue
+
+                    # Store card in database
+                    await self._store_card(user_id, top_insight, d3_decision=d3_decision)
+
+                    logger.info(f"Generated card for user {user_id}: {top_insight.title}")
+                except Exception as user_err:
+                    logger.error(f"Daily detection failed for user {user_id}: {user_err}")
+                    continue
                 
         except Exception as e:
             logger.error(f"Daily detection failed: {e}")
@@ -277,22 +280,52 @@ class CardActionHandler:
     def __init__(self, db_connection):
         self.db = db_connection
     
+    VALID_ACTIONS = {"view", "dismiss", "archive", "learn_more", "action", "acknowledge", "resolve"}
+
     async def handle_action(self, user_id: str, card_id: str, action: str, 
-                           metadata: Optional[Dict] = None):
+                           metadata: Optional[Dict] = None) -> bool:
         """
-        Handle user action on card.
+        Handle user action on card with ownership & state-machine enforcement.
         
         Actions:
         - 'view': User viewed the card
         - 'dismiss': User dismissed temporarily
         - 'archive': User never wants this type again
         - 'learn_more': User clicked learn more
-        - 'action': User executed the suggestion
+        - 'action' / 'acknowledge': User executed the suggestion
+        - 'resolve': Mark card resolved
         """
-        
+        if action not in self.VALID_ACTIONS:
+            logger.warning(f"Rejected unsupported card action: {action!r}")
+            return False
+
+        # Verify card exists and belongs to user_id (prevents cross-user IDOR mutation)
+        owned_card = await self.db.query_one(
+            "SELECT id, state FROM quiet_advisor.cards WHERE id = ? AND user_id = ?",
+            (card_id, user_id),
+        )
+        if not owned_card:
+            logger.warning(f"Card action ignored: card={card_id!r} not found for user={user_id!r}")
+            return False
+
+        current_state = owned_card.get("state") or CardState.TRIGGERED.value
+        target_state_map = {
+            "dismiss": CardState.RESOLVED.value,
+            "archive": CardState.RESOLVED.value,
+            "resolve": CardState.RESOLVED.value,
+            "action": CardState.ACKNOWLEDGED.value,
+            "acknowledge": CardState.ACKNOWLEDGED.value,
+        }
+        target_state = target_state_map.get(action)
+        if target_state and current_state != target_state and not can_transition_card_state(current_state, target_state):
+            logger.warning(
+                f"Rejected invalid card state transition {current_state} -> {target_state} for card={card_id}"
+            )
+            return False
+
         action_record = {
             "user_id": user_id,
-            "card_id": card_id,
+            "card_id": str(card_id),
             "action_type": action,
             "action_result": json.dumps(metadata or {}),
             "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
@@ -300,26 +333,26 @@ class CardActionHandler:
         
         await self.db.insert("quiet_advisor.card_actions", action_record)
         
-        # Update card status & lifecycle state machine (parameterized to prevent SQL injection)
+        # Update card status & lifecycle state machine (parameterized + ownership-scoped)
         if action == "dismiss":
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_dismissed = true, state = ? WHERE id = ?",
-                (CardState.RESOLVED.value, card_id),
+                "UPDATE quiet_advisor.cards SET user_dismissed = true, state = ? WHERE id = ? AND user_id = ?",
+                (CardState.RESOLVED.value, card_id, user_id),
             )
         elif action == "archive":
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_archived = true, state = ? WHERE id = ?",
-                (CardState.RESOLVED.value, card_id),
+                "UPDATE quiet_advisor.cards SET user_archived = true, state = ? WHERE id = ? AND user_id = ?",
+                (CardState.RESOLVED.value, card_id, user_id),
             )
         elif action in ("action", "acknowledge"):
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_actioned = true, state = ? WHERE id = ?",
-                (CardState.ACKNOWLEDGED.value, card_id),
+                "UPDATE quiet_advisor.cards SET user_actioned = true, state = ? WHERE id = ? AND user_id = ?",
+                (CardState.ACKNOWLEDGED.value, card_id, user_id),
             )
         elif action == "resolve":
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET state = ? WHERE id = ?",
-                (CardState.RESOLVED.value, card_id),
+                "UPDATE quiet_advisor.cards SET state = ? WHERE id = ? AND user_id = ?",
+                (CardState.RESOLVED.value, card_id, user_id),
             )
         
         # Update user preferences on meaningful feedback actions (skip read-only 'view')
@@ -327,6 +360,7 @@ class CardActionHandler:
             await self._update_user_preferences(user_id, card_id, action, metadata=metadata)
         
         logger.info(f"Card action: user={user_id}, card={card_id}, action={action}")
+        return True
     
     async def _update_user_preferences(
         self,
@@ -337,10 +371,10 @@ class CardActionHandler:
     ):
         """Learn from user actions and write routing penalties into quiet_advisor_user_preferences."""
         
-        # Get card detector type and action_value payload
+        # Get card detector type and action_value payload (scoped to owner)
         card = await self.db.query_one(
-            "SELECT detector_type, recommended_action, action_value FROM quiet_advisor.cards WHERE id = ?",
-            (card_id,),
+            "SELECT detector_type, recommended_action, action_value FROM quiet_advisor.cards WHERE id = ? AND user_id = ?",
+            (card_id, user_id),
         )
         if not card:
             return
@@ -360,10 +394,14 @@ class CardActionHandler:
             (user_id,),
         )
         
-        if prefs:
-            preferences = json.loads(prefs["card_type_preferences"])
-        else:
-            preferences = {}
+        preferences: Dict = {}
+        if prefs and prefs.get("card_type_preferences"):
+            try:
+                parsed = json.loads(prefs["card_type_preferences"])
+                if isinstance(parsed, dict):
+                    preferences = parsed
+            except Exception:
+                preferences = {}
         
         # Update preference weight based on action
         current_pref = float(preferences.get(detector_type, 0.5))
@@ -488,7 +526,7 @@ class CardDisplayService:
         query = """
         SELECT * FROM quiet_advisor.cards
         WHERE user_id = ?
-        AND (user_dismissed = true OR user_archived = true OR expires_at < NOW())
+        AND (user_dismissed = true OR user_archived = true OR expires_at <= NOW())
         ORDER BY created_at DESC
         LIMIT 50
         """

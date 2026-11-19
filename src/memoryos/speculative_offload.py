@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Union
 
@@ -24,8 +25,21 @@ EXPECTED_FEATURE_NAMES = (
 )
 
 
+def _ensure_finite_float(val: Any, label: str = "value") -> float:
+    if isinstance(val, bool):
+        raise ValueError(f"{label} must be a finite numeric float, got bool: {val!r}")
+    try:
+        out = float(val)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} must be numeric, got {val!r}") from exc
+    if not math.isfinite(out):
+        raise ValueError(f"{label} must be finite, got {out!r}")
+    return out
+
+
 def _sigmoid(x: float) -> float:
-    clamped = max(-20.0, min(20.0, x))
+    x_val = _ensure_finite_float(x, "logit")
+    clamped = max(-20.0, min(20.0, x_val))
     return 1.0 / (1.0 + math.exp(-clamped))
 
 
@@ -51,12 +65,12 @@ class SpeculativeOffloadModel:
         self.model_name = model_name
         self.version = version
         self.feature_names = list(feature_names)
-        self.w1 = [list(row) for row in w1]
-        self.b1 = list(b1)
-        self.w2 = list(w2)
-        self.b2 = float(b2)
-        self.tau_hi = float(tau_hi)
-        self.tau_lo = float(tau_lo)
+        self.w1 = [[_ensure_finite_float(v, f"w1[{r}][{c}]") for c, v in enumerate(row)] for r, row in enumerate(w1)]
+        self.b1 = [_ensure_finite_float(v, f"b1[{i}]") for i, v in enumerate(b1)]
+        self.w2 = [_ensure_finite_float(v, f"w2[{i}]") for i, v in enumerate(w2)]
+        self.b2 = _ensure_finite_float(b2, "b2")
+        self.tau_hi = _ensure_finite_float(tau_hi, "tau_hi")
+        self.tau_lo = _ensure_finite_float(tau_lo, "tau_lo")
 
         self.in_dim = len(self.feature_names)
         self.hidden_dim = len(self.w1)
@@ -75,15 +89,31 @@ class SpeculativeOffloadModel:
                 raise ValueError(f"w1 row {idx} length ({len(row)}) != in_dim ({self.in_dim})")
         if len(self.w2) != self.hidden_dim:
             raise ValueError(f"w2 length ({len(self.w2)}) does not match hidden_dim ({self.hidden_dim})")
+        if not (0.0 <= self.tau_lo <= self.tau_hi <= 1.0):
+            raise ValueError(
+                f"Invalid thresholds: require 0.0 <= tau_lo <= tau_hi <= 1.0, got tau_lo={self.tau_lo}, tau_hi={self.tau_hi}"
+            )
 
     @classmethod
     def load(cls, weights_path: Union[str, Path, None] = None) -> "SpeculativeOffloadModel":
-        path = Path(weights_path) if weights_path else DEFAULT_WEIGHTS_PATH
+        if weights_path is not None:
+            path = Path(weights_path)
+        else:
+            path = DEFAULT_WEIGHTS_PATH
+            if not path.is_file():
+                meipass = getattr(sys, "_MEIPASS", None)
+                if meipass:
+                    bundled = Path(meipass) / "memory" / "models" / "speculative_offload_v1.json"
+                    if bundled.is_file():
+                        path = bundled
         if not path.is_file():
             raise FileNotFoundError(f"Speculative offload model weights not found at: {path}")
 
         with open(path, "r", encoding="utf-8") as f:
             data: Dict[str, Any] = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid weights JSON root in {path}: expected object")
 
         # Validate schema contract
         raw_features = data.get("feature_names")
@@ -109,8 +139,8 @@ class SpeculativeOffloadModel:
             raise ValueError(f"Incomplete weight tensors in {path}")
 
         thresholds = data.get("thresholds") or {}
-        tau_hi = float(thresholds.get("tau_hi", 0.65))
-        tau_lo = float(thresholds.get("tau_lo", 0.35))
+        tau_hi = _ensure_finite_float(thresholds.get("tau_hi", 0.65), "tau_hi")
+        tau_lo = _ensure_finite_float(thresholds.get("tau_lo", 0.35), "tau_lo")
 
         return cls(
             w1=w1,
@@ -130,12 +160,15 @@ class SpeculativeOffloadModel:
             for name in self.feature_names:
                 if name not in features:
                     raise KeyError(f"Missing required feature: '{name}' in {list(features.keys())}")
-                vec.append(float(features[name]))
+                vec.append(_ensure_finite_float(features[name], f"feature '{name}'"))
             return vec
+
+        if isinstance(features, (str, bytes)):
+            raise ValueError("Features must be a mapping or numeric sequence, not str/bytes")
 
         if len(features) != self.in_dim:
             raise ValueError(f"Expected {self.in_dim} features, got {len(features)}")
-        return [float(v) for v in features]
+        return [_ensure_finite_float(v, f"feature[{idx}]") for idx, v in enumerate(features)]
 
     def predict_proba(self, features: Union[Dict[str, float], Sequence[float]]) -> float:
         """Compute P(offload_needed) using 2-layer forward pass."""
@@ -158,8 +191,10 @@ class SpeculativeOffloadModel:
         tau_lo: Union[float, None] = None,
     ) -> str:
         """Classify offload action: 'offload_now', 'skip', or 'digest'."""
-        th_hi = self.tau_hi if tau_hi is None else float(tau_hi)
-        th_lo = self.tau_lo if tau_lo is None else float(tau_lo)
+        th_hi = self.tau_hi if tau_hi is None else _ensure_finite_float(tau_hi, "tau_hi")
+        th_lo = self.tau_lo if tau_lo is None else _ensure_finite_float(tau_lo, "tau_lo")
+        if not (0.0 <= th_lo <= th_hi <= 1.0):
+            raise ValueError(f"Invalid thresholds: require 0.0 <= tau_lo <= tau_hi <= 1.0, got {th_lo}, {th_hi}")
 
         p = self.predict_proba(features)
         if p >= th_hi:

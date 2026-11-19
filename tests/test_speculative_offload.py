@@ -106,6 +106,31 @@ class TestSpeculativeOffloadModel(unittest.TestCase):
         decision_zero = self.model.decide(zero_features, tau_hi=0.65, tau_lo=0.35)
         self.assertEqual(decision_zero, "skip")
 
+    def test_rejects_non_finite_bool_and_invalid_thresholds(self) -> None:
+        for bad_vec in (
+            [float("nan"), 0.5, 0.5, 0.5],
+            [0.5, float("inf"), 0.5, 0.5],
+            [0.5, 0.5, float("-inf"), 0.5],
+            [True, 0.5, 0.5, 0.5],
+        ):
+            with self.assertRaises(ValueError):
+                self.model.predict_proba(bad_vec)
+
+        with self.assertRaises(ValueError):
+            self.model.predict_proba("1234")  # type: ignore[arg-type]
+
+        with self.assertRaises(ValueError):
+            self.model.decide([0.5, 0.5, 0.5, 0.5], tau_hi=0.3, tau_lo=0.7)
+
+        # Corrupted weights with NaN must be rejected on construction
+        with self.assertRaises(ValueError):
+            SpeculativeOffloadModel(
+                w1=[[float("nan")] * 4 for _ in range(8)],
+                b1=[0.0] * 8,
+                w2=[0.0] * 8,
+                b2=0.0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

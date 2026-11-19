@@ -79,6 +79,30 @@ class TestNvidiaBrevRouter(unittest.TestCase):
         self.assertEqual(res["content"], "FAILOVER OK")
         self.assertFalse(res["error_flag"])
 
+    def test_empty_prompt_and_empty_criteria_never_crash(self) -> None:
+        os.environ["TOKENLAB_API_KEY"] = ""
+        os.environ["NVIDIA_API_KEY"] = ""
+        os.environ["DO_MODEL_ACCESS_KEY"] = ""
+        os.environ["DIGITALOCEAN_INFERENCE_KEY"] = ""
+
+        res = router.route_task(
+            "",
+            save_checkpoint=False,
+            log_to_advisor=False,
+        )
+        self.assertIn("content", res)
+        self.assertFalse(res["error_flag"])
+
+        fb = router._local_d3_fallback("state", {})
+        self.assertIsNone(fb["choice"])
+        self.assertTrue(fb["fallback"])
+
+    def test_cloud_status_reports_huggingface_and_rejects_placeholders(self) -> None:
+        os.environ["HF_TOKEN"] = "hf_your-token-here"
+        self.assertFalse(router.get_cloud_provider_status()["huggingface"]["configured"])
+        os.environ["HF_TOKEN"] = "hf_real_test_token_12345"
+        self.assertTrue(router.get_cloud_provider_status()["huggingface"]["configured"])
+
 
 if __name__ == "__main__":
     unittest.main()

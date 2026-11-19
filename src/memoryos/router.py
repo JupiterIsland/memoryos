@@ -2,6 +2,8 @@
 
 import json
 import os
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -31,7 +33,11 @@ def _load_local_env() -> None:
     except ImportError:
         pass
 
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+    try:
+        raw_lines = env_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return
+    for raw_line in raw_lines:
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -174,7 +180,15 @@ def _http_post_json(
             raw = resp.read().decode("utf-8", errors="replace")
         return json.loads(raw) if raw.strip() else {}
     except urllib.error.HTTPError as exc:
-        err_body = exc.read().decode("utf-8", errors="replace")[:400]
+        try:
+            err_body = exc.read().decode("utf-8", errors="replace")[:400]
+        except Exception:
+            err_body = ""
+        finally:
+            try:
+                exc.close()
+            except Exception:
+                pass
         raise RuntimeError(f"HTTP {exc.code} from {url}: {err_body}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Connection error to {url}: {exc.reason}") from exc
@@ -186,20 +200,27 @@ def get_policy_telemetry() -> Dict[str, Any]:
     active_cards = 0
     total_inferences = 0
     if db_path.exists():
+        conn = None
         try:
             import sqlite3
-            with sqlite3.connect(db_path, timeout=1.0) as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT COUNT(*) FROM quiet_advisor_cards WHERE user_dismissed=0 AND user_archived=0")
-                row = cur.fetchone()
-                if row:
-                    active_cards = int(row[0])
-                cur.execute("SELECT COUNT(*) FROM memoryos_inference_log")
-                row = cur.fetchone()
-                if row:
-                    total_inferences = int(row[0])
+            conn = sqlite3.connect(db_path, timeout=1.0)
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM quiet_advisor_cards WHERE user_dismissed=0 AND user_archived=0")
+            row = cur.fetchone()
+            if row:
+                active_cards = int(row[0])
+            cur.execute("SELECT COUNT(*) FROM memoryos_inference_log")
+            row = cur.fetchone()
+            if row:
+                total_inferences = int(row[0])
         except Exception:
             pass
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     return {
         "cpu_gate_ms": 0.091,
@@ -211,11 +232,13 @@ def get_policy_telemetry() -> Dict[str, Any]:
 
 
 def get_cloud_provider_status() -> Dict[str, Any]:
-    """Return configuration & readiness status for AMD Token Lab, NVIDIA NIM/Brev, and DigitalOcean MI300X."""
+    """Return configuration & readiness status for AMD Token Lab, NVIDIA NIM/Brev, DigitalOcean MI300X, and Hugging Face."""
     tl_key, tl_base = _get_tokenlab_credentials()
     nv_key, nv_base = _get_nvidia_credentials()
     do_key, do_base = _get_do_credentials()
     do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
+    hf_key = (os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
+    hf_base = os.getenv("HF_BASE_URL", "https://router.huggingface.co/v1").strip().rstrip("/")
     transport = "openai_sdk+urllib_fallback" if OpenAI is not None else "urllib_stdlib"
     return {
         "amd_tokenlab": {
@@ -248,6 +271,14 @@ def get_cloud_provider_status() -> Dict[str, Any]:
             "hardware": "DigitalOcean Serverless Inference (AMD Instinct MI300X)",
             "ssh_key_fingerprint": "75:f4:ca:fb:d4:b3:03:b4:34:8b:d2:68:f7:a4:95:dc",
             "model_map": DO_MODEL_MAP,
+        },
+        "huggingface": {
+            "configured": _is_configured_key(
+                hf_key, "hf_your-token-here", "your-huggingface-token-here"
+            ),
+            "base_url": hf_base,
+            "transport": transport,
+            "hardware": "Hugging Face Serverless Router",
         },
     }
 
@@ -302,13 +333,23 @@ FRAME_GATEKEEP_CRITERIA: Dict[str, str] = {
 }
 
 _SESSION_FRAME_CACHE: Dict[str, Dict[str, Any]] = {}
+_SESSION_FRAME_CACHE_LOCK = threading.Lock()
+_SESSION_FRAME_CACHE_MAX = 256
+
+
+def _set_session_frame_cache(session_id: str, entry: Dict[str, Any]) -> None:
+    with _SESSION_FRAME_CACHE_LOCK:
+        _SESSION_FRAME_CACHE[session_id] = entry
+        while len(_SESSION_FRAME_CACHE) > _SESSION_FRAME_CACHE_MAX:
+            oldest_key = next(iter(_SESSION_FRAME_CACHE))
+            _SESSION_FRAME_CACHE.pop(oldest_key, None)
 
 
 def write_atomic_checkpoint(
     payload: Dict[str, Any],
     checkpoint_dir: Optional[Path] = None,
 ) -> Path:
-    """Write a JSON checkpoint atomically to disk (with /tmp fallback if read-only)."""
+    """Write a JSON checkpoint atomically to disk (with temp-dir fallback if read-only)."""
     target_dir = checkpoint_dir or (REPO_ROOT / "memory" / "checkpoints")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     fname = f"router_{stamp}_{uuid.uuid4().hex[:8]}.json"
@@ -320,7 +361,7 @@ def write_atomic_checkpoint(
         os.replace(tmp_path, final_path)
         return final_path
     except OSError:
-        fallback_dir = Path("/tmp/memoryos_checkpoints")
+        fallback_dir = Path(tempfile.gettempdir()) / "memoryos_checkpoints"
         fallback_dir.mkdir(parents=True, exist_ok=True)
         final_path = fallback_dir / fname
         tmp_path = fallback_dir / f".{fname}.tmp"
@@ -332,6 +373,15 @@ def write_atomic_checkpoint(
 def _local_d3_fallback(state_text: str, criteria: Dict[str, str], model: str = "d3") -> Dict[str, Any]:
     """Deterministic local d3 fallback when offline or Token Lab API key is unset."""
     keys = list(criteria.keys())
+    if not keys:
+        return {
+            "id": f"local-d3-{uuid.uuid4().hex[:8]}",
+            "model": model,
+            "choice": None,
+            "probabilities": {},
+            "confidence": 0.0,
+            "fallback": True,
+        }
     lower = state_text.lower()
     chosen = keys[0]
     conf = 0.86
@@ -630,7 +680,8 @@ def route_to_gemma(
     tlb_context = injected from DuckDB / NVMe checkpoints.
     """
     t0 = time.perf_counter()
-    cached = _SESSION_FRAME_CACHE.get(session_id)
+    with _SESSION_FRAME_CACHE_LOCK:
+        cached = _SESSION_FRAME_CACHE.get(session_id)
     effective_delta = frame_delta
     if effective_delta is None and image_url and cached and cached.get("image_sig") == image_url[:256]:
         effective_delta = compute_frame_delta({"brightness": 0.5}, {"brightness": 0.5})
@@ -689,10 +740,13 @@ def route_to_gemma(
         db_path=db_path,
     )
     if image_url:
-        _SESSION_FRAME_CACHE[session_id] = {
-            "image_sig": image_url[:256],
-            "content": str(res["content"]),
-        }
+        _set_session_frame_cache(
+            session_id,
+            {
+                "image_sig": image_url[:256],
+                "content": str(res["content"]),
+            },
+        )
     return str(res["content"])
 
 
@@ -744,9 +798,13 @@ def _invoke_remote_chat(
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        content = _normalize_openai_content(response.choices[0].message.content)
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            raise RuntimeError(f"Empty choices returned by provider for model {model_name}")
+        msg = choices[0].message
+        content = _normalize_openai_content(getattr(msg, "content", ""))
         if not content.strip():
-            reasoning = getattr(response.choices[0].message, "reasoning_content", None) or getattr(response.choices[0].message, "reasoning", None)
+            reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
             if reasoning:
                 content = str(reasoning)
         usage = getattr(response, "usage", None)
@@ -929,8 +987,10 @@ def _build_offline_payload(
 ) -> tuple[str, Dict[str, int]]:
     """Build deterministic structured analysis JSON when offline or unconfigured."""
     est_prompt = max(16, total_chars // 4)
-    summary_line = prompt_text.splitlines()[0][:120]
-    short_line = prompt_text.splitlines()[0][:90]
+    lines = (prompt_text or "").splitlines()
+    first_line = lines[0] if lines else ""
+    summary_line = first_line[:120]
+    short_line = first_line[:90]
     if error_fallback:
         caption = f"Token Lab {target_model} visual analysis: {short_line}"
         tags = ["tokenlab-vlm", "gemma-31b", "remote-offload"]

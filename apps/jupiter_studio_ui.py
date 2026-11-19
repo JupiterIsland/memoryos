@@ -1314,6 +1314,11 @@ STUDIO_HTML = r"""<!DOCTYPE html>
           <option value="hf:deepseek-ai/DeepSeek-R1">DeepSeek-R1 (HF Router)</option>
           <option value="hf:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5-Coder-32B-Instruct (HF Router)</option>
         </optgroup>
+        <optgroup label="AMD Lemonade Server (Ryzen AI NPU / FastFlowLM)" id="opt-lemonade">
+          <option value="lemonade:Qwen3-4B-Instruct-2507-FLM">Qwen3-4B-Instruct-FLM (FastFlowLM XDNA 2)</option>
+          <option value="lemonade:Qwen2.5-7B-Instruct-Hybrid">Qwen2.5-7B-Instruct-Hybrid (Ryzen AI NPU+iGPU)</option>
+          <option value="lemonade:Llama-3.2-3B-Instruct-Hybrid">Llama-3.2-3B-Instruct-Hybrid (Fast NPU)</option>
+        </optgroup>
         <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
           <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
           <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
@@ -1338,6 +1343,8 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <div class="hw-val" id="hw-name">Detecting...</div>
         <div style="font-size:11px; color:var(--muted); margin-top:6px;">VRAM USAGE</div>
         <div class="hw-val" id="hw-vram">0 / 0 MB</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">WORKSTATION HEALTH</div>
+        <div class="hw-val" id="hw-health" style="color:var(--green);">Checking...</div>
       </div>
     </div>
 
@@ -1363,11 +1370,12 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     <!-- Workspace Context & Copilot Handoff -->
     <div>
       <div class="section-title">
-        <span>Workspace & Copilot</span>
-        <span style="font-size:10px; color:var(--cyan);" id="ws-branch">beta</span>
+        <span>Workspace &amp; Copilot</span>
+        <span style="font-size:10px; color:var(--cyan);" id="ws-branch">workspace</span>
       </div>
       <div class="card" style="display:flex; flex-direction:column; gap:8px;">
         <div style="font-size:11px; color:var(--muted);">Select project files to attach to context:</div>
+        <input type="text" id="ws-filter-input" placeholder="Filter files..." style="padding:6px 8px; font-size:11.5px;" oninput="renderWorkspaceFileList()" />
         <div class="workspace-file-list" id="workspace-file-list">
           <div style="color:var(--muted); padding:4px;">Scanning files...</div>
         </div>
@@ -1415,7 +1423,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
               <span>Architecture</span>
               Trace zero-VRAM offload pipeline
             </button>
-            <button class="starter-chip" onclick="toggleDualArena(); useStarter('Compare Python asyncio vs multiprocessing for I/O-bound telemetry pipelines in 5 bullet points.')">
+            <button class="starter-chip" onclick="setDualArena(true); useStarter('Compare Python asyncio vs multiprocessing for I/O-bound telemetry pipelines in 5 bullet points.')">
               <span>Dual Arena Demo</span>
               Race two models side-by-side live
             </button>
@@ -1460,7 +1468,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <button class="btn-icon" id="upload-image-btn" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </button>
-        <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag & drop files here... (Ctrl+Enter to send)" onkeydown="if(event.ctrlKey && event.key==='Enter') sendPrompt()"></textarea>
+        <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag &amp; drop files here... (Enter to send, Shift+Enter for newline)"></textarea>
         <div class="input-actions">
           <button class="btn-arena" id="btn-arena" onclick="toggleDualArena()" title="Stream 2 models side-by-side in a live split-screen shootout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg> Dual Arena</button>
           <button class="btn" id="run-btn" onclick="sendPrompt()">Run</button>
@@ -1477,102 +1485,299 @@ let currentAbortController = null;
 let currentAttachedImage = null;
 let chatHistory = [];
 let workspaceFiles = [];
+const selectedWorkspaceSet = new Set();
 
-// Lightweight safe Markdown renderer
-function renderMarkdown(text) {
-  if (!text) return "";
-  // Escape raw HTML first
-  let html = text
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-  // Code blocks: ```lang ... ```
-  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function(match, lang, code) {
-    const language = lang || "text";
-    const cleanCode = code.trim();
-    const encoded = encodeURIComponent(cleanCode);
-    return `<div class="code-block-container">
-      <div class="code-header">
-        <span>${language}</span>
-        <button class="code-copy-btn" onclick="copyCode(this, '${encoded}')">📋 Copy</button>
-      </div>
-      <pre><code>${cleanCode}</code></pre>
-    </div>`;
+function isSafeImageDataUri(value) {
+  return (
+    typeof value === "string" &&
+    /^data:image\/(?:png|jpe?g|gif|webp|bmp|avif);base64,[A-Za-z0-9+/=\s]+$/i.test(value.trim())
+  );
+}
+
+async function copyToClipboard(text) {
+  const str = String(text == null ? "" : text);
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(str);
+      return true;
+    } catch (_) {}
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = str;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Lightweight safe Markdown renderer (collision-proof slots, dynamic fences, XSS-safe)
+function renderMarkdown(text) {
+  if (!text) return "";
+  const normalized = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  let slotPrefix = "JUPITER_SLOT_";
+  while (normalized.includes(slotPrefix)) {
+    slotPrefix += "X_";
+  }
+  const codeBlocks = [];
+
+  function stashCodeBlock(lang, rawCode) {
+    const language = escapeHtml((lang || "text").trim() || "text");
+    const safeCode = escapeHtml(String(rawCode || "").replace(/^\n+|\n+$/g, ""));
+    const token = `${slotPrefix}CODE_${codeBlocks.length}_END`;
+    codeBlocks.push(
+      `<div class="code-block-container">` +
+        `<div class="code-header">` +
+          `<span>${language}</span>` +
+          `<button type="button" class="code-copy-btn" onclick="copyCodeBlock(this)">📋 Copy</button>` +
+        `</div>` +
+        `<pre><code>${safeCode}</code></pre>` +
+      `</div>`
+    );
+    return token;
+  }
+
+  // 1) Line-by-line fenced code extractor (supports 3+ backtick / ~~~ fences & streaming unclosed fences)
+  const rawLines = normalized.split("\n");
+  const outLines = [];
+  let inFence = false;
+  let fenceChar = "";
+  let fenceLen = 0;
+  let fenceLang = "";
+  let fenceBuf = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (!inFence) {
+      const openM = line.match(/^\s*(`{3,}|~{3,})([^\n]*)$/);
+      if (openM) {
+        inFence = true;
+        fenceChar = openM[1][0];
+        fenceLen = openM[1].length;
+        fenceLang = (openM[2] || "").trim().split(/\s+/)[0] || "text";
+        fenceBuf = [];
+        continue;
+      }
+      outLines.push(line);
+    } else {
+      const closeM = line.match(/^\s*(`{3,}|~{3,})\s*$/);
+      if (closeM && closeM[1][0] === fenceChar && closeM[1].length >= fenceLen) {
+        outLines.push("");
+        outLines.push(stashCodeBlock(fenceLang, fenceBuf.join("\n")));
+        outLines.push("");
+        inFence = false;
+        fenceChar = "";
+        fenceLen = 0;
+        fenceLang = "";
+        fenceBuf = [];
+      } else {
+        fenceBuf.push(line);
+      }
+    }
+  }
+  if (inFence) {
+    outLines.push("");
+    outLines.push(stashCodeBlock(fenceLang, fenceBuf.join("\n")));
+    outLines.push("");
+  }
+
+  // 2) Escape remaining raw HTML
+  let html = escapeHtml(outLines.join("\n"));
+
+  // 3) Extract inline code before bold/italic transforms so `a*b*c` stays intact
+  const inlineCodes = [];
+  html = html.replace(/`([^`\n]+)`/g, (_, code) => {
+    const token = `${slotPrefix}INLINE_${inlineCodes.length}_END`;
+    inlineCodes.push(`<code>${code}</code>`);
+    return token;
   });
 
-  // Inline code: `code`
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-
-  // Bold & Italic
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
-  html = html.replace(/\*([^*]+)\*/g, "<i>$1</i>");
-
-  // Headings
+  // 4) Headings & Unordered/Ordered Lists
   html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
   html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
   html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
+  html = html.replace(/^\s*[-*]\s+(.*$)/gim, "<uli>$1</uli>");
+  html = html.replace(/(?:<uli>[^\n]*<\/uli>\n?)+/g, (block) => `<ul>${block.replace(/\n/g, "").replace(/<\/?uli>/g, (m) => m.replace("uli", "li"))}</ul>`);
+  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, "<oli>$1</oli>");
+  html = html.replace(/(?:<oli>[^\n]*<\/oli>\n?)+/g, (block) => `<ol>${block.replace(/\n/g, "").replace(/<\/?oli>/g, (m) => m.replace("oli", "li"))}</ol>`);
 
-  // Bullet points
-  html = html.replace(/^\s*-\s+(.*$)/gim, "<li>$1</li>");
-  html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+  // 5) Bold & Italic (guards against math like `2 * 3 * 4`)
+  html = html.replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, "<b>$1</b>");
+  html = html.replace(/(^|[^\w*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*(?!\w)/g, "$1<i>$2</i>");
 
-  // Line breaks to paragraphs
+  // 6) Paragraphs
   const paragraphs = html.split(/\n{2,}/);
-  return paragraphs.map(p => {
-    if (p.startsWith("<div") || p.startsWith("<ul") || p.startsWith("<h")) return p;
-    return `<p>${p.replace(/\n/g, "<br/>")}</p>`;
+  html = paragraphs.map((p) => {
+    const trimmed = p.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith(`${slotPrefix}CODE_`) && trimmed.endsWith("_END")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("<ul") || trimmed.startsWith("<ol")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("<h")) {
+      const nlIdx = trimmed.indexOf("\n");
+      if (nlIdx === -1) return trimmed;
+      const heading = trimmed.slice(0, nlIdx);
+      const rest = trimmed.slice(nlIdx + 1).trim();
+      return rest ? `${heading}<p>${rest.replace(/\n/g, "<br/>")}</p>` : heading;
+    }
+    return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
   }).join("");
+
+  // 7) Single-pass restoration (prevents nested/colliding placeholder substitution)
+  const inlineRe = new RegExp(`${slotPrefix}INLINE_(\\d+)_END`, "g");
+  html = html.replace(inlineRe, (_, idx) => inlineCodes[Number(idx)] ?? "");
+  const codeRe = new RegExp(`${slotPrefix}CODE_(\\d+)_END`, "g");
+  html = html.replace(codeRe, (_, idx) => codeBlocks[Number(idx)] ?? "");
+  return html;
 }
 
-function copyCode(btn, encoded) {
-  const code = decodeURIComponent(encoded);
-  navigator.clipboard.writeText(code).then(() => {
+function copyCodeBlock(btn) {
+  const container = btn && btn.closest ? btn.closest(".code-block-container") : null;
+  const codeEl = container ? container.querySelector("pre code") : null;
+  const code = codeEl ? codeEl.textContent : "";
+  copyToClipboard(code).then((ok) => {
+    if (!ok) {
+      showToast("Could not copy to clipboard");
+      return;
+    }
     const orig = btn.innerText;
     btn.innerText = "✓ Copied";
     setTimeout(() => { btn.innerText = orig; }, 2000);
   });
 }
 
+let toastTimeout = null;
 function showToast(msg) {
   const toast = document.getElementById("toast");
-  toast.innerText = msg;
+  if (!toast) return;
+  toast.innerText = String(msg || "");
   toast.classList.add("show");
-  setTimeout(() => { toast.classList.remove("show"); }, 3000);
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { toast.classList.remove("show"); }, 3000);
+}
+
+let latestProviderModels = null;
+let latestCloudStatus = null;
+
+async function loadModels() {
+  try {
+    const res = await fetch("/api/models");
+    if (!res.ok) return;
+    const data = await res.json();
+    latestProviderModels = data;
+    const p = data.providers || {};
+
+    const optHF = document.getElementById("opt-hf");
+    if (optHF && p.hf) {
+      optHF.label = `Hugging Face Cloud ${p.hf.ready ? "● Ready" : "○ (Set HF_TOKEN in .env)"}`;
+    }
+    const optLemonade = document.getElementById("opt-lemonade");
+    if (optLemonade && p.lemonade) {
+      const lModels = Array.isArray(data.lemonade_installed) ? data.lemonade_installed : [];
+      optLemonade.label = p.lemonade.ready
+        ? `AMD Lemonade Server (Ryzen AI ● ${lModels.length} Ready)`
+        : `AMD Lemonade Server (Ryzen AI ○ Offline)`;
+      if (lModels.length > 0) {
+        const existing = new Set(Array.from(optLemonade.querySelectorAll("option")).map((o) => o.value));
+        lModels.forEach((mId) => {
+          const val = `lemonade:${mId}`;
+          if (!existing.has(val)) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = `${mId} (Lemonade Live)`;
+            optLemonade.appendChild(opt);
+          }
+        });
+      }
+    }
+    const optSpark = document.getElementById("opt-spark");
+    if (optSpark) {
+      const sparkReady = Boolean((p.vllm && p.vllm.ready) || (p.flare && p.flare.ready));
+      optSpark.label = `DGX Spark / GB10 Local ${sparkReady ? "● Ready" : "○ (Local vLLM/Flare Offline)"}`;
+    }
+    const optOllama = document.getElementById("opt-ollama");
+    if (optOllama && p.ollama) {
+      const count = Array.isArray(data.ollama_installed) ? data.ollama_installed.length : 0;
+      optOllama.label = p.ollama.ready
+        ? `Local Models (Ollama ● ${count} Installed)`
+        : `Local Models (Ollama ○ Offline)`;
+    }
+  } catch (e) {
+    console.error("Models probe error:", e);
+  }
 }
 
 async function loadStatus() {
   try {
     const res = await fetch("/api/status");
+    if (!res.ok) return;
     const data = await res.json();
-    
+    latestCloudStatus = data.cloud || null;
+    const gpu = data.gpu || {};
+
     // Hardware
-    document.getElementById("hw-name").innerText = data.gpu.device_name || "CPU Mode";
-    const memSuffix = data.gpu.is_unified_memory ? " Unified" : "";
-    document.getElementById("hw-vram").innerText = `${data.gpu.used_vram_mb} / ${data.gpu.total_vram_mb} MB${memSuffix} (${data.gpu.utilization_pct}% Load)`;
-    
+    document.getElementById("hw-name").innerText = gpu.device_name || "CPU Mode";
+    const memSuffix = gpu.is_unified_memory ? " Unified" : "";
+    const usedMb = gpu.used_vram_mb ?? 0;
+    const totalMb = gpu.total_vram_mb ?? 0;
+    const utilPct = gpu.utilization_pct ?? 0;
+    document.getElementById("hw-vram").innerText = `${usedMb} / ${totalMb} MB${memSuffix} (${utilPct}% Load)`;
+
+    const healthEl = document.getElementById("hw-health");
+    if (healthEl && data.health) {
+      const score = data.health.score ?? 100;
+      const grade = data.health.grade || "A";
+      const status = data.health.status || "healthy";
+      healthEl.innerText = `${score}/100 (${grade}) · ${status.toUpperCase()}`;
+      healthEl.style.color = score >= 80 ? "var(--green)" : (score >= 60 ? "var(--orange)" : "var(--red)");
+    }
+
     // Policy
     if (data.policy) {
-      document.getElementById("pol-gate").innerText = `${data.policy.cpu_gate_ms} ms`;
-      document.getElementById("pol-vram").innerText = `${data.policy.local_vram_saved_pct}%`;
-      document.getElementById("pol-cards").innerText = `${data.policy.active_cards} Active`;
+      document.getElementById("pol-gate").innerText = `${data.policy.cpu_gate_ms ?? 0.091} ms`;
+      document.getElementById("pol-vram").innerText = `${data.policy.local_vram_saved_pct ?? 100}%`;
+      document.getElementById("pol-cards").innerText = `${data.policy.active_cards ?? 0} Active`;
     }
 
     // Provider Badges on Dropdown
     const tlConf = data.cloud?.amd_tokenlab?.configured;
     const nvConf = data.cloud?.nvidia_brev?.configured;
     const doConf = data.cloud?.digitalocean_mi300x?.configured;
+    const hfConf = data.cloud?.huggingface?.configured;
 
     const optTL = document.getElementById("opt-tokenlab");
     if (optTL) optTL.label = `AMD Token Lab Cloud ${tlConf ? "● Ready" : "○ (Not Configured)"}`;
-    
+
     const optNV = document.getElementById("opt-nvidia");
     if (optNV) optNV.label = `NVIDIA NIM / Brev Cloud ${nvConf ? "● Ready" : "○ (Set Key in .env)"}`;
 
     const optDO = document.getElementById("opt-digitalocean");
     if (optDO) optDO.label = `DigitalOcean Serverless ${doConf ? "● Ready" : "○ (Set Key in .env)"}`;
 
-  } catch(e) {
+    const optHF = document.getElementById("opt-hf");
+    if (optHF && typeof hfConf === "boolean") {
+      optHF.label = `Hugging Face Cloud ${hfConf ? "● Ready" : "○ (Set HF_TOKEN in .env)"}`;
+    }
+  } catch (e) {
     console.error("Status load error:", e);
   }
 }
@@ -1580,54 +1785,93 @@ async function loadStatus() {
 async function loadWorkspaceFiles() {
   try {
     const res = await fetch("/api/workspace/files");
+    if (!res.ok) return;
     const data = await res.json();
-    workspaceFiles = data.files || [];
+    workspaceFiles = Array.isArray(data.files) ? data.files : [];
+    const availablePaths = new Set(workspaceFiles.map((f) => String(f.rel_path || "")));
+    let pruned = false;
+    for (const selPath of Array.from(selectedWorkspaceSet)) {
+      if (!availablePaths.has(selPath)) {
+        selectedWorkspaceSet.delete(selPath);
+        pruned = true;
+      }
+    }
+    const branchEl = document.getElementById("ws-branch");
+    if (branchEl) {
+      branchEl.innerText = data.git_branch || "workspace";
+    }
     renderWorkspaceFileList();
-  } catch(e) {
+    if (pruned) updateSelectedFilesCount();
+  } catch (e) {
     console.error("Failed to load workspace files:", e);
   }
 }
 
+function onWorkspaceCheckboxChange(cb) {
+  if (cb.checked) {
+    selectedWorkspaceSet.add(cb.value);
+  } else {
+    selectedWorkspaceSet.delete(cb.value);
+  }
+  updateSelectedFilesCount();
+}
+
 function renderWorkspaceFileList() {
   const container = document.getElementById("workspace-file-list");
-  if (!workspaceFiles.length) {
-    container.innerHTML = `<div style="color:var(--muted); padding:4px;">No files found</div>`;
+  if (!container) return;
+  const filterInput = document.getElementById("ws-filter-input");
+  const filterTerm = filterInput ? filterInput.value.trim().toLowerCase() : "";
+  const visible = filterTerm
+    ? workspaceFiles.filter((f) => String(f.rel_path || "").toLowerCase().includes(filterTerm))
+    : workspaceFiles;
+
+  if (!visible.length) {
+    container.innerHTML = `<div style="color:var(--muted); padding:4px;">${workspaceFiles.length ? "No matching files" : "No files found"}</div>`;
     return;
   }
-  container.innerHTML = workspaceFiles.slice(0, 50).map(f => {
+  container.innerHTML = visible.map((f) => {
+    const relPath = String(f.rel_path || "");
+    const safePath = escapeHtml(relPath);
+    const checkedAttr = selectedWorkspaceSet.has(relPath) ? " checked" : "";
     return `<label class="file-item">
-      <input type="checkbox" value="${f.rel_path}" onchange="updateSelectedFilesCount()" />
-      <span title="${f.rel_path}">${f.rel_path}</span>
+      <input type="checkbox" class="ws-file-cb" value="${safePath}"${checkedAttr} onchange="onWorkspaceCheckboxChange(this)" />
+      <span title="${safePath}">${safePath}</span>
     </label>`;
   }).join("");
 }
 
 function updateSelectedFilesCount() {
-  const checked = document.querySelectorAll("#workspace-file-list input[type='checkbox']:checked");
-  document.getElementById("ws-file-count").innerText = `${checked.length} files selected`;
+  const countEl = document.getElementById("ws-file-count");
+  if (countEl) {
+    const n = selectedWorkspaceSet.size;
+    countEl.innerText = `${n} ${n === 1 ? "file" : "files"} selected`;
+  }
+  updateSpeculativeRadar();
 }
 
 function selectCoreFiles() {
   const coreTargets = ["apps/jupiter_studio.py", "src/memoryos/router.py", "src/memoryos/workspace_pack.py", "README.md"];
-  const checkboxes = document.querySelectorAll("#workspace-file-list input[type='checkbox']");
-  checkboxes.forEach(cb => {
-    if (coreTargets.includes(cb.value)) {
-      cb.checked = true;
+  const available = new Set(workspaceFiles.map((f) => f.rel_path));
+  let matched = 0;
+  for (const target of coreTargets) {
+    if (available.has(target)) {
+      selectedWorkspaceSet.add(target);
+      matched++;
     }
-  });
+  }
+  renderWorkspaceFileList();
   updateSelectedFilesCount();
-  showToast("Selected core project files");
+  showToast(matched ? `Selected ${matched} core project files` : "No core files found in current workspace");
 }
 
 function getSelectedFiles() {
-  const checked = document.querySelectorAll("#workspace-file-list input[type='checkbox']:checked");
-  return Array.from(checked).map(cb => cb.value);
+  return Array.from(selectedWorkspaceSet);
 }
 
 async function exportCopilotBundle() {
   const files = getSelectedFiles();
-  const lastUserMsg = chatHistory.filter(m => m.role === "user").slice(-1)[0]?.content || "";
-  const lastAssMsg = chatHistory.filter(m => m.role === "assistant").slice(-1)[0]?.content || "";
+  const lastUserMsg = chatHistory.filter((m) => m.role === "user").slice(-1)[0]?.content || "";
+  const lastAssMsg = chatHistory.filter((m) => m.role === "assistant").slice(-1)[0]?.content || "";
 
   try {
     const res = await fetch("/api/workspace/copilot-bundle", {
@@ -1636,36 +1880,86 @@ async function exportCopilotBundle() {
       body: JSON.stringify({
         goal: lastUserMsg || "Build and optimize features for MemoryOS / Jupiter Studio",
         files: files.length ? files : undefined,
-        advice: lastAssMsg
-      })
+        advice: lastAssMsg,
+      }),
     });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
     if (data.bundle) {
-      await navigator.clipboard.writeText(data.bundle);
-      showToast("📋 Copied complete Context Bundle for Copilot to clipboard!");
+      const copied = await copyToClipboard(data.bundle);
+      showToast(copied ? "📋 Copied complete Context Bundle for Copilot to clipboard!" : "Bundle generated, but clipboard access was blocked.");
     }
-  } catch(e) {
-    alert("Failed to export Copilot bundle: " + e.message);
+  } catch (e) {
+    showToast("Failed to export Copilot bundle: " + e.message);
   }
 }
 
 let currentAttachedImageName = "";
 let uploadedFiles = [];
+const MAX_UPLOADED_FILES = 15;
+const ALLOWED_RASTER_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/avif",
+]);
+
+const BLOCKED_SECRET_NAMES = new Set([
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.production",
+  ".env.staging",
+  ".env.test",
+  "credentials.json",
+  "secrets.json",
+  "token.json",
+  "id_rsa",
+  "id_ed25519",
+  "id_ecdsa",
+  "id_dsa",
+  ".npmrc",
+  ".netrc",
+  ".pypirc",
+  ".htpasswd",
+]);
+const BLOCKED_SECRET_EXTS = [".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kdbx"];
+
+function isSensitiveFilename(name) {
+  const raw = String(name || "");
+  if (raw.includes("\u0000")) return true;
+  const parts = raw.replace(/\\/g, "/").split("/").map((p) => p.trim().replace(/[. ]+$/g, "").toLowerCase()).filter(Boolean);
+  if (parts.includes(".git")) return true;
+  const base = parts.length ? parts[parts.length - 1] : "";
+  if (!base) return false;
+  return (
+    BLOCKED_SECRET_NAMES.has(base) ||
+    base.endsWith(".env") ||
+    (base.startsWith(".env.") && base !== ".env.example") ||
+    BLOCKED_SECRET_EXTS.some((ext) => base.endsWith(ext))
+  );
+}
 
 function renderAttachmentPreview() {
   const preview = document.getElementById("attachment-preview");
   const chips = [];
   if (currentAttachedImage) {
+    const safeImgName = escapeHtml(currentAttachedImageName || "Image");
     chips.push(`
       <div class="attachment-chip">
-        <span>🖼️ ${currentAttachedImageName || "Image"}</span>
+        <span>🖼️ ${safeImgName}</span>
         <span class="remove-btn" onclick="removeAttachedImage()">✕</span>
       </div>
     `);
   }
   uploadedFiles.forEach((f, idx) => {
     const kb = Math.max(1, Math.round((f.size || f.content.length) / 1024));
-    const safeName = f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const safeName = escapeHtml(f.name);
     chips.push(`
       <div class="attachment-chip">
         <span>📄 ${safeName} (${kb} KB)</span>
@@ -1680,43 +1974,57 @@ function renderAttachmentPreview() {
     preview.style.display = "none";
     preview.innerHTML = "";
   }
+  updateSpeculativeRadar();
 }
 
-function handleImageSelected(e) {
-  const file = e.target.files[0];
+function attachRasterImageFile(file) {
   if (!file) return;
+  const mime = String(file.type || "").toLowerCase();
+  if (!ALLOWED_RASTER_IMAGE_TYPES.has(mime)) {
+    showToast(`⚠️ Skipped ${file.name}: only PNG, JPG, GIF, WebP, BMP, or AVIF images are supported`);
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    showToast(`⚠️ Skipped ${file.name}: image exceeds 8 MB limit`);
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(evt) {
-    currentAttachedImage = evt.target.result;
+    const result = evt.target && evt.target.result;
+    if (!isSafeImageDataUri(result)) {
+      showToast(`⚠️ Rejected ${file.name}: invalid raster image data`);
+      return;
+    }
+    currentAttachedImage = result;
     currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
     renderAttachmentPreview();
   };
+  reader.onerror = function() {
+    showToast(`⚠️ Could not read image ${file.name}`);
+  };
   reader.readAsDataURL(file);
+}
+
+function handleImageSelected(e) {
+  const file = e.target.files && e.target.files[0];
+  if (file) attachRasterImageFile(file);
+  e.target.value = "";
 }
 
 function addFilesFromList(fileList) {
   const files = Array.from(fileList || []);
   for (const file of files) {
     if (file.type && file.type.startsWith("image/")) {
-      const imgReader = new FileReader();
-      imgReader.onload = function(evt) {
-        currentAttachedImage = evt.target.result;
-        currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
-        renderAttachmentPreview();
-      };
-      imgReader.readAsDataURL(file);
+      attachRasterImageFile(file);
       continue;
     }
-    const lowerName = (file.name || "").toLowerCase();
-    if (
-      lowerName === ".env" ||
-      (lowerName.startsWith(".env.") && lowerName !== ".env.example") ||
-      lowerName.endsWith(".pem") ||
-      lowerName.endsWith(".key") ||
-      lowerName === "credentials.json"
-    ) {
+    if (isSensitiveFilename(file.name)) {
       showToast(`🔒 Blocked ${file.name}: secret files are never sent to cloud models`);
       continue;
+    }
+    if (uploadedFiles.length >= MAX_UPLOADED_FILES) {
+      showToast(`⚠️ Upload limit reached (max ${MAX_UPLOADED_FILES} files per turn)`);
+      break;
     }
     if (file.size > 2 * 1024 * 1024) {
       showToast(`⚠️ Skipped ${file.name}: exceeds 2 MB upload limit`);
@@ -1724,10 +2032,21 @@ function addFilesFromList(fileList) {
     }
     const reader = new FileReader();
     reader.onload = function(evt) {
-      const content = String(evt.target.result || "");
+      const content = String(evt.target && evt.target.result || "");
+      if (content.slice(0, 8192).includes("\u0000")) {
+        showToast(`⚠️ Skipped ${file.name}: binary file cannot be attached as text`);
+        return;
+      }
+      if (uploadedFiles.length >= MAX_UPLOADED_FILES) {
+        showToast(`⚠️ Upload limit reached (max ${MAX_UPLOADED_FILES} files per turn)`);
+        return;
+      }
       uploadedFiles.push({ name: file.name, size: file.size, content: content });
       renderAttachmentPreview();
       showToast(`📎 Uploaded ${file.name}`);
+    };
+    reader.onerror = function() {
+      showToast(`⚠️ Could not read ${file.name}`);
     };
     reader.readAsText(file);
   }
@@ -1803,6 +2122,10 @@ function onTargetChange() {
     badge.innerText = "HUGGING FACE";
     badge.className = "badge";
     desc.innerText = sel.value.replace("hf:", "") + " (Zero-Download Serverless Router)";
+  } else if (sel.value.startsWith("lemonade:")) {
+    badge.innerText = "LEMONADE NPU";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("lemonade:", "") + " (AMD Lemonade / FastFlowLM)";
   } else if (sel.value.startsWith("vllm:")) {
     badge.innerText = "LOCAL vLLM";
     badge.className = "badge";
@@ -1816,9 +2139,11 @@ function onTargetChange() {
     badge.className = "badge";
     desc.innerText = sel.value.replace("ollama:", "") + " (Local Host)";
   }
+  updateSpeculativeRadar();
 }
 
 function clearChat() {
+  stopGeneration();
   chatHistory = [];
   const log = document.getElementById("chat-log");
   log.innerHTML = `
@@ -1846,8 +2171,27 @@ function stopGeneration() {
 
 function setRunningState(running) {
   isGenerating = running;
-  document.getElementById("run-btn").style.display = running ? "none" : "block";
-  document.getElementById("stop-btn").style.display = running ? "block" : "none";
+  document.getElementById("run-btn").style.display = running ? "none" : "";
+  document.getElementById("stop-btn").style.display = running ? "" : "none";
+}
+
+function parseSseBlock(block) {
+  const evLines = block.split("\n");
+  let evType = "delta";
+  const dataLines = [];
+  for (const el of evLines) {
+    if (el.startsWith("event:")) {
+      evType = el.slice(6).trim();
+    } else if (el.startsWith("data:")) {
+      dataLines.push(el.slice(5).trim());
+    }
+  }
+  if (!dataLines.length) return null;
+  try {
+    return { evType, parsed: JSON.parse(dataLines.join("\n")) };
+  } catch (_) {
+    return null;
+  }
 }
 
 async function sendPrompt() {
@@ -1863,20 +2207,22 @@ async function sendPrompt() {
   const chatLog = document.getElementById("chat-log");
   const selectedFiles = getSelectedFiles();
   const filesToUpload = uploadedFiles.slice();
+  const attachedImg = currentAttachedImage;
 
-  // Append user message
+  // Append user message (all fields strictly escaped)
   const uMsg = document.createElement("div");
   uMsg.className = "msg user";
-  let userHtml = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  if (currentAttachedImage) {
-    userHtml += `<br/><img src="${currentAttachedImage}" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
+  let userHtml = escapeHtml(text).replace(/\n/g, "<br/>");
+  if (isSafeImageDataUri(attachedImg)) {
+    userHtml += `<br/><img src="${escapeHtml(attachedImg)}" alt="Attached screenshot" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
   }
   if (filesToUpload.length) {
-    const names = filesToUpload.map(f => f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    const names = filesToUpload.map((f) => escapeHtml(f.name));
     userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${names.join(", ")}</div>`;
   }
   if (selectedFiles.length) {
-    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${selectedFiles.join(", ")}</div>`;
+    const safeSel = selectedFiles.map((p) => escapeHtml(p));
+    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${safeSel.join(", ")}</div>`;
   }
   uMsg.innerHTML = userHtml;
   chatLog.appendChild(uMsg);
@@ -1884,31 +2230,25 @@ async function sendPrompt() {
   input.value = "";
   chatLog.scrollTop = chatLog.scrollHeight;
 
-  // Add Assistant Response Container
+  // Add Assistant Response Container (<details> makes <summary> collapsible)
   const aMsg = document.createElement("div");
   aMsg.className = "msg assistant";
   const tagClass = target.startsWith("auto:") ? "meta-auto" : (target.startsWith("ollama:") ? "meta-local" : "meta-cloud");
   aMsg.innerHTML = `
-    <div class="meta-tag ${tagClass}" id="cur-meta">CONNECTING...</div>
-    <div class="reasoning-box" id="cur-reasoning-box" style="display:none;">
-      <summary id="cur-reasoning-summary">Thinking Process...</summary>
-      <div class="reasoning-content" id="cur-reasoning-content"></div>
-    </div>
-    <div class="md-body" id="cur-content">Generating response...</div>
+    <div class="meta-tag ${tagClass}" data-role="meta">CONNECTING...</div>
+    <details class="reasoning-box" data-role="reasoning-box" style="display:none;" open>
+      <summary>Thinking Process...</summary>
+      <div class="reasoning-content" data-role="reasoning-content"></div>
+    </details>
+    <div class="md-body" data-role="content">Generating response...</div>
   `;
   chatLog.appendChild(aMsg);
   chatLog.scrollTop = chatLog.scrollHeight;
 
-  const metaEl = aMsg.querySelector("#cur-meta");
-  const reasoningBox = aMsg.querySelector("#cur-reasoning-box");
-  const reasoningContent = aMsg.querySelector("#cur-reasoning-content");
-  const contentEl = aMsg.querySelector("#cur-content");
-
-  // Remove temporary IDs
-  metaEl.removeAttribute("id");
-  reasoningBox.removeAttribute("id");
-  reasoningContent.removeAttribute("id");
-  contentEl.removeAttribute("id");
+  const metaEl = aMsg.querySelector('[data-role="meta"]');
+  const reasoningBox = aMsg.querySelector('[data-role="reasoning-box"]');
+  const reasoningContent = aMsg.querySelector('[data-role="reasoning-content"]');
+  const contentEl = aMsg.querySelector('[data-role="content"]');
 
   setRunningState(true);
   currentAbortController = new AbortController();
@@ -1924,12 +2264,13 @@ async function sendPrompt() {
 
   let accumulatedContent = "";
   let accumulatedReasoning = "";
+  let hadError = false;
 
   const payload = {
     prompt: text,
     target: target,
     history: chatHistory.slice(-8),
-    image_base64: currentAttachedImage,
+    image_base64: attachedImg,
     workspace_files: selectedFiles,
     uploaded_files: filesToUpload,
   };
@@ -1944,8 +2285,8 @@ async function sendPrompt() {
       signal: currentAbortController.signal,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (!response.ok || !response.body) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText || "Request failed"}`);
     }
 
     const reader = response.body.getReader();
@@ -1953,79 +2294,84 @@ async function sendPrompt() {
     let buffer = "";
     let streamFinished = false;
 
+    const processChunk = (block) => {
+      if (!block.trim()) return;
+      const evt = parseSseBlock(block);
+      if (!evt) return;
+      const { evType, parsed } = evt;
+
+      if (evType === "start") {
+        metaEl.innerText = `${parsed.model_used || "STREAMING"} [${parsed.provider || "Active"}]`;
+        if (contentEl.innerText.startsWith("Generating response")) {
+          contentEl.innerHTML = "";
+        }
+      } else if (evType === "reasoning") {
+        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+        accumulatedReasoning += parsed.delta || "";
+        reasoningBox.style.display = "block";
+        reasoningContent.innerText = accumulatedReasoning;
+      } else if (evType === "delta") {
+        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+        if (contentEl.innerText.startsWith("Generating response")) {
+          contentEl.innerHTML = "";
+        }
+        accumulatedContent += parsed.delta || "";
+        contentEl.innerHTML = renderMarkdown(accumulatedContent);
+      } else if (evType === "done") {
+        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+        metaEl.innerText = `${parsed.model_used || target} (${parsed.latency_ms || 0} ms)`;
+        contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(No response text)");
+        streamFinished = true;
+      } else if (evType === "error") {
+        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+        hadError = true;
+        metaEl.className = "meta-tag meta-error";
+        metaEl.innerText = "ERROR";
+        contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${escapeHtml(parsed.error || "Unknown error")}</div>`;
+        streamFinished = true;
+      }
+    };
+
     while (!streamFinished) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        buffer = (buffer + decoder.decode()).replace(/\r\n/g, "\n");
+        break;
+      }
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
       const lines = buffer.split("\n\n");
-      buffer = lines.pop(); // Keep remaining incomplete chunk
+      buffer = lines.pop();
 
       for (const line of lines) {
-        if (!line.trim()) continue;
-        const evLines = line.split("\n");
-        let evType = "delta";
-        let evData = "";
-
-        for (const el of evLines) {
-          if (el.startsWith("event:")) {
-            evType = el.replace("event:", "").trim();
-          } else if (el.startsWith("data:")) {
-            evData = el.replace("data:", "").trim();
-          }
-        }
-
-        if (!evData) continue;
-        const parsed = JSON.parse(evData);
-
-        if (evType === "start") {
-          metaEl.innerText = `${parsed.model_used || "STREAMING"} [${parsed.provider || "Active"}]`;
-          if (contentEl.innerText.startsWith("Generating response")) {
-            contentEl.innerHTML = "";
-          }
-        } else if (evType === "reasoning") {
-          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-          accumulatedReasoning += parsed.delta || "";
-          reasoningBox.style.display = "block";
-          reasoningContent.innerText = accumulatedReasoning;
-        } else if (evType === "delta") {
-          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-          if (contentEl.innerText.startsWith("Generating response")) {
-            contentEl.innerHTML = "";
-          }
-          accumulatedContent += parsed.delta || "";
-          contentEl.innerHTML = renderMarkdown(accumulatedContent);
-        } else if (evType === "done") {
-          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-          metaEl.innerText = `${parsed.model_used || target} (${parsed.latency_ms || 0} ms)`;
-          contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(No response text)");
-          streamFinished = true;
-          break;
-        } else if (evType === "error") {
-          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-          metaEl.className = "meta-tag meta-error";
-          metaEl.innerText = "ERROR";
-          contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${parsed.error}</div>`;
-          streamFinished = true;
-          break;
-        }
+        processChunk(line);
+        if (streamFinished) break;
       }
       chatLog.scrollTop = chatLog.scrollHeight;
     }
+
+    if (!streamFinished && buffer.trim()) {
+      for (const tail of buffer.split("\n\n")) {
+        processChunk(tail);
+        if (streamFinished) break;
+      }
+    }
     try { await reader.cancel(); } catch (_) {}
 
-    // Save to multi-turn conversation history
-    chatHistory.push({ role: "user", content: text });
-    chatHistory.push({ role: "assistant", content: accumulatedContent });
+    // Only persist successful turns to multi-turn history
+    if (!hadError && accumulatedContent) {
+      chatHistory.push({ role: "user", content: text });
+      chatHistory.push({ role: "assistant", content: accumulatedContent });
+    }
 
-  } catch(err) {
+  } catch (err) {
     if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-    if (err.name === "AbortError") {
+    if (err && err.name === "AbortError") {
       metaEl.innerText += " (Stopped)";
     } else {
       metaEl.className = "meta-tag meta-error";
       metaEl.innerText = "CALL FAILED";
-      contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${err.message}</div>`;
+      contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${escapeHtml(err ? err.message : "Unknown error")}</div>`;
     }
   } finally {
     if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
@@ -2037,12 +2383,15 @@ async function sendPrompt() {
 
 // Init on load
 loadStatus();
+loadModels();
 loadWorkspaceFiles();
 setInterval(loadStatus, 5000);
+setInterval(loadModels, 30000);
 
 /* ── 1. THEME SWITCHER (QUANTUM / RADEON / ATARI B&W) ────────────────── */
 function setStudioTheme(theme) {
   if (theme === "daylight") theme = "atari";
+  if (!["quantum", "radeon", "atari"].includes(theme)) theme = "quantum";
   document.documentElement.setAttribute("data-studio-theme", theme);
   document.querySelectorAll(".theme-pill-btn").forEach((b) => {
     b.classList.toggle("active", b.getAttribute("data-t") === theme);
@@ -2120,8 +2469,8 @@ async function updateSpeculativeRadar() {
   if (!input) return;
   const text = input.value || "";
   quantumPulse = Math.min(1.0, quantumPulse + 0.25);
-  const extraChars = (typeof currentUploadedFiles !== "undefined" ? currentUploadedFiles : []).reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
-  const fileCount = (typeof currentUploadedFiles !== "undefined" ? currentUploadedFiles.length : 0) + document.querySelectorAll(".ws-file-cb:checked").length;
+  const extraChars = uploadedFiles.reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
+  const fileCount = uploadedFiles.length + selectedWorkspaceSet.size;
   try {
     const res = await fetch("/api/speculate", {
       method: "POST",
@@ -2133,9 +2482,10 @@ async function updateSpeculativeRadar() {
         extra_chars: extraChars,
       }),
     });
+    if (!res.ok) return;
     const d = await res.json();
     const pct = (Number(d.p_offload || 0.88) * 100).toFixed(1);
-    const latStr = Number(d.mlp_latency_us) >= 1000 ? `${(Number(d.mlp_latency_us)/1000).toFixed(2)} ms` : `${Number(d.mlp_latency_us).toFixed(1)} μs`;
+    const latStr = Number(d.mlp_latency_us) >= 1000 ? `${(Number(d.mlp_latency_us) / 1000).toFixed(2)} ms` : `${Number(d.mlp_latency_us).toFixed(1)} μs`;
     document.getElementById("rad-mlp").innerText = `${pct}% · ${latStr}`;
     const barEl = document.getElementById("rad-mlp-bar");
     if (barEl) barEl.style.width = `${Math.max(4, Math.min(100, Number(pct)))}%`;
@@ -2160,12 +2510,49 @@ setTimeout(updateSpeculativeRadar, 400);
 
 /* ── 4. DUAL-MODEL SPLIT ARENA SHOOTOUT ──────────────────────────────── */
 let dualArenaEnabled = false;
-function useStarter(txt) { const el = document.getElementById("prompt-input"); el.value = txt; updateSpeculativeRadar(); sendPrompt(); }
-function toggleDualArena() {
-  dualArenaEnabled = !dualArenaEnabled;
+const ARENA_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>';
+
+function setDualArena(enabled) {
+  dualArenaEnabled = Boolean(enabled);
   const btn = document.getElementById("btn-arena");
+  if (!btn) return;
   btn.classList.toggle("active", dualArenaEnabled);
-  btn.innerText = dualArenaEnabled ? "⚔️ Arena: ON (2x Live)" : "⚔️ Dual Arena";
+  btn.innerHTML = dualArenaEnabled ? `${ARENA_ICON_SVG} Arena: ON (2x Live)` : `${ARENA_ICON_SVG} Dual Arena`;
+}
+
+function toggleDualArena() {
+  setDualArena(!dualArenaEnabled);
+}
+
+function useStarter(txt) {
+  const el = document.getElementById("prompt-input");
+  el.value = txt;
+  updateSpeculativeRadar();
+  sendPrompt();
+}
+
+function pickArenaChallenger(primaryTarget) {
+  if (primaryTarget.startsWith("nv:")) {
+    return primaryTarget === "nv:qwen/qwen2.5-coder-32b-instruct"
+      ? "nv:meta/llama-3.3-70b-instruct"
+      : "nv:qwen/qwen2.5-coder-32b-instruct";
+  }
+  if (primaryTarget.startsWith("do:")) {
+    return primaryTarget === "do:Qwen/Qwen2.5-Coder-32B-Instruct"
+      ? "do:meta-llama/Llama-3.3-70B-Instruct"
+      : "do:Qwen/Qwen2.5-Coder-32B-Instruct";
+  }
+  if (primaryTarget.startsWith("hf:")) {
+    return primaryTarget === "hf:Qwen/Qwen2.5-72B-Instruct"
+      ? "hf:meta-llama/Llama-3.3-70B-Instruct"
+      : "hf:Qwen/Qwen2.5-72B-Instruct";
+  }
+  if (primaryTarget.startsWith("ollama:")) {
+    return primaryTarget === "ollama:qwen2.5-coder:7b"
+      ? "ollama:deepseek-r1:7b"
+      : "ollama:qwen2.5-coder:7b";
+  }
+  return primaryTarget === "cloud:Qwen3.8-27B" ? "cloud:Gemma-4-31B-IT" : "cloud:Qwen3.8-27B";
 }
 
 const _origSendPrompt = sendPrompt;
@@ -2175,19 +2562,32 @@ sendPrompt = async function() {
   }
   if (isGenerating) return;
   const input = document.getElementById("prompt-input");
-  const text = input.value.trim();
-  if (!text) return;
+  let text = input.value.trim();
+  if (!text && !currentAttachedImage && !uploadedFiles.length) return;
+  if (!text) {
+    text = uploadedFiles.length ? "Analyze the uploaded file(s)." : "Analyze the attached image.";
+  }
 
   const primaryTarget = document.getElementById("target-selector").value;
-  const challengerTarget = primaryTarget === "cloud:Qwen3.8-27B" ? "cloud:MiniCPM5-2B" : "cloud:Qwen3.8-27B";
-  const selectedFiles = Array.from(document.querySelectorAll(".ws-file-cb:checked")).map((cb) => cb.value);
-  const filesToUpload = (typeof currentUploadedFiles !== "undefined" ? currentUploadedFiles : []).slice();
+  const challengerTarget = pickArenaChallenger(primaryTarget);
+  const selectedFiles = getSelectedFiles();
+  const filesToUpload = uploadedFiles.slice();
   const imgData = currentAttachedImage;
 
   const chatLog = document.getElementById("chat-log");
   const uMsg = document.createElement("div");
   uMsg.className = "msg user";
-  uMsg.innerHTML = `<div class="meta-tag" style="background:rgba(255,255,255,0.12);">⚔️ DUAL ARENA PROMPT</div><div>${text.replace(/</g, "&lt;")}</div>`;
+  let userHtml = `<div class="meta-tag" style="background:rgba(255,255,255,0.12);">⚔️ DUAL ARENA PROMPT</div><div>${escapeHtml(text).replace(/\n/g, "<br/>")}</div>`;
+  if (isSafeImageDataUri(imgData)) {
+    userHtml += `<br/><img src="${imgData}" alt="Attached screenshot" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
+  }
+  if (filesToUpload.length) {
+    userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${filesToUpload.map((f) => escapeHtml(f.name)).join(", ")}</div>`;
+  }
+  if (selectedFiles.length) {
+    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${selectedFiles.map((p) => escapeHtml(p)).join(", ")}</div>`;
+  }
+  uMsg.innerHTML = userHtml;
   chatLog.appendChild(uMsg);
   input.value = "";
   clearAllAttachments();
@@ -2200,13 +2600,21 @@ sendPrompt = async function() {
       ⚔️ LIVE SPLIT-BRAIN ARENA SHOOTOUT // ZERO LOCAL VRAM
     </div>
     <div class="arena-grid">
-      <div class="arena-col" id="arena-left">
-        <span class="meta-tag meta-auto" data-role="meta">${primaryTarget} [Streaming...]</span>
+      <div class="arena-col" data-side="left">
+        <span class="meta-tag meta-auto" data-role="meta">${escapeHtml(primaryTarget)} [Streaming...]</span>
+        <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
+          <summary>Thinking Process...</summary>
+          <div class="reasoning-content" data-role="reasoning-content"></div>
+        </details>
         <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for primary stream...</div>
         <button class="arena-keep-btn" data-role="keep" style="display:none;">✓ Keep Left Reply</button>
       </div>
-      <div class="arena-col" id="arena-right">
-        <span class="meta-tag meta-cloud" data-role="meta">${challengerTarget} [Streaming...]</span>
+      <div class="arena-col" data-side="right">
+        <span class="meta-tag meta-cloud" data-role="meta">${escapeHtml(challengerTarget)} [Streaming...]</span>
+        <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
+          <summary>Thinking Process...</summary>
+          <div class="reasoning-content" data-role="reasoning-content"></div>
+        </details>
         <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for challenger stream...</div>
         <button class="arena-keep-btn" data-role="keep" style="display:none;">✓ Keep Right Reply</button>
       </div>
@@ -2220,9 +2628,12 @@ sendPrompt = async function() {
 
   async function runColumn(colEl, targetModel) {
     const metaEl = colEl.querySelector('[data-role="meta"]');
+    const reasoningBox = colEl.querySelector('[data-role="reasoning-box"]');
+    const reasoningContent = colEl.querySelector('[data-role="reasoning-content"]');
     const contentEl = colEl.querySelector('[data-role="content"]');
     const keepBtn = colEl.querySelector('[data-role="keep"]');
     let acc = "";
+    let accReasoning = "";
     const t0 = performance.now();
     try {
       const res = await fetch("/api/chat/stream", {
@@ -2238,63 +2649,86 @@ sendPrompt = async function() {
           uploaded_files: filesToUpload,
         }),
       });
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText || "Request failed"}`);
+      }
       const reader = res.body.getReader();
       const dec = new TextDecoder("utf-8");
       let buf = "", doneFlag = false;
+
+      const handlePart = (part) => {
+        if (!part.trim()) return;
+        const evt = parseSseBlock(part);
+        if (!evt) return;
+        const { evType: ev, parsed: p } = evt;
+        if (ev === "start") {
+          metaEl.innerText = `${p.model_used || targetModel} [${p.provider || "LIVE"}]`;
+        } else if (ev === "reasoning") {
+          accReasoning += p.delta || "";
+          if (reasoningBox && reasoningContent) {
+            reasoningBox.style.display = "block";
+            reasoningContent.innerText = accReasoning;
+          }
+        } else if (ev === "delta") {
+          quantumPulse = 0.9;
+          acc += p.delta || "";
+          contentEl.style.color = "";
+          contentEl.innerHTML = renderMarkdown(acc);
+        } else if (ev === "done") {
+          const ms = Math.round(p.latency_ms || (performance.now() - t0));
+          const winnerLabel = p.model_used || targetModel;
+          metaEl.innerText = `${winnerLabel} (${ms} ms)`;
+          contentEl.style.color = "";
+          contentEl.innerHTML = renderMarkdown(acc || "(No response text)");
+          keepBtn.style.display = "inline-block";
+          keepBtn.onclick = () => {
+            chatHistory.push({ role: "user", content: text });
+            chatHistory.push({ role: "assistant", content: acc });
+            aMsg.innerHTML = `<span class="meta-tag meta-local">✓ ARENA WINNER: ${escapeHtml(winnerLabel)} (${ms} ms)</span><div class="md-body">${renderMarkdown(acc)}</div>`;
+          };
+          doneFlag = true;
+        } else if (ev === "error") {
+          metaEl.className = "meta-tag meta-error";
+          metaEl.innerText = "ERROR";
+          contentEl.innerHTML = `<span style="color:var(--red); font-family:monospace;">${escapeHtml(p.error || "Unknown error")}</span>`;
+          doneFlag = true;
+        }
+      };
+
       while (!doneFlag) {
         const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
+        if (done) {
+          buf += dec.decode();
+          break;
+        }
+        buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
         const parts = buf.split("\n\n");
         buf = parts.pop();
         for (const part of parts) {
-          let ev = "delta", dat = "";
-          for (const l of part.split("\n")) {
-            if (l.startsWith("event:")) ev = l.slice(6).trim();
-            else if (l.startsWith("data:")) dat = l.slice(5).trim();
-          }
-          if (!dat) continue;
-          const p = JSON.parse(dat);
-          if (ev === "start") {
-            metaEl.innerText = `${p.model_used || targetModel} [${p.provider || "LIVE"}]`;
-          } else if (ev === "delta") {
-            quantumPulse = 0.9;
-            acc += p.delta || "";
-            contentEl.style.color = "";
-            contentEl.innerHTML = renderMarkdown(acc);
-          } else if (ev === "done") {
-            const ms = Math.round(p.latency_ms || (performance.now() - t0));
-            metaEl.innerText = `${p.model_used || targetModel} (${ms} ms)`;
-            contentEl.style.color = "";
-            contentEl.innerHTML = renderMarkdown(acc || "(No response text)");
-            keepBtn.style.display = "inline-block";
-            keepBtn.onclick = () => {
-              chatHistory.push({ role: "user", content: text });
-              chatHistory.push({ role: "assistant", content: acc });
-              aMsg.innerHTML = `<span class="meta-tag meta-local">✓ ARENA WINNER: ${p.model_used || targetModel} (${ms} ms)</span><div class="md-body">${renderMarkdown(acc)}</div>`;
-            };
-            doneFlag = true;
-            break;
-          } else if (ev === "error") {
-            metaEl.className = "meta-tag meta-error";
-            metaEl.innerText = "ERROR";
-            contentEl.innerHTML = `<span style="color:var(--red); font-family:monospace;">${p.error}</span>`;
-            doneFlag = true;
-            break;
-          }
+          handlePart(part);
+          if (doneFlag) break;
         }
         chatLog.scrollTop = chatLog.scrollHeight;
       }
+      if (!doneFlag && buf.trim()) {
+        handlePart(buf);
+      }
       try { await reader.cancel(); } catch (_) {}
     } catch (e) {
-      metaEl.innerText += " (Stopped)";
+      if (e && e.name === "AbortError") {
+        metaEl.innerText += " (Stopped)";
+      } else {
+        metaEl.className = "meta-tag meta-error";
+        metaEl.innerText = "CALL FAILED";
+        contentEl.innerHTML = `<span style="color:var(--red); font-family:monospace;">${escapeHtml(e ? e.message : "Unknown error")}</span>`;
+      }
     }
   }
 
   try {
     await Promise.all([
-      runColumn(aMsg.querySelector("#arena-left"), primaryTarget),
-      runColumn(aMsg.querySelector("#arena-right"), challengerTarget),
+      runColumn(aMsg.querySelector('[data-side="left"]'), primaryTarget),
+      runColumn(aMsg.querySelector('[data-side="right"]'), challengerTarget),
     ]);
   } finally {
     setRunningState(false);
