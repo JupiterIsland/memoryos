@@ -48,12 +48,16 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_cards (
     user_dismissed INTEGER DEFAULT 0,
     user_archived INTEGER DEFAULT 0,
     user_actioned INTEGER DEFAULT 0,
+    state TEXT DEFAULT 'TRIGGERED',
     created_at TEXT,
     expires_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_cards_user_active
     ON quiet_advisor_cards(user_id, user_dismissed, user_archived);
+
+CREATE INDEX IF NOT EXISTS idx_cards_user_state_expires
+    ON quiet_advisor_cards(user_id, state, expires_at);
 
 CREATE TABLE IF NOT EXISTS quiet_advisor_card_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +68,9 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_card_actions (
     created_at TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_card_actions_card_user
+    ON quiet_advisor_card_actions(card_id, user_id);
+
 CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
     user_id TEXT PRIMARY KEY,
     card_type_preferences TEXT NOT NULL
@@ -72,6 +79,12 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
 CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
     export_hash TEXT PRIMARY KEY,
     ingested_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS kv_store (

@@ -8,11 +8,58 @@ to users about their inference patterns.
 
 import hashlib
 import json
+import logging
+import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Tuple, Union
 from enum import Enum
+
+logger = logging.getLogger("quiet_advisor.detectors")
+
+
+def _log_json(level: int, event: str, **fields: Any) -> None:
+    """Emit structured JSON log records using Python stdlib logging."""
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "component": "quiet_advisor",
+        "event": event,
+        **fields,
+    }
+    logger.log(level, json.dumps(record, default=str))
+
+
+class CircuitBreaker:
+    """Lightweight zero-dependency circuit breaker for detectors and external APIs."""
+
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
+        self.failure_threshold = max(1, int(failure_threshold))
+        self.cooldown_seconds = max(0.0, float(cooldown_seconds))
+        self._failures = 0
+        self._opened_at: Optional[float] = None
+
+    def state(self, now: Optional[float] = None) -> str:
+        ts = time.monotonic() if now is None else now
+        if self._opened_at is None:
+            return "closed"
+        if (ts - self._opened_at) >= self.cooldown_seconds:
+            return "half_open"
+        return "open"
+
+    def allow_request(self, now: Optional[float] = None) -> bool:
+        return self.state(now=now) != "open"
+
+    def record_success(self) -> None:
+        self._failures = 0
+        self._opened_at = None
+
+    def record_failure(self, now: Optional[float] = None) -> str:
+        ts = time.monotonic() if now is None else now
+        self._failures += 1
+        if self._failures >= self.failure_threshold:
+            self._opened_at = ts
+        return self.state(now=ts)
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "memory" / "checkpoints"
@@ -903,9 +950,9 @@ def ingest_tokenlab_export(
 
 
 class QuietAdvisorEngine:
-    """Main orchestrator for Quiet Advisor detection."""
+    """Main orchestrator for Quiet Advisor detection with per-detector circuit breakers."""
 
-    def __init__(self):
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
         self.detectors = [
             VRAMThrashingDetector(),
             ThermalThrottlingDetector(),
@@ -915,6 +962,17 @@ class QuietAdvisorEngine:
             AnomalyDetector(),
             NVMeCheckpointDetector(),
         ]
+        self._failure_threshold = failure_threshold
+        self._cooldown_seconds = cooldown_seconds
+        self._breakers: Dict[str, CircuitBreaker] = {}
+
+    def _get_breaker(self, name: str) -> CircuitBreaker:
+        if name not in self._breakers:
+            self._breakers[name] = CircuitBreaker(
+                failure_threshold=self._failure_threshold,
+                cooldown_seconds=self._cooldown_seconds,
+            )
+        return self._breakers[name]
 
     @staticmethod
     def compute_workstation_health(
@@ -925,16 +983,29 @@ class QuietAdvisorEngine:
     
     def detect_patterns(self, inferences: List[InferenceLog], 
                        user_preferences: Dict = None) -> List[DetectedInsight]:
-        """Run all detectors and return ranked insights"""
+        """Run all detectors with circuit-breaker isolation and return ranked insights."""
         insights = []
         
         for detector in self.detectors:
+            det_name = detector.__class__.__name__
+            breaker = self._get_breaker(det_name)
+            if not breaker.allow_request():
+                _log_json(logging.WARNING, "detector_circuit_open", detector=det_name)
+                continue
             try:
                 insight = detector.detect(inferences)
+                breaker.record_success()
                 if insight:
                     insights.append(insight)
             except Exception as e:
-                print(f"Detector {detector.__class__.__name__} failed: {e}")
+                cb_state = breaker.record_failure()
+                _log_json(
+                    logging.ERROR,
+                    "detector_failed",
+                    detector=det_name,
+                    error=str(e),
+                    circuit_state=cb_state,
+                )
                 continue
         
         # Rank by score

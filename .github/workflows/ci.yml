@@ -1,0 +1,45 @@
+name: MemoryOS CI
+
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+    branches: [main, beta]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Syntax check core modules
+        run: |
+          python3 -m py_compile \
+            quiet_advisor_detectors.py \
+            quiet_advisor_scheduler.py \
+            apps/jupiter_studio.py \
+            apps/jupiter_studio_ui.py \
+            src/memoryos/quiet_advisor_db.py \
+            src/memoryos/speculative_offload.py \
+            src/memoryos/gpu_backends.py
+
+      - name: Run unit test suite
+        env:
+          PYTHONPATH: .
+        run: |
+          python3 -B -m unittest \
+            tests/test_quiet_advisor_detectors.py \
+            tests/test_jupiter_studio.py \
+            tests/test_speculative_offload.py \
+            tests/test_nvidia_telemetry_safety.py \
+            -v

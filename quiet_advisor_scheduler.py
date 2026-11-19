@@ -8,10 +8,38 @@ This module logs every inference and runs daily pattern detection
 import asyncio
 import json
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Optional, Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class CardState(str, Enum):
+    """Alert card lifecycle states preventing duplicate notifications."""
+
+    PENDING = "PENDING"
+    TRIGGERED = "TRIGGERED"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    RESOLVED = "RESOLVED"
+
+
+VALID_STATE_TRANSITIONS = {
+    CardState.PENDING: {CardState.TRIGGERED, CardState.RESOLVED},
+    CardState.TRIGGERED: {CardState.ACKNOWLEDGED, CardState.RESOLVED},
+    CardState.ACKNOWLEDGED: {CardState.RESOLVED},
+    CardState.RESOLVED: set(),
+}
+
+
+def can_transition_card_state(current: str, target: str) -> bool:
+    """Return True if transitioning a card from current -> target state is valid."""
+    try:
+        cur_state = CardState(current)
+        tgt_state = CardState(target)
+    except ValueError:
+        return False
+    return tgt_state in VALID_STATE_TRANSITIONS[cur_state]
 
 
 class InferenceLogger:
@@ -79,6 +107,8 @@ class QuietAdvisorScheduler:
     def __init__(self, db_connection, detector_engine):
         self.db = db_connection
         self.engine = detector_engine
+        from quiet_advisor_detectors import CircuitBreaker
+        self._d3_breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=300.0)
     
     async def run_daily_detection(self, lookback_hours: int = 24):
         """
@@ -133,16 +163,21 @@ class QuietAdvisorScheduler:
         except Exception as e:
             logger.error(f"Daily detection failed: {e}")
 
-    @staticmethod
-    def _route_with_d3(insight, preferences: Optional[Dict] = None) -> Optional[Dict]:
-        """Evaluate whether to surface an insight using Token Lab's d3 aux-router."""
+    def _route_with_d3(self, insight, preferences: Optional[Dict] = None) -> Optional[Dict]:
+        """Evaluate whether to surface an insight using Token Lab's d3 aux-router (circuit-broken)."""
+        if not self._d3_breaker.allow_request():
+            logger.warning("d3 circuit breaker open; falling back to local insight score")
+            return None
         try:
             try:
                 from src.memoryos.router import evaluate_insight_with_d3
             except ImportError:
                 from memoryos.router import evaluate_insight_with_d3
-            return evaluate_insight_with_d3(insight, preferences)
+            decision = evaluate_insight_with_d3(insight, preferences)
+            self._d3_breaker.record_success()
+            return decision
         except Exception as e:
+            self._d3_breaker.record_failure()
             logger.warning(f"d3 routing unavailable, defaulting to local score: {e}")
             return None
     
@@ -181,8 +216,27 @@ class QuietAdvisorScheduler:
         except Exception:
             return {}
     
-    async def _store_card(self, user_id: str, insight, d3_decision: Optional[Dict] = None):
-        """Store generated card in database"""
+    async def _store_card(self, user_id: str, insight, d3_decision: Optional[Dict] = None) -> bool:
+        """Store generated card in database unless an active TRIGGERED duplicate already exists."""
+        existing = await self.db.query_one(
+            """
+            SELECT id FROM quiet_advisor.cards
+            WHERE user_id = ?
+              AND detector_type = ?
+              AND state = ?
+              AND user_dismissed = false
+              AND user_archived = false
+              AND expires_at > NOW()
+            LIMIT 1
+            """,
+            (user_id, insight.detector_type.value, CardState.TRIGGERED.value),
+        )
+        if existing:
+            logger.info(
+                f"Suppressing duplicate TRIGGERED card for user={user_id} detector={insight.detector_type.value}"
+            )
+            return False
+
         action_value = dict(insight.action_value) if isinstance(insight.action_value, dict) else {"value": insight.action_value}
         if d3_decision:
             action_value["d3_routing"] = d3_decision
@@ -205,11 +259,13 @@ class QuietAdvisorScheduler:
             "user_dismissed": False,
             "user_archived": False,
             "user_actioned": False,
+            "state": CardState.TRIGGERED.value,
             "created_at": datetime.utcnow().isoformat(),
             "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat(),
         }
         
         await self.db.insert("quiet_advisor.cards", card_record)
+        return True
 
 
 class CardActionHandler:
@@ -244,21 +300,26 @@ class CardActionHandler:
         
         await self.db.insert("quiet_advisor.card_actions", action_record)
         
-        # Update card status (parameterized to prevent SQL injection)
+        # Update card status & lifecycle state machine (parameterized to prevent SQL injection)
         if action == "dismiss":
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_dismissed = true WHERE id = ?",
-                (card_id,),
+                "UPDATE quiet_advisor.cards SET user_dismissed = true, state = ? WHERE id = ?",
+                (CardState.RESOLVED.value, card_id),
             )
         elif action == "archive":
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_archived = true WHERE id = ?",
-                (card_id,),
+                "UPDATE quiet_advisor.cards SET user_archived = true, state = ? WHERE id = ?",
+                (CardState.RESOLVED.value, card_id),
             )
         elif action in ("action", "acknowledge"):
             await self.db.execute(
-                "UPDATE quiet_advisor.cards SET user_actioned = true WHERE id = ?",
-                (card_id,),
+                "UPDATE quiet_advisor.cards SET user_actioned = true, state = ? WHERE id = ?",
+                (CardState.ACKNOWLEDGED.value, card_id),
+            )
+        elif action == "resolve":
+            await self.db.execute(
+                "UPDATE quiet_advisor.cards SET state = ? WHERE id = ?",
+                (CardState.RESOLVED.value, card_id),
             )
         
         # Update user preferences on meaningful feedback actions (skip read-only 'view')

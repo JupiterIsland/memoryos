@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from quiet_advisor_detectors import (
     AnomalyDetector,
+    CircuitBreaker,
     ContextWasteDetector,
     DetectedInsight,
     DetectorType,
@@ -24,7 +25,13 @@ from quiet_advisor_detectors import (
     compute_workstation_health,
     ingest_tokenlab_export,
 )
-from quiet_advisor_scheduler import CardActionHandler, CardDisplayService, QuietAdvisorScheduler
+from quiet_advisor_scheduler import (
+    CardActionHandler,
+    CardDisplayService,
+    CardState,
+    QuietAdvisorScheduler,
+    can_transition_card_state,
+)
 from src.memoryos.quiet_advisor_db import QuietAdvisorDB
 
 
@@ -267,6 +274,97 @@ class TestQuietAdvisorDetectors(unittest.TestCase):
                     prefs = await scheduler._get_user_preferences("bob")
                     self.assertTrue(prefs.get("force_remote_offload"))
                     self.assertEqual(prefs.get("vram_thrashing_penalty"), 1.4)
+                    updated_card = await db.query_one("SELECT state FROM quiet_advisor.cards WHERE id = ?", (card_id,))
+                    self.assertEqual(updated_card["state"], CardState.ACKNOWLEDGED.value)
+                finally:
+                    db.close()
+
+        asyncio.run(_run())
+
+    def test_circuit_breaker_trips_and_recovers(self):
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=300.0)
+        self.assertEqual(cb.state(now=100.0), "closed")
+        self.assertTrue(cb.allow_request(now=100.0))
+
+        cb.record_failure(now=101.0)
+        cb.record_failure(now=102.0)
+        self.assertEqual(cb.state(now=102.0), "closed")
+        cb.record_failure(now=103.0)
+        self.assertEqual(cb.state(now=103.0), "open")
+        self.assertFalse(cb.allow_request(now=200.0))
+
+        # After 300s cooldown -> half_open -> success closes circuit
+        self.assertEqual(cb.state(now=404.0), "half_open")
+        self.assertTrue(cb.allow_request(now=404.0))
+        cb.record_success()
+        self.assertEqual(cb.state(now=405.0), "closed")
+
+    def test_schema_migrations_upgrade_legacy_db_and_suppress_duplicate_cards(self):
+        import sqlite3
+
+        async def _run():
+            with tempfile.TemporaryDirectory() as tmp:
+                db_path = Path(tmp) / "legacy.sqlite"
+                # Create a legacy quiet_advisor_cards table WITHOUT the 'state' column
+                conn = sqlite3.connect(str(db_path))
+                conn.execute(
+                    """
+                    CREATE TABLE quiet_advisor_cards (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id TEXT NOT NULL,
+                        detector_type TEXT NOT NULL,
+                        insight_rank REAL DEFAULT 0,
+                        title TEXT,
+                        subtitle TEXT,
+                        description TEXT,
+                        metric_1 TEXT,
+                        metric_2 TEXT,
+                        metric_3 TEXT,
+                        recommended_action TEXT,
+                        action_value TEXT,
+                        time_savings_seconds INTEGER DEFAULT 0,
+                        quality_improvement_percent REAL DEFAULT 0,
+                        suggested_experiments TEXT,
+                        user_dismissed INTEGER DEFAULT 0,
+                        user_archived INTEGER DEFAULT 0,
+                        user_actioned INTEGER DEFAULT 0,
+                        created_at TEXT,
+                        expires_at TEXT
+                    )
+                    """
+                )
+                conn.commit()
+                conn.close()
+
+                # Opening via QuietAdvisorDB must auto-migrate and record schema_migrations
+                db = QuietAdvisorDB(db_path)
+                try:
+                    versions = [
+                        r[0] for r in db.conn.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()
+                    ]
+                    self.assertEqual(versions, [1, 2])
+                    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(quiet_advisor_cards)").fetchall()}
+                    self.assertIn("state", cols)
+
+                    # Verify CardState transitions & duplicate-card suppression
+                    self.assertTrue(can_transition_card_state("PENDING", "TRIGGERED"))
+                    self.assertTrue(can_transition_card_state("TRIGGERED", "ACKNOWLEDGED"))
+                    self.assertFalse(can_transition_card_state("RESOLVED", "TRIGGERED"))
+
+                    scheduler = QuietAdvisorScheduler(db, QuietAdvisorEngine())
+                    insight = DetectedInsight(
+                        detector_type=DetectorType.THERMAL_THROTTLING,
+                        title="GPU Hot",
+                        subtitle="88C",
+                        description="Offload",
+                        metrics={"peak_temp": "88C"},
+                        recommended_action="force_tokenlab_offload",
+                        action_value={"thermal_penalty": 1.4},
+                    )
+                    inserted_first = await scheduler._store_card("u1", insight)
+                    inserted_dup = await scheduler._store_card("u1", insight)
+                    self.assertTrue(inserted_first)
+                    self.assertFalse(inserted_dup)
                 finally:
                     db.close()
 

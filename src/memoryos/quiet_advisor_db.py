@@ -58,9 +58,13 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_cards (
     user_dismissed INTEGER DEFAULT 0,
     user_archived INTEGER DEFAULT 0,
     user_actioned INTEGER DEFAULT 0,
+    state TEXT DEFAULT 'TRIGGERED',
     created_at TEXT,
     expires_at TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_cards_user_state_expires
+    ON quiet_advisor_cards(user_id, state, expires_at);
 
 CREATE TABLE IF NOT EXISTS quiet_advisor_card_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,6 +75,9 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_card_actions (
     created_at TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_card_actions_card_user
+    ON quiet_advisor_card_actions(card_id, user_id);
+
 CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
     user_id TEXT PRIMARY KEY,
     card_type_preferences TEXT NOT NULL
@@ -79,6 +86,12 @@ CREATE TABLE IF NOT EXISTS quiet_advisor_user_preferences (
 CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
     export_hash TEXT PRIMARY KEY,
     ingested_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL
 );
 """
 
@@ -122,8 +135,67 @@ class QuietAdvisorDB:
 
     def _init_schema(self) -> None:
         ddl = SCHEMA_SQL_PATH.read_text(encoding="utf-8") if SCHEMA_SQL_PATH.exists() else SCHEMA_SQL
+        # Ensure legacy databases missing the 'state' column upgrade cleanly before index creation
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
+        existing_tables = {
+            row[0]
+            for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+        if "quiet_advisor_cards" in existing_tables:
+            cols = {
+                row[1]
+                for row in self.conn.execute("PRAGMA table_info(quiet_advisor_cards)").fetchall()
+            }
+            if "state" not in cols:
+                self.conn.execute("ALTER TABLE quiet_advisor_cards ADD COLUMN state TEXT DEFAULT 'TRIGGERED'")
         self.conn.executescript(ddl)
+        self._run_migrations()
         self.conn.commit()
+
+    def _run_migrations(self) -> None:
+        """Apply idempotent, versioned SQLite schema migrations."""
+        applied = {
+            row[0]
+            for row in self.conn.execute("SELECT version FROM schema_migrations").fetchall()
+        }
+        migrations = [
+            (
+                1,
+                "add_card_state_and_indexes",
+                [
+                    "CREATE INDEX IF NOT EXISTS idx_cards_user_state_expires ON quiet_advisor_cards(user_id, state, expires_at)",
+                    "CREATE INDEX IF NOT EXISTS idx_card_actions_card_user ON quiet_advisor_card_actions(card_id, user_id)",
+                    "UPDATE quiet_advisor_cards SET state = 'RESOLVED' WHERE state IS NULL AND (user_dismissed = 1 OR user_archived = 1)",
+                    "UPDATE quiet_advisor_cards SET state = 'ACKNOWLEDGED' WHERE state IS NULL AND user_actioned = 1",
+                    "UPDATE quiet_advisor_cards SET state = 'TRIGGERED' WHERE state IS NULL",
+                ],
+            ),
+            (
+                2,
+                "add_atomic_ingest_log",
+                [
+                    "CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (export_hash TEXT PRIMARY KEY, ingested_at TEXT NOT NULL)",
+                ],
+            ),
+        ]
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for version, name, statements in migrations:
+            if version in applied:
+                continue
+            for stmt in statements:
+                self.conn.execute(stmt)
+            self.conn.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)",
+                (version, name, now_iso),
+            )
 
     def insert_sync(self, table: str, record: Dict[str, Any]) -> int:
         table_name = _TABLE_MAP.get(table, table)
