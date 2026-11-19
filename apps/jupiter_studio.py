@@ -553,13 +553,16 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                     obj = json.loads(data_str)
                     choices = obj.get("choices") or []
                     if choices:
-                        delta = choices[0].get("delta") or {}
+                        choice0 = choices[0]
+                        delta = choice0.get("delta") or {}
                         reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                         if reasoning:
                             _send("reasoning", {"delta": reasoning})
                         content = delta.get("content")
                         if content:
                             _send("delta", {"delta": content})
+                        if choice0.get("finish_reason"):
+                            break
                 except json.JSONDecodeError:
                     continue
 
