@@ -7,6 +7,9 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Jupiter Studio // Hybrid AI Workstation</title>
 <link rel="icon" type="image/png" href="/assets/jupiter_studio_icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg: #07090f;
@@ -626,6 +629,381 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
   .arena-keep-btn:hover { background: var(--green); color: #000; }
 
+
+  /* ── FLAGSHIP TYPOGRAPHY, SCROLLBARS & SURFACE POLISH ─────────────── */
+  :root {
+    --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, monospace;
+    --bg: #090b10;
+    --sidebar-bg: #0d1017;
+    --card-bg: rgba(255, 255, 255, 0.032);
+    --border: rgba(255, 255, 255, 0.085);
+    --border-highlight: rgba(255, 255, 255, 0.16);
+    --text: #eef1f7;
+    --muted: #8a94a6;
+    --orange: #ff6b1a;
+    --cyan: #38bdf8;
+    --green: #22c55e;
+    --red: #f43f5e;
+  }
+
+  body {
+    font-family: var(--font-sans) !important;
+    font-size: 14px;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Slim custom scrollbars (no glaring native Windows white track) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
+  html[data-studio-theme="daylight"] * {
+    scrollbar-color: rgba(22, 22, 20, 0.22) transparent;
+  }
+  html[data-studio-theme="daylight"] ::-webkit-scrollbar-thumb {
+    background: rgba(22, 22, 20, 0.20);
+  }
+
+  /* Sidebar polish */
+  .sidebar {
+    width: 316px;
+    padding: 18px 16px;
+    gap: 14px;
+    border-right: 1px solid var(--border);
+  }
+  .brand h1 {
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand p {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .section-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+  .card {
+    border-radius: 11px;
+    padding: 13px 14px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+  }
+  .hw-val {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .select-box {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-highlight);
+    color: var(--text);
+  }
+  .select-box option, .select-box optgroup {
+    background: #111520;
+    color: #eef1f7;
+  }
+  html[data-studio-theme="daylight"] .select-box option,
+  html[data-studio-theme="daylight"] .select-box optgroup {
+    background: #ffffff;
+    color: #161614;
+  }
+
+  /* Custom sleek checkboxes inside workspace file list */
+  .workspace-file-list {
+    background: rgba(0, 0, 0, 0.24) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px;
+    padding: 4px;
+    max-height: 176px;
+  }
+  .workspace-file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text);
+    transition: background 0.12s;
+  }
+  .workspace-file-item:hover { background: rgba(255, 255, 255, 0.05); }
+  .workspace-file-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px;
+    padding: 0 !important;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.12s;
+  }
+  .workspace-file-item input[type="checkbox"]:checked {
+    background: var(--orange);
+    border-color: var(--orange);
+  }
+  .workspace-file-item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 1.8px 1.8px 0;
+    transform: rotate(45deg);
+  }
+  html[data-studio-theme="daylight"] .workspace-file-list {
+    background: #f8f6f1 !important;
+  }
+  html[data-studio-theme="daylight"] .workspace-file-item input[type="checkbox"] {
+    border-color: #b5ac9c;
+    background: #ffffff;
+  }
+
+  /* Header & Theme Pill polish */
+  .chat-header {
+    height: 58px;
+    padding: 0 24px;
+    background: rgba(13, 16, 23, 0.78);
+    backdrop-filter: blur(14px);
+  }
+  .chat-header .badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .theme-pill-group {
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .theme-pill-btn {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .btn-secondary {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 7px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-highlight);
+    color: var(--text);
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* Centered, spacious conversation thread */
+  .chat-log {
+    padding: 28px 32px;
+    align-items: center;
+  }
+  .msg {
+    width: 100% !important;
+    max-width: 840px !important;
+    padding: 18px 22px;
+    border-radius: 14px;
+    font-size: 14.5px;
+    line-height: 1.68;
+  }
+  .msg.user {
+    align-self: center;
+    max-width: 840px !important;
+    background: rgba(255, 107, 26, 0.10);
+    border: 1px solid rgba(255, 107, 26, 0.28);
+    color: var(--text);
+  }
+  .msg.assistant {
+    align-self: center;
+    background: rgba(255, 255, 255, 0.028);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+  }
+  .md-body p { margin-bottom: 10px; }
+  .md-body li { margin-bottom: 5px; }
+  .md-body code, .code-block-container pre {
+    font-family: var(--font-mono) !important;
+  }
+
+  /* Starter prompt chips inside welcome card */
+  .starter-chips {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .starter-chip {
+    text-align: left;
+    padding: 10px 13px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.14s;
+  }
+  .starter-chip:hover {
+    border-color: var(--orange);
+    background: rgba(255, 107, 26, 0.08);
+    transform: translateY(-1px);
+  }
+  .starter-chip span {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+  html[data-studio-theme="daylight"] .starter-chip {
+    background: #f5f2eb;
+    border-color: #d4cdc0;
+    color: #161614;
+  }
+  html[data-studio-theme="daylight"] .starter-chip:hover {
+    background: #ebe6dc;
+    border-color: #e84800;
+  }
+
+  /* Speculative Neural Radar — sleek pill bar with tabular-nums */
+  .spec-radar {
+    padding: 8px 24px;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.018);
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .radar-cell {
+    padding: 6px 12px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+  }
+  .radar-k {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .radar-v {
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  /* Unified sleek input composer */
+  .input-bar-wrapper {
+    padding: 12px 24px 16px;
+    background: rgba(13, 16, 23, 0.85);
+    border-top: 1px solid var(--border);
+  }
+  .input-bar {
+    max-width: 840px;
+    margin: 0 auto;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border-highlight);
+    border-radius: 14px;
+    padding: 8px 10px;
+    gap: 8px;
+    align-items: center;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input-bar:focus-within {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.14);
+  }
+  html[data-studio-theme="daylight"] .input-bar {
+    background: #ffffff;
+    border-color: #c5bdb0;
+  }
+  #prompt-input {
+    background: transparent !important;
+    border: none !important;
+    font-family: var(--font-sans) !important;
+    font-size: 14.5px !important;
+    line-height: 1.5;
+    padding: 6px 8px !important;
+    color: var(--text) !important;
+  }
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    transition: all 0.14s;
+  }
+  .btn-icon:hover {
+    color: var(--text);
+    border-color: var(--border-highlight);
+    background: rgba(255, 255, 255, 0.09);
+  }
+  .btn-arena {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    height: 36px;
+    padding: 0 13px;
+    border-radius: 9px;
+  }
+  .btn {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    height: 36px;
+    padding: 0 18px;
+    border-radius: 9px;
+    letter-spacing: -0.01em;
+  }
+
 </style>
 </head>
 <body>
@@ -729,7 +1107,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
           <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="selectCoreFiles()">Core Files</button>
         </div>
         <button class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; background:#1e2942; border-color:#38bdf8;" onclick="exportCopilotBundle()">
-          📋 Export Copilot Bundle
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Export Copilot Bundle
         </button>
       </div>
     </div>
@@ -749,21 +1127,34 @@ STUDIO_HTML = r"""<!DOCTYPE html>
           <button class="theme-pill-btn" data-t="radeon" onclick="setStudioTheme('radeon')">RADEON</button>
           <button class="theme-pill-btn" data-t="daylight" onclick="setStudioTheme('daylight')">DAYLIGHT</button>
         </div>
-        <button class="btn-secondary" onclick="clearChat()">🗑 Clear Chat</button>
+        <button class="btn-secondary" onclick="clearChat()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Clear</button>
       </div>
     </div>
 
     <div class="chat-log" id="chat-log">
       <div class="msg assistant">
-        <div class="meta-tag meta-auto">SYSTEM READY</div>
+        <div class="meta-tag meta-auto">MEMORYOS v1.0.0-RC1 // ZERO LOCAL VRAM</div>
         <div class="md-body">
-          <p>Welcome to <b>Jupiter Studio // MemoryOS Hybrid Workstation</b>!</p>
-          <p>Your studio is connected and ready:</p>
-          <ul>
-            <li><b>⚡ d3 Smart Router:</b> Automatically routes code, vision, and light queries across cloud grants with zero local VRAM penalty.</li>
-            <li><b>📁 Workspace & Copilot Handoff:</b> Select project files above and click <i>Export Copilot Bundle</i> to copy structured context directly into Copilot / IDE agents.</li>
-            <li><b>🖼 Multimodal Vision:</b> Drag and drop or attach screenshots to analyze bugs and UI frames directly.</li>
-          </ul>
+          <h3 style="margin-top:2px; font-size:18px; letter-spacing:-0.02em;">Jupiter Studio Workstation</h3>
+          <p style="color:var(--muted);">Hardware-aware routing via 0.091 ms AMD Zen 3 gate and 5.37 μs Speculative Offload MLP. Local GPU VRAM remains completely free for native apps.</p>
+          <div class="starter-chips">
+            <button class="starter-chip" onclick="useStarter('Review the selected repository files for bugs, security risks, or performance improvements.')">
+              <span>Code Audit</span>
+              Review selected workspace files
+            </button>
+            <button class="starter-chip" onclick="useStarter('Explain how MemoryOS keeps local VRAM at 0 MB while running 27B–31B models.')">
+              <span>Architecture</span>
+              Trace zero-VRAM offload pipeline
+            </button>
+            <button class="starter-chip" onclick="toggleDualArena(); useStarter('Compare Python asyncio vs multiprocessing for I/O-bound telemetry pipelines in 5 bullet points.')">
+              <span>Dual Arena Demo</span>
+              Race two models side-by-side live
+            </button>
+            <button class="starter-chip" onclick="useStarter('Write focused Python unittest coverage for the attached module.')">
+              <span>Verification</span>
+              Generate targeted unit tests
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -795,14 +1186,14 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <input type="file" id="image-file-input" accept="image/*" style="display:none;" onchange="handleImageSelected(event)" />
         <input type="file" id="doc-file-input" multiple style="display:none;" onchange="handleFilesSelected(event)" />
         <button class="btn-icon" id="upload-file-btn" title="Upload Files (Code, Logs, JSON, Markdown, CSV, Text)" onclick="document.getElementById('doc-file-input').click()">
-          📎
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <button class="btn-icon" id="upload-image-btn" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
-          🖼️
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </button>
         <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag & drop files here... (Ctrl+Enter to send)" onkeydown="if(event.ctrlKey && event.key==='Enter') sendPrompt()"></textarea>
         <div class="input-actions">
-          <button class="btn-arena" id="btn-arena" onclick="toggleDualArena()" title="Stream 2 models side-by-side in a live split-screen shootout">⚔️ Dual Arena</button>
+          <button class="btn-arena" id="btn-arena" onclick="toggleDualArena()" title="Stream 2 models side-by-side in a live split-screen shootout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg> Dual Arena</button>
           <button class="btn" id="run-btn" onclick="sendPrompt()">Run</button>
           <button class="btn btn-stop" id="stop-btn" style="display:none;" onclick="stopGeneration()">⏹ Stop</button>
         </div>
@@ -1474,7 +1865,8 @@ async function updateSpeculativeRadar() {
     });
     const d = await res.json();
     const pct = (Number(d.p_offload || 0.88) * 100).toFixed(1);
-    document.getElementById("rad-mlp").innerText = `P(offload) ${pct}% · ${d.mlp_latency_us} μs`;
+    const latStr = Number(d.mlp_latency_us) >= 1000 ? `${(Number(d.mlp_latency_us)/1000).toFixed(2)} ms` : `${Number(d.mlp_latency_us).toFixed(1)} μs`;
+    document.getElementById("rad-mlp").innerText = `${pct}% · ${latStr}`;
     const barEl = document.getElementById("rad-mlp-bar");
     if (barEl) barEl.style.width = `${Math.max(4, Math.min(100, Number(pct)))}%`;
     const sel = document.getElementById("target-selector").value;
@@ -1498,6 +1890,7 @@ setTimeout(updateSpeculativeRadar, 400);
 
 /* ── 4. DUAL-MODEL SPLIT ARENA SHOOTOUT ──────────────────────────────── */
 let dualArenaEnabled = false;
+function useStarter(txt) { const el = document.getElementById("prompt-input"); el.value = txt; updateSpeculativeRadar(); sendPrompt(); }
 function toggleDualArena() {
   dualArenaEnabled = !dualArenaEnabled;
   const btn = document.getElementById("btn-arena");
