@@ -50,6 +50,20 @@ from src.memoryos.workspace_pack import (
 PORT = int(os.getenv("JUPITER_STUDIO_PORT", 7860))
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
 
+
+def _get_local_vllm_credentials() -> Tuple[str, str]:
+    """Return (api_key, base_url) for a local vLLM / SGLang / TensorFold OpenAI-compatible server."""
+    base_url = os.getenv("LOCAL_VLLM_BASE_URL", "http://127.0.0.1:8000/v1").strip().rstrip("/")
+    api_key = os.getenv("LOCAL_VLLM_API_KEY", "EMPTY").strip()
+    return api_key, base_url
+
+
+def _get_nvidia_flare_credentials() -> Tuple[str, str]:
+    """Return (api_key, base_url) for a local NVIDIA Flare (DGX Spark Rust inference server) endpoint."""
+    base_url = os.getenv("NVIDIA_FLARE_BASE_URL", "http://127.0.0.1:8080/v1").strip().rstrip("/")
+    api_key = os.getenv("NVIDIA_FLARE_API_KEY", "EMPTY").strip()
+    return api_key, base_url
+
 HTML_PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -458,6 +472,12 @@ HTML_PAGE = r"""<!DOCTYPE html>
           <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
           <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
         </optgroup>
+        <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
+          <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
+          <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
+          <option value="flare:Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (NVIDIA Flare :8080)</option>
+          <option value="flare:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (NVIDIA Flare :8080)</option>
+        </optgroup>
         <optgroup label="Local Models (100% Free / Ollama)" id="opt-ollama">
           <option value="ollama:qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Ultra-Fast)</option>
           <option value="ollama:qwen2.5-coder:7b">qwen2.5-coder:7b (Local Accuracy)</option>
@@ -641,7 +661,8 @@ async function loadStatus() {
     
     // Hardware
     document.getElementById("hw-name").innerText = data.gpu.device_name || "CPU Mode";
-    document.getElementById("hw-vram").innerText = `${data.gpu.used_vram_mb} / ${data.gpu.total_vram_mb} MB (${data.gpu.utilization_pct}% Load)`;
+    const memSuffix = data.gpu.is_unified_memory ? " Unified" : "";
+    document.getElementById("hw-vram").innerText = `${data.gpu.used_vram_mb} / ${data.gpu.total_vram_mb} MB${memSuffix} (${data.gpu.utilization_pct}% Load)`;
     
     // Policy
     if (data.policy) {
@@ -788,6 +809,14 @@ function onTargetChange() {
     badge.innerText = "DIGITALOCEAN";
     badge.className = "badge";
     desc.innerText = sel.value.replace("do:", "") + " (AMD MI300X)";
+  } else if (sel.value.startsWith("vllm:")) {
+    badge.innerText = "LOCAL vLLM";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("vllm:", "") + " (DGX Spark / Local vLLM)";
+  } else if (sel.value.startsWith("flare:")) {
+    badge.innerText = "NVIDIA FLARE";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("flare:", "") + " (DGX Spark / NVIDIA Flare)";
   } else {
     badge.innerText = "LOCAL OLLAMA";
     badge.className = "badge";
@@ -1185,6 +1214,12 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         if target.startswith("do:"):
             return target.split(":", 1)[1], "DigitalOcean MI300X", False
 
+        if target.startswith("vllm:"):
+            return target.split(":", 1)[1], "Local vLLM (Spark)", False
+
+        if target.startswith("flare:"):
+            return target.split(":", 1)[1], "NVIDIA Flare (Spark)", False
+
         return "Gemma-4-31B-IT", "AMD Token Lab", False
 
     def _stream_cloud(
@@ -1196,14 +1231,21 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         image_base64: Optional[str],
         _send: Any,
     ) -> None:
-        if "NVIDIA" in provider_key:
+        is_local_openai = False
+        if "Local vLLM" in provider_key:
+            api_key, base_url = _get_local_vllm_credentials()
+            is_local_openai = True
+        elif "Flare" in provider_key:
+            api_key, base_url = _get_nvidia_flare_credentials()
+            is_local_openai = True
+        elif "NVIDIA" in provider_key:
             api_key, base_url = _get_nvidia_credentials()
         elif "DigitalOcean" in provider_key:
             api_key, base_url = _get_do_credentials()
         else:
             api_key, base_url = _get_tokenlab_credentials()
 
-        if not api_key:
+        if not is_local_openai and not api_key:
             raise RuntimeError(f"{provider_key} API key not configured in .env")
 
         # Build messages with history
@@ -1233,15 +1275,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             "stream": True,
         }).encode("utf-8")
 
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "User-Agent": "JupiterStudio/0.2",
+        }
+        if api_key and api_key.upper() != "EMPTY":
+            headers["Authorization"] = f"Bearer {api_key}"
+
         req = urllib.request.Request(
             url,
             data=payload,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "Accept": "text/event-stream",
-                "User-Agent": "JupiterStudio/0.2",
-            },
+            headers=headers,
             method="POST",
         )
 
@@ -1301,14 +1346,21 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             raise RuntimeError(f"Ollama error: {exc}. Ensure Ollama is running on host ({OLLAMA_HOST}).") from exc
 
     def _call_cloud_direct(self, provider_key: str, model_name: str, prompt: str) -> Tuple[str, str]:
-        if "NVIDIA" in provider_key:
+        is_local_openai = False
+        if "Local vLLM" in provider_key:
+            api_key, base_url = _get_local_vllm_credentials()
+            is_local_openai = True
+        elif "Flare" in provider_key:
+            api_key, base_url = _get_nvidia_flare_credentials()
+            is_local_openai = True
+        elif "NVIDIA" in provider_key:
             api_key, base_url = _get_nvidia_credentials()
         elif "DigitalOcean" in provider_key:
             api_key, base_url = _get_do_credentials()
         else:
             api_key, base_url = _get_tokenlab_credentials()
 
-        if not api_key:
+        if not is_local_openai and not api_key:
             return "", f"{provider_key} API key not configured in .env"
 
         url = f"{base_url.rstrip('/')}/chat/completions"
@@ -1319,14 +1371,17 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             "max_tokens": 1024,
         }).encode("utf-8")
 
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "JupiterStudio/0.2",
+        }
+        if api_key and api_key.upper() != "EMPTY":
+            headers["Authorization"] = f"Bearer {api_key}"
+
         req = urllib.request.Request(
             url,
             data=payload,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": "JupiterStudio/0.2",
-            },
+            headers=headers,
             method="POST",
         )
         try:

@@ -60,6 +60,53 @@ class TestJupiterStudioHandler(unittest.TestCase):
         self.assertIn("repo_root", sent_data)
         self.assertTrue(len(sent_data["files"]) > 0)
 
+    def test_resolve_target_local_vllm_and_nvidia_flare(self) -> None:
+        model, provider, is_local = self.handler._resolve_target("vllm:Qwen/Qwen3.8-Flash-Next", "Hi", False)
+        self.assertEqual(model, "Qwen/Qwen3.8-Flash-Next")
+        self.assertEqual(provider, "Local vLLM (Spark)")
+        self.assertFalse(is_local)
+
+        model, provider, is_local = self.handler._resolve_target("flare:DeepSeek-V4.1-Flash", "Hi", False)
+        self.assertEqual(model, "DeepSeek-V4.1-Flash")
+        self.assertEqual(provider, "NVIDIA Flare (Spark)")
+        self.assertFalse(is_local)
+
+    def test_call_cloud_direct_local_vllm_and_flare_no_api_key_required(self) -> None:
+        captured_reqs = []
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({"choices": [{"message": {"content": "ok from spark"}}]}).encode("utf-8")
+
+        def fake_urlopen(req, timeout=45.0):
+            captured_reqs.append(req)
+            return FakeResp()
+
+        with patch.dict(
+            os.environ,
+            {
+                "LOCAL_VLLM_BASE_URL": "http://127.0.0.1:8000/v1",
+                "LOCAL_VLLM_API_KEY": "EMPTY",
+                "NVIDIA_FLARE_BASE_URL": "http://127.0.0.1:8080/v1",
+                "NVIDIA_FLARE_API_KEY": "EMPTY",
+            },
+        ), patch("apps.jupiter_studio.urllib.request.urlopen", side_effect=fake_urlopen):
+            c1, e1 = self.handler._call_cloud_direct("Local vLLM (Spark)", "Qwen/Qwen3.8-Flash-Next", "ping")
+            c2, e2 = self.handler._call_cloud_direct("NVIDIA Flare (Spark)", "DeepSeek-V4.1-Flash", "ping")
+
+        self.assertEqual((c1, e1), ("ok from spark", ""))
+        self.assertEqual((c2, e2), ("ok from spark", ""))
+        self.assertEqual(captured_reqs[0].full_url, "http://127.0.0.1:8000/v1/chat/completions")
+        self.assertEqual(captured_reqs[1].full_url, "http://127.0.0.1:8080/v1/chat/completions")
+        self.assertNotIn("Authorization", captured_reqs[0].headers)
+        self.assertNotIn("Authorization", captured_reqs[1].headers)
+
 
 if __name__ == "__main__":
     unittest.main()

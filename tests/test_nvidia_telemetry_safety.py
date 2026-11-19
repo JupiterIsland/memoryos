@@ -12,7 +12,11 @@ from unittest.mock import MagicMock, patch
 from apex_core.engine import GPUContextManager
 from src.memoryos.core.heat_stream import MemoryHeatStream
 from src.memoryos.core.neural_memory_graph import GPUTelemetry, NeuralMemoryGraph
-from src.memoryos.gpu_backends import HardwareProfile, MultiGPUDetector
+from src.memoryos.gpu_backends import (
+    HardwareProfile,
+    MultiGPUDetector,
+    _read_linux_unified_memory_mb,
+)
 from src.memoryos.integrations.riva_voice import RivaVoiceClient
 from src.memoryos.router import get_policy_telemetry, route_task
 
@@ -148,6 +152,43 @@ class TestNvidiaTelemetrySafety(unittest.TestCase):
             self.assertTrue(sim_status["simulated"])
             self.assertEqual(sim_status["mode"], "simulated")
             self.assertTrue(sim_client.text_to_speech("hello").startswith(b"PCM_AUDIO_SIMULATION"))
+
+    def test_detect_nvidia_dgx_spark_gb10_unified_memory_na_fallback(self) -> None:
+        fake_smi_proc = SimpleNamespace(
+            returncode=0,
+            stdout="NVIDIA GB10, [N/A], [N/A], [N/A], 14, 58, [N/A]\n",
+        )
+        with patch("src.memoryos.gpu_backends.shutil.which", return_value="/usr/bin/nvidia-smi"), patch(
+            "src.memoryos.gpu_backends.subprocess.run", return_value=fake_smi_proc
+        ), patch(
+            "src.memoryos.gpu_backends._read_linux_unified_memory_mb",
+            return_value=(128000, 18400, 109600),
+        ):
+            prof = MultiGPUDetector.detect_nvidia(device_index=0)
+
+        self.assertIsNotNone(prof)
+        self.assertEqual(prof.vendor, "nvidia")
+        self.assertEqual(prof.device_name, "NVIDIA GB10")
+        self.assertTrue(prof.is_unified_memory)
+        self.assertEqual(prof.total_vram_mb, 128000)
+        self.assertEqual(prof.used_vram_mb, 18400)
+        self.assertEqual(prof.free_vram_mb, 109600)
+        self.assertEqual(prof.utilization_pct, 14.0)
+        self.assertEqual(prof.temperature_c, 58.0)
+        self.assertIsNone(prof.power_watts)
+        self.assertEqual(prof.telemetry_source, "nvidia-smi+proc_meminfo_unified")
+
+    def test_read_linux_unified_memory_mb_parses_proc_meminfo(self) -> None:
+        sample = (
+            "MemTotal:       131072000 kB\n"
+            "MemFree:         20480000 kB\n"
+            "MemAvailable:   110592000 kB\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            meminfo = Path(tmp) / "meminfo"
+            meminfo.write_text(sample, encoding="utf-8")
+            parsed = _read_linux_unified_memory_mb(meminfo)
+        self.assertEqual(parsed, (128000, 20000, 108000))
 
 
 if __name__ == "__main__":

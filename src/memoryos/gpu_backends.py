@@ -34,6 +34,49 @@ class HardwareProfile:
     telemetry_source: str
     is_handheld: bool = False
     console_mode_active: bool = False
+    is_unified_memory: bool = False
+
+
+def _parse_optional_float(raw: str) -> Optional[float]:
+    """Parse an nvidia-smi numeric field, returning None for [N/A] / [Not Supported] / empty."""
+    cleaned = raw.strip()
+    if not cleaned or cleaned.startswith("[") or cleaned.upper() in ("N/A", "NOT SUPPORTED", "NONE"):
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _read_linux_unified_memory_mb(meminfo_path: Path = Path("/proc/meminfo")) -> Optional[tuple[int, int, int]]:
+    """Read (total_mb, used_mb, free_mb) from Linux /proc/meminfo for unified-memory GPUs (e.g. GB10 / DGX Spark)."""
+    if not meminfo_path.exists():
+        return None
+    try:
+        values_kb: Dict[str, int] = {}
+        for line in meminfo_path.read_text(encoding="utf-8").splitlines():
+            if ":" not in line:
+                continue
+            key, rest = line.split(":", 1)
+            tokens = rest.strip().split()
+            if tokens and tokens[0].isdigit():
+                values_kb[key.strip()] = int(tokens[0])
+        total_kb = values_kb.get("MemTotal")
+        if not total_kb:
+            return None
+        avail_kb = values_kb.get("MemAvailable")
+        if avail_kb is None:
+            avail_kb = (
+                values_kb.get("MemFree", 0)
+                + values_kb.get("Buffers", 0)
+                + values_kb.get("Cached", 0)
+            )
+        total_mb = int(total_kb // 1024)
+        free_mb = int(avail_kb // 1024)
+        used_mb = max(0, total_mb - free_mb)
+        return total_mb, used_mb, free_mb
+    except Exception:
+        return None
 
 
 class MultiGPUDetector:
@@ -41,7 +84,11 @@ class MultiGPUDetector:
 
     @staticmethod
     def detect_nvidia(device_index: int = 0) -> Optional[HardwareProfile]:
-        """Detect NVIDIA GPU via nvidia-smi if available for the specified device index."""
+        """Detect NVIDIA GPU via nvidia-smi if available for the specified device index.
+
+        Handles unified-memory NVIDIA platforms (e.g., DGX Spark / GB10) where nvidia-smi
+        reports [N/A] or [Not Supported] for discrete VRAM fields by falling back to /proc/meminfo.
+        """
         smi = shutil.which("nvidia-smi") or shutil.which("nvidia-smi.exe")
         if not smi:
             # Check default Windows path
@@ -66,12 +113,34 @@ class MultiGPUDetector:
                 parts = [p.strip() for p in lines[device_index].split(",")]
                 if len(parts) >= 5:
                     name = parts[0]
-                    total = int(float(parts[1]))
-                    used = int(float(parts[2]))
-                    free = int(float(parts[3]))
-                    util = float(parts[4])
-                    temp = float(parts[5]) if len(parts) > 5 and parts[5] != "[N/A]" else None
-                    power = float(parts[6]) if len(parts) > 6 and parts[6] != "[N/A]" else None
+                    raw_total = _parse_optional_float(parts[1])
+                    raw_used = _parse_optional_float(parts[2])
+                    raw_free = _parse_optional_float(parts[3])
+                    raw_util = _parse_optional_float(parts[4])
+                    temp = _parse_optional_float(parts[5]) if len(parts) > 5 else None
+                    power = _parse_optional_float(parts[6]) if len(parts) > 6 else None
+
+                    name_lower = name.lower()
+                    is_unified = any(k in name_lower for k in ("gb10", "dgx spark", "tegra", "orin"))
+                    telemetry_source = "nvidia-smi"
+
+                    if raw_total is None or raw_used is None or raw_free is None:
+                        is_unified = True
+                        unified_mem = _read_linux_unified_memory_mb()
+                        if unified_mem is not None:
+                            total, used, free = unified_mem
+                            telemetry_source = "nvidia-smi+proc_meminfo_unified"
+                        else:
+                            total = int(raw_total) if raw_total is not None else 0
+                            used = int(raw_used) if raw_used is not None else 0
+                            free = int(raw_free) if raw_free is not None else 0
+                            telemetry_source = "nvidia-smi_unified_unavailable"
+                    else:
+                        total = int(raw_total)
+                        used = int(raw_used)
+                        free = int(raw_free)
+
+                    util = float(raw_util) if raw_util is not None else 0.0
                     return HardwareProfile(
                         vendor="nvidia",
                         device_name=name,
@@ -81,7 +150,8 @@ class MultiGPUDetector:
                         utilization_pct=util,
                         temperature_c=temp,
                         power_watts=power,
-                        telemetry_source="nvidia-smi",
+                        telemetry_source=telemetry_source,
+                        is_unified_memory=is_unified,
                     )
         except Exception:
             pass
