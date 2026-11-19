@@ -328,9 +328,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
+        self.send_header("Connection", "close")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
+        self.close_connection = True
 
         def _send(event_type: str, data: Dict[str, Any]) -> None:
             try:

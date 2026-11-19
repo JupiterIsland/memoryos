@@ -1,1503 +1,1068 @@
-"""Jupiter Studio UI — Half AMD (Ryzen Amber) / Half Radeon (Ruby Red) in an Atari Heavy-Sixer Deck.
-
-Preserves the full chat-first engine:
-  * Live /api/models readiness probe (marks ready vs offline providers with exact reasons)
-  * Full multi-turn conversation history persisted in localStorage ("Cartridge Slots")
-  * Complete Markdown + fenced code blocks with Copy, Edit, Retry, Retry with...
-  * Multi-file + image drag-and-drop & paste + Workspace Repo File staging
-"""
+"""Jupiter Studio UI — Original Dark Workstation Look (restored from af08106)."""
 
 STUDIO_HTML = r"""<!DOCTYPE html>
-<html lang="en" data-crt="color">
+<html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>JUPITER STUDIO // AMD x RADEON ATARI DECK</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jupiter Studio // Hybrid AI Workstation</title>
 <link rel="icon" type="image/png" href="/assets/jupiter_studio_icon.png" />
 <style>
   :root {
-    --bg: #0b0b0d;
-    --abs-black: #121216;
-    --surface: #17171c;
-    --raised: #1e1e25;
-    --hover: #272730;
-    --line: #2e2e38;
-    --line-2: #444452;
-    --text: #f2eee6;
-    --text-2: #b8b2a6;
-    --muted: #7a756c;
-
-    /* Half AMD (Left: Ryzen / Token Lab Sunset Amber) */
-    --amd: #ff6a00;
-    --amd-gold: #ffb000;
-    --amd-soft: rgba(255, 106, 0, 0.14);
-
-    /* Half Radeon (Right: Radeon Ruby Crimson) */
-    --radeon: #ed1c24;
-    --radeon-bright: #ff2e4c;
-    --radeon-soft: rgba(237, 28, 36, 0.14);
-
-    /* Atari Walnut & Chrome accents */
-    --walnut-1: #5a351d;
-    --walnut-2: #3d2210;
-    --chrome: #d8d4c8;
-    --ok: #30d158;
-    --bad: #ff453a;
-    --code: #08080a;
-
-    --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-    --mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+    --bg: #07090f;
+    --sidebar-bg: #0d121f;
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --border: #1e2942;
+    --border-highlight: #334155;
+    --orange: #ff6a00;
+    --orange-hover: #e05d00;
+    --cyan: #38bdf8;
+    --green: #10b981;
+    --purple: #a855f7;
+    --red: #ef4444;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --code-bg: #05070d;
   }
-
-  html[data-crt="bw"] {
-    --amd: #d8d4c8;
-    --amd-gold: #ffffff;
-    --radeon: #9e9a90;
-    --radeon-bright: #e6e2d8;
-    --amd-soft: rgba(255, 255, 255, 0.10);
-    --radeon-soft: rgba(255, 255, 255, 0.08);
-  }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
   body {
     background: var(--bg);
     color: var(--text);
-    font: 14px/1.55 var(--sans);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .sidebar {
+    width: 340px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    -webkit-font-smoothing: antialiased;
+    padding: 18px 16px;
+    gap: 16px;
+    overflow-y: auto;
   }
-  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: var(--abs-black); }
-  ::-webkit-scrollbar-thumb { background: var(--line-2); }
-
-  /* CRT Scanline overlay (subtle, pointer-events:none) */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 90;
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0) 0px,
-      rgba(255, 255, 255, 0) 2px,
-      rgba(0, 0, 0, 0.16) 3px
-    );
-    opacity: 0.45;
-  }
-
-  /* ── ATARI 2600 RIBBED TOP DECK + SPLIT AMD/RADEON RIBBON ───────────── */
-  .atari-deck {
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        #18181d 0px,
-        #18181d 3px,
-        #0d0d10 3px,
-        #0d0d10 6px
-      );
-    border-bottom: 3px solid var(--walnut-1);
-    box-shadow: inset 0 -2px 0 var(--walnut-2);
-    flex-shrink: 0;
-  }
-
-  /* Split Dual-Color Atari Racing Stripe: Left 50% AMD Amber, Right 50% Radeon Ruby */
-  .dual-ribbon {
-    height: 5px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .ribbon-amd {
-    background: linear-gradient(90deg, var(--amd) 0%, var(--amd-gold) 100%);
-  }
-  .ribbon-radeon {
-    background: linear-gradient(90deg, var(--radeon) 0%, var(--radeon-bright) 100%);
-  }
-
-  .bezel-bar {
-    height: 56px;
-    padding: 0 14px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 14px;
-  }
-
-  /* Atari Fuji x AMD Chevron Badge */
-  .atari-brand {
+  .brand {
     display: flex;
     align-items: center;
-    gap: 11px;
-    background: #101014;
-    border: 1px solid var(--line-2);
-    border-left: 4px solid var(--amd);
-    border-right: 4px solid var(--radeon);
-    padding: 5px 12px;
+    gap: 10px;
   }
-  .fuji-svg { width: 32px; height: 24px; flex-shrink: 0; }
-  .brand-stack { display: flex; flex-direction: column; line-height: 1.08; }
-  .brand-main {
-    font-family: var(--mono);
+  .logo-badge {
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 9px;
+    box-shadow: 0 0 16px rgba(255, 106, 0, 0.25);
+  }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; }
+  .brand p { font-size: 11px; color: var(--muted); }
+  .rc-pill {
+    font-size: 9px;
     font-weight: 800;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    background: linear-gradient(90deg, var(--amd-gold) 0%, var(--text) 48%, var(--radeon-bright) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .brand-sub {
-    font-family: var(--mono);
-    font-size: 9.5px;
-    letter-spacing: 0.12em;
-    color: var(--text-2);
-    text-transform: uppercase;
-  }
-  .brand-sub .half-a { color: var(--amd-gold); }
-  .brand-sub .half-r { color: var(--radeon-bright); }
-
-  /* Center Cartridge / Model Selector Slot */
-  .cartridge-slot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    min-width: 0;
-  }
-  .cartridge-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 14px;
-    background: linear-gradient(90deg, rgba(255,106,0,0.16) 0%, #16161c 50%, rgba(237,28,36,0.16) 100%);
-    border: 1px solid var(--line-2);
-    border-top: 2px solid var(--chrome);
-    font-family: var(--mono);
-    max-width: 460px;
-    transition: transform 0.08s, border-color 0.12s;
-  }
-  .cartridge-btn:hover {
-    border-color: var(--amd-gold);
-    transform: translateY(-1px);
-  }
-  .cart-label {
-    font-size: 9.5px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--amd-gold);
-    border-right: 1px solid var(--line-2);
-    padding-right: 8px;
-  }
-  .cart-name {
-    font-weight: 700;
-    font-size: 12.5px;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .cart-prov {
-    font-size: 10.5px;
-    color: var(--radeon-bright);
-    text-transform: uppercase;
-  }
-  .kbd {
-    font: 600 10px var(--mono);
-    color: var(--chrome);
-    background: #0c0c10;
-    border: 1px solid var(--line-2);
+    letter-spacing: 0.8px;
     padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(237, 28, 36, 0.18);
+    border: 1px solid rgba(237, 28, 36, 0.45);
+    color: #ff4d4f;
+    margin-left: 6px;
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; box-shadow: 0 0 6px var(--ok); }
-  .dot.bad { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
-  .dot.busy { background: var(--amd-gold); box-shadow: 0 0 8px var(--amd-gold); animation: pulse 0.8s infinite; }
-  @keyframes pulse { 50% { opacity: 0.25; } }
-
-  /* Atari Chrome Toggle Switches */
-  .switch-bank {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
   }
-  .atari-switch {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 10px;
-    background: linear-gradient(180deg, #2a2a34 0%, #141419 100%);
-    border: 1px solid var(--line-2);
-    border-top: 2px solid var(--chrome);
-    font-family: var(--mono);
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text);
-    min-width: 68px;
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
   }
-  .atari-switch:hover { border-color: var(--amd-gold); color: var(--amd-gold); }
-  .atari-switch.on {
-    border-top-color: var(--radeon-bright);
-    color: var(--radeon-bright);
-    background: linear-gradient(180deg, rgba(237,28,36,0.22) 0%, #141419 100%);
-  }
-  .atari-switch small {
-    font-size: 8px;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-  }
-
-  /* ── THREE-COLUMN SPLIT WORKBENCH (LEFT AMD // CENTER ATARI // RIGHT RADEON) */
-  .app {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 256px 1fr 296px;
-    min-height: 0;
-    transition: grid-template-columns 0.16s ease;
-  }
-  .app.no-drawer { grid-template-columns: 256px 1fr 0px; }
-  .app.no-rail { grid-template-columns: 0px 1fr 296px; }
-  .app.no-rail.no-drawer { grid-template-columns: 0px 1fr 0px; }
-
-  /* LEFT WING: AMD RYZEN / TOKEN LAB (Sunset Amber Border & Accents) */
-  .wing-amd {
-    background: var(--abs-black);
-    border-right: 2px solid var(--amd);
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .wing-head {
-    height: 34px;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-family: var(--mono);
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    flex-shrink: 0;
-  }
-  .wing-head.amd-bar {
-    background: linear-gradient(90deg, rgba(255,106,0,0.24) 0%, rgba(255,176,0,0.05) 100%);
-    border-bottom: 1px solid var(--amd);
-    color: var(--amd-gold);
-  }
-  .wing-head.radeon-bar {
-    background: linear-gradient(90deg, rgba(237,28,36,0.06) 0%, rgba(237,28,36,0.26) 100%);
-    border-bottom: 1px solid var(--radeon);
-    color: var(--radeon-bright);
-  }
-
-  .new-cart-btn {
-    margin: 10px 10px 8px;
+  .hw-val { font-size: 13px; font-weight: 600; color: var(--cyan); margin-top: 3px; }
+  .select-box, input, textarea {
+    width: 100%;
+    background: #090d17;
+    border: 1px solid var(--border);
+    color: #fff;
     padding: 9px 11px;
-    background: var(--amd-soft);
-    border: 1px solid var(--amd);
-    border-left: 4px solid var(--amd-gold);
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    transition: border 0.15s;
   }
-  .new-cart-btn:hover { background: rgba(255, 106, 0, 0.25); }
-
-  .conv-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
-  .conv-group {
-    font: 700 9.5px var(--mono);
-    color: var(--amd-gold);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 12px 6px 4px;
-    border-bottom: 1px dotted rgba(255, 106, 0, 0.35);
-    margin-bottom: 4px;
-  }
-  .conv {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 8px;
-    margin-bottom: 3px;
-    border: 1px solid transparent;
-    border-left: 3px solid transparent;
-    color: var(--text-2);
-    cursor: pointer;
-    font-size: 12.5px;
-  }
-  .conv:hover { background: var(--hover); color: var(--text); border-left-color: var(--amd); }
-  .conv.active {
-    background: var(--raised);
-    color: var(--text);
-    border-color: var(--line-2);
-    border-left: 3px solid var(--amd-gold);
-  }
-  .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .conv-del { opacity: 0; color: var(--muted); font-family: var(--mono); padding: 0 4px; }
-  .conv:hover .conv-del { opacity: 1; }
-  .conv-del:hover { color: var(--bad); }
-
-  .wing-foot {
-    border-top: 1px solid var(--line);
-    padding: 9px 12px;
-    font: 10.5px var(--mono);
-    color: var(--amd-gold);
-    background: #0e0e12;
-    display: flex;
-    justify-content: space-between;
-  }
-
-  /* ── CENTER MONITOR: ATARI VECTOR / CONVERSATION CRT ────────────────── */
-  .center-crt {
+  .select-box:focus, input:focus, textarea:focus { border-color: var(--cyan); }
+  .main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    background:
-      radial-gradient(circle at 18% 0%, rgba(255, 106, 0, 0.06), transparent 42%),
-      radial-gradient(circle at 82% 0%, rgba(237, 28, 36, 0.06), transparent 42%),
-      var(--bg);
+    height: 100vh;
+    background: radial-gradient(circle at top right, #11182c 0%, var(--bg) 60%);
   }
-
-  .scroller { flex: 1; overflow-y: auto; }
-  .thread { max-width: 820px; margin: 0 auto; padding: 26px 24px 36px; }
-
-  /* Atari x AMD x Radeon Hero Card */
-  .welcome {
-    margin-top: 3vh;
-    border: 1px solid var(--line-2);
-    background: var(--abs-black);
-    position: relative;
-    overflow: hidden;
-  }
-  .welcome-stripes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    height: 6px;
-  }
-  .welcome-body { padding: 22px 24px 24px; }
-  .welcome-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font: 700 10.5px var(--mono);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .kicker-amd { color: var(--amd-gold); }
-  .kicker-sep { color: var(--muted); }
-  .kicker-rad { color: var(--radeon-bright); }
-
-  .welcome h1 {
-    font-family: var(--mono);
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .welcome p {
-    color: var(--text-2);
-    font-size: 13.5px;
-    max-width: 620px;
-    margin-bottom: 18px;
-  }
-
-  /* Atari Fuji Telemetry Banner inside Welcome */
-  .telemetry-strip {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 18px;
-  }
-  .tele-cell {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    padding: 8px 10px;
-    font-family: var(--mono);
-  }
-  .tele-cell.amd-side { border-top: 2px solid var(--amd); }
-  .tele-cell.rad-side { border-top: 2px solid var(--radeon); }
-  .tele-k { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
-  .tele-v { font-size: 13px; font-weight: 800; color: var(--text); margin-top: 2px; }
-
-  .starters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .starter {
-    text-align: left;
-    padding: 12px 14px;
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-left: 4px solid var(--amd);
-    transition: background 0.1s, border-color 0.1s;
-  }
-  .starter:nth-child(even) { border-left-color: var(--radeon); }
-  .starter:hover { background: var(--raised); border-color: var(--chrome); }
-  .starter b {
-    display: block;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 3px;
-  }
-  .starter:nth-child(odd) b { color: var(--amd-gold); }
-  .starter:nth-child(even) b { color: var(--radeon-bright); }
-  .starter span { color: var(--text-2); font-size: 12.5px; }
-
-  /* Messages: User = AMD Amber Tag, Assistant = Radeon Ruby Tag */
-  .msg { margin-bottom: 24px; }
-  .msg.user {
-    border-left: 3px solid var(--amd);
-    background: linear-gradient(90deg, rgba(255,106,0,0.09) 0%, transparent 90%);
-    padding: 10px 14px;
-  }
-  .msg.ai {
-    border-left: 3px solid var(--radeon);
-    background: linear-gradient(90deg, rgba(237,28,36,0.07) 0%, transparent 90%);
-    padding: 10px 14px;
-  }
-  .who {
+  .chat-header {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    gap: 8px;
-    font: 700 11px var(--mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: rgba(13, 18, 31, 0.7);
+    backdrop-filter: blur(8px);
   }
-  .msg.user .who b { color: var(--amd-gold); }
-  .msg.ai .who b { color: var(--radeon-bright); }
-  .who span { color: var(--muted); font-weight: 500; }
+  .chat-header .badge {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--cyan);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+  .chat-log {
+    flex: 1;
+    padding: 24px 28px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .msg {
+    max-width: 82%;
+    padding: 14px 18px;
+    border-radius: 10px;
+    line-height: 1.55;
+    font-size: 14px;
+    word-break: break-word;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: #182238;
+    border: 1px solid #283758;
+    color: #fff;
+  }
+  .msg.assistant {
+    align-self: flex-start;
+    background: #0c1221;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    width: 84%;
+  }
+  .meta-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-family: monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .meta-local { background: rgba(16, 185, 129, 0.15); color: var(--green); border: 1px solid var(--green); }
+  .meta-cloud { background: rgba(255, 106, 0, 0.15); color: var(--orange); border: 1px solid var(--orange); }
+  .meta-auto { background: rgba(56, 189, 248, 0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+  .meta-error { background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid var(--red); }
+  
+  /* Reasoning box */
+  .reasoning-box {
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border-highlight);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .reasoning-box summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--cyan);
+    outline: none;
+    user-select: none;
+  }
+  .reasoning-content {
+    margin-top: 8px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 11.5px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
 
-  .user-text { white-space: pre-wrap; word-break: break-word; font-size: 14.5px; }
-  .attach-line { font: 11px var(--mono); color: var(--amd-gold); margin-top: 6px; }
-
-  .md { font-size: 14.5px; line-height: 1.68; word-break: break-word; }
-  .md p { margin: 0 0 11px; }
-  .md p:last-child { margin-bottom: 0; }
-  .md h1, .md h2, .md h3, .md h4 {
-    font-family: var(--mono);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 18px 0 8px;
-    color: var(--amd-gold);
+  /* Markdown body */
+  .md-body p { margin-bottom: 8px; }
+  .md-body p:last-child { margin-bottom: 0; }
+  .md-body h1, .md-body h2, .md-body h3 { margin: 12px 0 6px; color: #fff; }
+  .md-body ul, .md-body ol { margin-left: 20px; margin-bottom: 8px; }
+  .md-body code {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12.5px;
   }
-  .md h1 { font-size: 18px; } .md h2 { font-size: 16px; } .md h3 { font-size: 14px; }
-  .md ul, .md ol { margin: 0 0 12px 22px; }
-  .md li { margin: 3px 0; }
-  .md blockquote { border-left: 3px solid var(--amd-gold); padding: 2px 12px; color: var(--text-2); margin: 0 0 12px; }
-  .md a { color: var(--amd-gold); }
-  .md hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
-  .md :not(pre) > code {
-    font: 12.5px var(--mono);
-    background: var(--raised);
-    border: 1px solid var(--line-2);
-    color: var(--amd-gold);
-    padding: 1px 5px;
+  .code-block-container {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 10px 0;
+    overflow: hidden;
   }
-  .md table { border-collapse: collapse; margin: 0 0 12px; font-size: 12.5px; display: block; overflow-x: auto; font-family: var(--mono); }
-  .md th, .md td { border: 1px solid var(--line-2); padding: 6px 10px; text-align: left; }
-  .md th { background: var(--raised); color: var(--amd-gold); }
-
-  .codeblock {
-    margin: 0 0 14px;
-    border: 1px solid var(--line-2);
-    border-left: 3px solid var(--amd-gold);
-    background: var(--code);
-  }
-  .codebar {
+  .code-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 12px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--muted);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 12px;
-    font: 700 10.5px var(--mono);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--amd-gold);
-    background: #121217;
-    border-bottom: 1px solid var(--line);
   }
-  .codebar button {
-    color: var(--chrome);
-    border: 1px solid var(--line-2);
-    font: 700 10px var(--mono);
-    padding: 2px 8px;
-    text-transform: uppercase;
+  .code-copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-highlight);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.15s;
   }
-  .codebar button:hover { border-color: var(--radeon-bright); color: var(--radeon-bright); }
-  .codeblock pre { margin: 0; padding: 12px 14px; overflow-x: auto; font: 12.8px/1.55 var(--mono); color: #f0ece1; }
-
-  .think { border: 1px dashed var(--line-2); margin-bottom: 10px; background: var(--abs-black); }
-  .think summary { cursor: pointer; padding: 6px 10px; font: 700 10.5px var(--mono); color: var(--amd-gold); text-transform: uppercase; letter-spacing: 0.08em; list-style: none; }
-  .think summary::before { content: "[+] "; }
-  .think[open] summary::before { content: "[-] "; }
-  .think div { padding: 0 10px 10px; font: 12px/1.55 var(--mono); color: var(--text-2); white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
-
-  .caret::after {
-    content: "";
-    display: inline-block;
-    width: 9px;
-    height: 15px;
-    background: var(--radeon-bright);
-    margin-left: 3px;
-    vertical-align: -2px;
-    animation: pulse 0.8s infinite;
-  }
-  .waiting { color: var(--amd-gold); font: 12px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; }
-  .err-box {
-    border: 1px solid var(--bad);
-    border-left: 4px solid var(--bad);
-    background: rgba(255, 69, 58, 0.10);
-    padding: 10px 12px;
-    font-family: var(--mono);
+  .code-copy-btn:hover { color: #fff; border-color: var(--cyan); }
+  .code-block-container pre {
+    padding: 12px;
+    overflow-x: auto;
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
     font-size: 12.5px;
+    line-height: 1.45;
   }
-  .err-box b { color: var(--bad); display: block; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .code-block-container code { background: none; padding: 0; }
 
-  .msg-tools { display: flex; gap: 6px; margin-top: 8px; opacity: 0; transition: opacity 0.12s; }
-  .msg:hover .msg-tools, .msg:last-child .msg-tools { opacity: 1; }
-  .msg-tools button {
-    font: 700 10px var(--mono);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-2);
-    border: 1px solid var(--line);
-    background: var(--abs-black);
-    padding: 3px 8px;
+  /* Input area */
+  .input-bar-wrapper {
+    padding: 14px 24px;
+    background: var(--sidebar-bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .msg-tools button:hover { border-color: var(--amd-gold); color: var(--amd-gold); }
-  .stat { font: 10.5px var(--mono); color: var(--muted); margin-left: auto; align-self: center; }
-
-  /* ── ATARI COMMAND DECK (COMPOSER) ──────────────────────────────────── */
-  .composer-wrap {
-    padding: 0 24px 16px;
+  .attachment-preview {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
-  .composer {
-    max-width: 820px;
-    margin: 0 auto;
-    background: var(--abs-black);
-    border: 1px solid var(--line-2);
-    border-left: 4px solid var(--amd);
-    border-right: 4px solid var(--radeon);
-    padding: 10px 12px 8px;
-  }
-  .composer:focus-within { border-top-color: var(--amd-gold); border-bottom-color: var(--radeon-bright); }
-  .composer.drag { outline: 2px dashed var(--amd-gold); background: var(--amd-soft); }
-
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .chips:empty { display: none; }
-  .chip {
-    display: inline-flex;
+  .attachment-chip {
+    display: flex;
     align-items: center;
     gap: 6px;
-    font: 11px var(--mono);
-    background: var(--raised);
-    border: 1px solid var(--amd);
-    padding: 2px 6px 2px 8px;
-  }
-  .chip button { color: var(--muted); font-weight: 700; padding: 0 3px; }
-  .chip button:hover { color: var(--bad); }
-  .chip img { width: 20px; height: 20px; object-fit: cover; }
-
-  #prompt {
-    width: 100%;
-    resize: none;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--text);
-    font: 14.5px/1.55 var(--sans);
-    max-height: 220px;
-    min-height: 26px;
-  }
-  #prompt::placeholder { color: var(--muted); }
-
-  .composer-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-  .deck-key {
-    font: 700 10.5px var(--mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    padding: 5px 10px;
-  }
-  .deck-key:hover { border-color: var(--amd-gold); color: var(--amd-gold); }
-  .spacer { flex: 1; }
-
-  /* Atari Red Fire Button */
-  .fire-btn {
-    padding: 6px 16px;
-    background: linear-gradient(90deg, var(--amd) 0%, var(--radeon) 100%);
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid var(--cyan);
     color: #fff;
-    border: 1px solid var(--chrome);
-    font: 800 11px var(--mono);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
   }
-  .fire-btn:hover { filter: brightness(1.12); }
-  .fire-btn.stop { background: var(--bad); }
-
-  .hint {
-    max-width: 820px;
-    margin: 6px auto 0;
-    font: 10.5px var(--mono);
-    color: var(--muted);
-    text-align: center;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  /* ── RIGHT WING: RADEON RUBY TELEMETRY & REPO CONTEXT ───────────────── */
-  .wing-radeon {
-    background: var(--abs-black);
-    border-left: 2px solid var(--radeon);
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .drawer-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .rad-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-top: 2px solid var(--radeon);
-    padding: 10px;
-  }
-  .rad-card.amd-accent { border-top-color: var(--amd); }
-  .sec-title {
-    font: 800 10px var(--mono);
-    color: var(--radeon-bright);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .rad-card.amd-accent .sec-title { color: var(--amd-gold); }
-
-  .kv {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    font: 11.5px var(--mono);
-    padding: 4px 0;
-    border-bottom: 1px dotted var(--line);
-  }
-  .kv:last-child { border-bottom: none; }
-  .kv span:first-child { color: var(--muted); }
-  .kv span:last-child { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
-
-  /* Atari Segmented Power Bar for Workstation Health */
-  .health-top { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--mono); }
-  .health-top b { font-size: 26px; font-weight: 800; color: var(--text); }
-  .health-grade {
-    font: 800 11px var(--mono);
-    padding: 2px 7px;
-    border: 1px solid var(--radeon-bright);
-    color: var(--radeon-bright);
-    text-transform: uppercase;
-  }
-  .seg-bar {
-    height: 10px;
-    margin-top: 6px;
-    background: #0c0c10;
-    border: 1px solid var(--line-2);
-    overflow: hidden;
-  }
-  .seg-fill {
-    height: 100%;
-    background: repeating-linear-gradient(
-      90deg,
-      var(--amd) 0px,
-      var(--amd-gold) 10px,
-      var(--radeon) 20px,
-      #0c0c10 20px,
-      #0c0c10 23px
-    );
-  }
-
-  .search {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--line-2);
-    background: var(--abs-black);
-    color: var(--text);
-    font: 11.5px var(--mono);
-    outline: none;
-    margin-bottom: 6px;
-  }
-  .search:focus { border-color: var(--amd-gold); }
-  .files { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); background: var(--abs-black); }
-  .file {
-    display: flex;
-    gap: 7px;
-    align-items: center;
-    padding: 5px 8px;
-    font: 11px var(--mono);
+  .attachment-chip .remove-btn {
     cursor: pointer;
-    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-weight: 700;
   }
-  .file:last-child { border-bottom: none; }
-  .file:hover { background: var(--hover); }
-  .file input { accent-color: var(--amd); }
-  .file .p { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file .s { color: var(--muted); }
-
-  /* ── CARTRIDGE SELECTOR MODAL (CTRL+K) ──────────────────────────────── */
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.72);
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 10vh;
-    z-index: 80;
-  }
-  .overlay.open { display: flex; }
-  .palette {
-    width: min(640px, 94vw);
-    max-height: 74vh;
-    background: var(--abs-black);
-    border: 2px solid var(--chrome);
-    border-left: 5px solid var(--amd);
-    border-right: 5px solid var(--radeon);
+  .attachment-chip .remove-btn:hover { color: var(--red); }
+  .input-bar {
     display: flex;
-    flex-direction: column;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75);
+    gap: 10px;
+    align-items: flex-end;
   }
-  .palette input {
+  .input-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    background: var(--orange);
+    color: #fff;
     border: none;
-    border-bottom: 1px solid var(--line-2);
-    background: #14141a;
-    color: var(--text);
-    padding: 13px 16px;
-    font: 14px var(--mono);
-    outline: none;
-  }
-  .pal-list { overflow-y: auto; padding: 6px; }
-  .pal-group {
-    font: 800 10px var(--mono);
-    color: var(--amd-gold);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 10px 10px 4px;
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px dotted var(--line-2);
-  }
-  .pal-group em { font-style: normal; color: var(--radeon-bright); font-weight: 600; }
-  .pal-item {
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.15s;
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    text-align: left;
-    padding: 8px 10px;
-    font-family: var(--mono);
-    font-size: 12.5px;
+    gap: 6px;
   }
-  .pal-item:hover, .pal-item.kb { background: var(--hover); }
-  .pal-item.sel { background: var(--amd-soft); border-left: 3px solid var(--amd-gold); }
-  .pal-item.off { opacity: 0.45; }
-  .pal-item .n { flex: 1; font-weight: 700; }
-  .pal-item .t { font-size: 10.5px; color: var(--muted); }
-  .pal-foot {
-    border-top: 1px solid var(--line-2);
-    padding: 8px 14px;
-    font: 10.5px var(--mono);
-    color: var(--text-2);
-    background: #101015;
+  .btn:hover { background: var(--orange-hover); }
+  .btn-stop {
+    background: var(--red);
+  }
+  .btn-stop:hover { background: #dc2626; }
+  .btn-secondary {
+    background: #182238;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .btn-secondary:hover { border-color: var(--cyan); color: #fff; }
+  .btn-icon {
+    padding: 10px;
+    background: #141b2c;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .btn-icon:hover { color: #fff; border-color: var(--cyan); }
+  
+  /* Workspace panel */
+  .workspace-file-list {
+    max-height: 140px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #090d17;
+    padding: 6px;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11.5px;
   }
-
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .file-item:hover { background: rgba(255, 255, 255, 0.05); }
+  .file-item input[type="checkbox"] { width: auto; }
   .toast {
     position: fixed;
-    bottom: 22px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(90deg, var(--amd) 0%, var(--radeon) 100%);
+    bottom: 24px;
+    right: 24px;
+    background: #0f172a;
+    border: 1px solid var(--green);
     color: #fff;
-    padding: 8px 16px;
-    border: 1px solid var(--chrome);
-    font: 700 11.5px var(--mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 9999;
     opacity: 0;
+    transition: opacity 0.2s ease;
     pointer-events: none;
-    transition: opacity 0.15s;
-    z-index: 95;
   }
   .toast.show { opacity: 1; }
-
-  @media (max-width: 960px) {
-    .app { grid-template-columns: 0px 1fr 0px; }
-    .telemetry-strip, .starters { grid-template-columns: 1fr 1fr; }
-  }
 </style>
 </head>
 <body>
-
-  <!-- ATARI 2600 RIBBED TOP DECK -->
-  <header class="atari-deck">
-    <div class="dual-ribbon">
-      <div class="ribbon-amd"></div>
-      <div class="ribbon-radeon"></div>
-    </div>
-    <div class="bezel-bar">
-      <!-- Left: Atari Fuji + AMD/Radeon Split Emblem -->
-      <div class="atari-brand">
-        <!-- Geometric Atari Fuji (Left Amber pillar, Center Chrome pillar, Right Radeon Ruby pillar) -->
-        <svg class="fuji-svg" viewBox="0 0 36 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 3C13 13 8 20 2 23H7.5C12 19 14.5 13 14.5 3H13Z" fill="#FF6A00"/>
-          <rect x="16.2" y="3" width="3.6" height="20" fill="#F2EEE6"/>
-          <path d="M23 3C23 13 28 20 34 23H28.5C24 19 21.5 13 21.5 3H23Z" fill="#ED1C24"/>
-        </svg>
-        <div class="brand-stack">
-          <span class="brand-main">Jupiter Studio</span>
-          <span class="brand-sub"><span class="half-a">AMD RYZEN</span> // <span class="half-r">RADEON</span> ATARI DECK</span>
-        </div>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="logo-badge" title="Jupiter Studio RC1 — Powered by AMD Token Lab">
+        <img src="/assets/jupiter_studio_icon.png" alt="Jupiter Studio" width="40" height="40" style="width:40px; height:40px; border-radius:10px; display:block; object-fit:cover;" />
       </div>
-
-      <!-- Center: Cartridge / Model Selector Slot -->
-      <div class="cartridge-slot">
-        <button class="cartridge-btn" onclick="openPalette()" title="Select Model Cartridge (Ctrl+K)">
-          <span class="cart-label">CARTRIDGE</span>
-          <span class="dot" id="model-dot"></span>
-          <span class="cart-name" id="model-name">Auto</span>
-          <span class="cart-prov" id="model-prov">d3 router</span>
-          <span class="kbd">Ctrl+K</span>
-        </button>
-      </div>
-
-      <!-- Right: Atari Silver Toggle Switches -->
-      <div class="switch-bank">
-        <button class="atari-switch" onclick="toggleRail()">
-          <span>SLOTS</span><small>LEFT BAY</small>
-        </button>
-        <button class="atari-switch" id="crt-switch" onclick="toggleCrt()">
-          <span>TV TYPE</span><small id="crt-label">COLOR</small>
-        </button>
-        <button class="atari-switch" onclick="openPalette()">
-          <span>SELECT</span><small>MODEL</small>
-        </button>
-        <button class="atari-switch" onclick="newChat()">
-          <span>RESET</span><small>NEW CHAT</small>
-        </button>
-        <button class="atari-switch on" id="drawer-btn" onclick="toggleDrawer()">
-          <span>RADEON</span><small>TELEMETRY</small>
-        </button>
+      <div>
+        <h1>Jupiter Studio <span class="rc-pill">RC1</span></h1>
+        <p>MemoryOS Hybrid Workstation // AMD Token Lab</p>
       </div>
     </div>
-  </header>
 
-  <!-- THREE-WING WORKBENCH -->
-  <div class="app" id="app">
+    <!-- Execution Target Selector -->
+    <div>
+      <div class="section-title">Execution Target</div>
+      <select class="select-box" id="target-selector" onchange="onTargetChange()">
+        <option value="auto:d3" selected>⚡ Auto-Route (d3 Smart Router)</option>
+        <optgroup label="AMD Token Lab Cloud (Zero VRAM)" id="opt-tokenlab">
+          <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Tactical / Vision)</option>
+          <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code Architecture)</option>
+          <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (1M Context)</option>
+          <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Scout)</option>
+        </optgroup>
+        <optgroup label="NVIDIA NIM / Brev Cloud" id="opt-nvidia">
+          <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
+          <option value="nv:meta/llama-3.3-70b-instruct">Llama-3.3-70B (NVIDIA NIM)</option>
+          <option value="nv:qwen/qwen2.5-7b-instruct">Qwen-2.5-7B (NVIDIA NIM)</option>
+        </optgroup>
+        <optgroup label="DigitalOcean Serverless (AMD MI300X)" id="opt-digitalocean">
+          <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
+          <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
+        </optgroup>
+        <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
+          <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
+          <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
+          <option value="flare:Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (NVIDIA Flare :8080)</option>
+          <option value="flare:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (NVIDIA Flare :8080)</option>
+        </optgroup>
+        <optgroup label="Local Models (100% Free / Ollama)" id="opt-ollama">
+          <option value="ollama:raon-1-nano">raon-1-nano (Game-Loop 1.5B / 256K)</option>
+          <option value="ollama:qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Ultra-Fast)</option>
+          <option value="ollama:qwen2.5-coder:7b">qwen2.5-coder:7b (Local Accuracy)</option>
+          <option value="ollama:deepseek-r1:7b">deepseek-r1:7b (Reasoning)</option>
+          <option value="ollama:deepseek-r1:8b">deepseek-r1:8b (Deep Thinking)</option>
+        </optgroup>
+      </select>
+    </div>
 
-    <!-- LEFT WING: AMD RYZEN / TOKEN LAB CARTRIDGE SLOTS -->
-    <aside class="wing-amd">
-      <div class="wing-head amd-bar">
-        <span>AMD // SESSION SLOTS</span>
-        <span>0.091ms GATE</span>
+    <!-- Hardware Profile -->
+    <div>
+      <div class="section-title">Hardware Profile</div>
+      <div class="card" id="hw-card">
+        <div style="font-size:11px; color:var(--muted);">ACTIVE GPU</div>
+        <div class="hw-val" id="hw-name">Detecting...</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">VRAM USAGE</div>
+        <div class="hw-val" id="hw-vram">0 / 0 MB</div>
       </div>
-      <button class="new-cart-btn" onclick="newChat()">
-        <span>+ INSERT NEW SESSION</span>
-        <span class="kbd">RESET</span>
-      </button>
-      <div class="conv-list" id="conv-list"></div>
-      <div class="wing-foot">
-        <span id="foot-gpu">AMD / GPU</span>
-        <span id="foot-vram">0 MB</span>
-      </div>
-    </aside>
+    </div>
 
-    <!-- CENTER MONITOR: CONVERSATION & ATARI COMMAND DECK -->
-    <main class="center-crt">
-      <div class="scroller" id="scroller">
-        <div class="thread" id="thread"></div>
-      </div>
-
-      <div class="composer-wrap">
-        <div class="composer" id="composer">
-          <div class="chips" id="chips"></div>
-          <textarea id="prompt" rows="1" placeholder="Transmit command to cartridge... (drop files or images anywhere)"></textarea>
-          <div class="composer-row">
-            <input type="file" id="file-in" multiple hidden />
-            <button class="deck-key" onclick="document.getElementById('file-in').click()">+ ATTACH FILE</button>
-            <button class="deck-key" onclick="toggleDrawer(true)" id="ctx-tool">REPO FILES</button>
-            <button class="deck-key" onclick="openPalette()">CARTRIDGE [CTRL+K]</button>
-            <div class="spacer"></div>
-            <button class="fire-btn" id="send" onclick="onSendClick()" title="Fire / Transmit (Enter)">FIRE &uarr;</button>
-          </div>
+    <!-- MemoryOS Policy Telemetry -->
+    <div>
+      <div class="section-title">MemoryOS Policy Telemetry</div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; font-size:12px;">
+          <span>CPU Skip Gate (d3)</span>
+          <span style="color:var(--green); font-weight:700;" id="pol-gate">0.091 ms</span>
         </div>
-        <div class="hint" id="hint">ENTER = FIRE &middot; SHIFT+ENTER = NEWLINE &middot; CTRL+K = SWAP CARTRIDGE &middot; ZERO LOCAL VRAM</div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
+          <span>Local AI VRAM Saved</span>
+          <span style="color:var(--cyan); font-weight:700;" id="pol-vram">100.0%</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
+          <span>Active Advisor Cards</span>
+          <span style="color:var(--orange); font-weight:700;" id="pol-cards">7 Active</span>
+        </div>
       </div>
-    </main>
+    </div>
 
-    <!-- RIGHT WING: RADEON RUBY TELEMETRY & REPO CONTEXT -->
-    <aside class="wing-radeon">
-      <div class="wing-head radeon-bar">
-        <span>RADEON // TELEMETRY BAY</span>
-        <span id="vram-pill">0 MB VRAM</span>
+    <!-- Workspace Context & Copilot Handoff -->
+    <div>
+      <div class="section-title">
+        <span>Workspace & Copilot</span>
+        <span style="font-size:10px; color:var(--cyan);" id="ws-branch">beta</span>
       </div>
-      <div class="drawer-body">
-        <section class="rad-card">
-          <div class="sec-title"><span>Workstation Health</span><span id="h-status">HEALTHY</span></div>
-          <div class="health-top">
-            <b id="h-score">100</b>
-            <span class="health-grade" id="h-grade">GRADE A</span>
-          </div>
-          <div class="seg-bar"><div class="seg-fill" id="h-bar" style="width:100%"></div></div>
-        </section>
-
-        <section class="rad-card">
-          <div class="sec-title"><span>GPU &amp; Zen 3 Gate</span></div>
-          <div class="kv"><span>DEVICE</span><span id="hw-name">--</span></div>
-          <div class="kv"><span>VRAM IN USE</span><span id="hw-vram">--</span></div>
-          <div class="kv"><span>THERMAL / LOAD</span><span id="hw-temp">--</span></div>
-          <div class="kv"><span>AMD ZEN 3 GATE</span><span id="hw-gate">0.091 ms</span></div>
-        </section>
-
-        <section class="rad-card amd-accent">
-          <div class="sec-title"><span>Repo Context Files</span><span id="staged">0 STAGED</span></div>
-          <input class="search" id="file-q" placeholder="Filter workspace files..." oninput="renderFiles()" />
-          <div class="files" id="files"><div class="file">Scanning...</div></div>
-        </section>
-
-        <section class="rad-card">
-          <div class="sec-title"><span>Bus Matrix</span><button class="kbd" onclick="loadModels(true)">PROBE</button></div>
-          <div id="prov-list"></div>
-        </section>
-      </div>
-    </aside>
-
-  </div>
-
-  <!-- CARTRIDGE PICKER MODAL (CTRL+K) -->
-  <div class="overlay" id="overlay" onclick="if(event.target===this)closePalette()">
-    <div class="palette">
-      <input id="pal-q" placeholder="SELECT MODEL CARTRIDGE..." oninput="renderPalette()" />
-      <div class="pal-list" id="pal-list"></div>
-      <div class="pal-foot">
-        <span>&uarr;&darr; SELECT &middot; ENTER LOAD CARTRIDGE &middot; ESC EXIT</span>
-        <span id="pal-count"></span>
+      <div class="card" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:11px; color:var(--muted);">Select project files to attach to context:</div>
+        <div class="workspace-file-list" id="workspace-file-list">
+          <div style="color:var(--muted); padding:4px;">Scanning files...</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; color:var(--muted);" id="ws-file-count">0 files selected</span>
+          <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="selectCoreFiles()">Core Files</button>
+        </div>
+        <button class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; background:#1e2942; border-color:#38bdf8;" onclick="exportCopilotBundle()">
+          📋 Export Copilot Bundle
+        </button>
       </div>
     </div>
   </div>
-  <div class="toast" id="toast"></div>
+
+  <!-- Main Chat Workstation -->
+  <div class="main">
+    <div class="chat-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="badge" id="chat-mode-badge">AUTO-ROUTE (d3)</span>
+        <span style="font-size:12px; color:var(--muted);" id="chat-target-desc">Dynamically routes to fastest optimal model</span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" onclick="clearChat()">🗑 Clear Chat</button>
+      </div>
+    </div>
+
+    <div class="chat-log" id="chat-log">
+      <div class="msg assistant">
+        <div class="meta-tag meta-auto">SYSTEM READY</div>
+        <div class="md-body">
+          <p>Welcome to <b>Jupiter Studio // MemoryOS Hybrid Workstation</b>!</p>
+          <p>Your studio is connected and ready:</p>
+          <ul>
+            <li><b>⚡ d3 Smart Router:</b> Automatically routes code, vision, and light queries across cloud grants with zero local VRAM penalty.</li>
+            <li><b>📁 Workspace & Copilot Handoff:</b> Select project files above and click <i>Export Copilot Bundle</i> to copy structured context directly into Copilot / IDE agents.</li>
+            <li><b>🖼 Multimodal Vision:</b> Drag and drop or attach screenshots to analyze bugs and UI frames directly.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Bar -->
+    <div class="input-bar-wrapper" id="input-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <div class="attachment-preview" id="attachment-preview" style="display:none; flex-wrap:wrap; gap:6px;"></div>
+      <div class="input-bar">
+        <input type="file" id="image-file-input" accept="image/*" style="display:none;" onchange="handleImageSelected(event)" />
+        <input type="file" id="doc-file-input" multiple style="display:none;" onchange="handleFilesSelected(event)" />
+        <button class="btn-icon" id="upload-file-btn" title="Upload Files (Code, Logs, JSON, Markdown, CSV, Text)" onclick="document.getElementById('doc-file-input').click()">
+          📎
+        </button>
+        <button class="btn-icon" id="upload-image-btn" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
+          🖼️
+        </button>
+        <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag & drop files here... (Ctrl+Enter to send)" onkeydown="if(event.ctrlKey && event.key==='Enter') sendPrompt()"></textarea>
+        <div class="input-actions">
+          <button class="btn" id="run-btn" onclick="sendPrompt()">Run</button>
+          <button class="btn btn-stop" id="stop-btn" style="display:none;" onclick="stopGeneration()">⏹ Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard!</div>
 
 <script>
-const CATALOG = [
-  { key: "auto", group: "AMD d3 Smart Router", items: [ { v: "auto:d3", n: "Auto (d3 Gate)", t: "0.091ms host gate + Instinct" } ] },
-  { key: "cloud", group: "AMD Token Lab (Instinct Cloud)", items: [
-    { v: "cloud:Gemma-4-31B-IT", n: "Gemma 4 31B", t: "vision + reasoning" },
-    { v: "cloud:Qwen3.8-27B", n: "Qwen 3.8 27B", t: "code architecture" },
-    { v: "cloud:DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: "1M context" },
-    { v: "cloud:MiniCPM5-2B", n: "MiniCPM5 2B", t: "fast response" } ] },
-  { key: "nv", group: "NVIDIA NIM", items: [
-    { v: "nv:qwen/qwen2.5-coder-32b-instruct", n: "Qwen 2.5 Coder 32B", t: "code" },
-    { v: "nv:meta/llama-3.3-70b-instruct", n: "Llama 3.3 70B", t: "general" },
-    { v: "nv:qwen/qwen2.5-7b-instruct", n: "Qwen 2.5 7B", t: "fast" } ] },
-  { key: "do", group: "DigitalOcean AMD Instinct MI300X", items: [
-    { v: "do:Qwen/Qwen2.5-Coder-32B-Instruct", n: "Qwen 2.5 Coder 32B", t: "MI300X" },
-    { v: "do:meta-llama/Llama-3.3-70B-Instruct", n: "Llama 3.3 70B", t: "MI300X" } ] },
-  { key: "vllm", group: "DGX Spark - Local vLLM", items: [
-    { v: "vllm:Qwen/Qwen3.8-Flash-Next", n: "Qwen 3.8 Flash Next", t: ":8000" },
-    { v: "vllm:deepseek-ai/DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: ":8000" } ] },
-  { key: "flare", group: "DGX Spark - NVIDIA Flare", items: [
-    { v: "flare:Qwen3.8-Flash-Next", n: "Qwen 3.8 Flash Next", t: ":8080" },
-    { v: "flare:DeepSeek-V4.1-Flash", n: "DeepSeek V4.1 Flash", t: ":8080" } ] },
-  { key: "ollama", group: "Local Ollama", items: [] },
-];
-const OLLAMA_DEFAULTS = ["raon-1-nano", "qwen2.5-coder:1.5b", "qwen2.5-coder:7b", "deepseek-r1:7b", "deepseek-r1:8b"];
+let currentAbortController = null;
+let currentAttachedImage = null;
+let chatHistory = [];
+let workspaceFiles = [];
 
-let providers = {};
-let state = loadState();
-let busy = false, abortCtl = null;
-let attachments = [];
-let workspaceFiles = [], selectedFiles = new Set();
-let palIndex = 0, palFlat = [];
-let lastStatusGpu = { used: 0, total: 8192, gate: 0.091 };
+// Lightweight safe Markdown renderer
+function renderMarkdown(text) {
+  if (!text) return "";
+  // Escape raw HTML first
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-function loadState() {
-  try {
-    const s = JSON.parse(localStorage.getItem("jupiter.v2") || "{}");
-    return {
-      convs: s.convs || [],
-      activeId: s.activeId || null,
-      model: s.model || "auto:d3",
-      crt: s.crt || "color",
-      drawer: s.drawer !== undefined ? !!s.drawer : true,
-    };
-  } catch {
-    return { convs: [], activeId: null, model: "auto:d3", crt: "color", drawer: true };
-  }
-}
-function save() {
-  localStorage.setItem("jupiter.v2", JSON.stringify({ ...state, convs: state.convs.slice(0, 60) }));
-}
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-function toast(msg) {
-  const t = $("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove("show"), 1900);
-}
-
-/* ---------- Conversations ("Cartridge Slots") ---------- */
-function activeConv() { return state.convs.find((c) => c.id === state.activeId) || null; }
-function newChat() {
-  if (busy) stop();
-  state.activeId = null; save(); renderConvs(); renderThread(); $("prompt").focus();
-}
-function ensureConv(firstPrompt) {
-  let c = activeConv();
-  if (!c) {
-    c = { id: "c" + Date.now(), title: firstPrompt.slice(0, 60), created: Date.now(), messages: [] };
-    state.convs.unshift(c); state.activeId = c.id;
-  }
-  return c;
-}
-function openConv(id) { if (busy) stop(); state.activeId = id; save(); renderConvs(); renderThread(); }
-function deleteConv(id, ev) {
-  ev.stopPropagation();
-  state.convs = state.convs.filter((c) => c.id !== id);
-  if (state.activeId === id) state.activeId = null;
-  save(); renderConvs(); renderThread();
-}
-function renderConvs() {
-  const now = Date.now(), day = 86400000;
-  const buckets = { "ACTIVE SLOTS": [], "PREVIOUS 7 DAYS": [], "ARCHIVE": [] };
-  state.convs.forEach((c) => {
-    const age = now - c.created;
-    (age < day ? buckets["ACTIVE SLOTS"] : age < 7 * day ? buckets["PREVIOUS 7 DAYS"] : buckets["ARCHIVE"]).push(c);
-  });
-  let html = "";
-  for (const [label, list] of Object.entries(buckets)) {
-    if (!list.length) continue;
-    html += `<div class="conv-group">${label}</div>`;
-    html += list.map((c) => `<div class="conv ${c.id === state.activeId ? "active" : ""}" onclick="openConv('${c.id}')">
-      <span class="conv-title">${esc(c.title || "UNTITLED")}</span>
-      <button class="conv-del" title="Eject slot" onclick="deleteConv('${c.id}', event)">&times;</button></div>`).join("");
-  }
-  $("conv-list").innerHTML = html || `<div class="conv-group">NO SESSIONS STORED</div>`;
-}
-
-/* ---------- Markdown ---------- */
-function inline(s) {
-  return s
-    .replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
-    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-}
-function renderMarkdown(src, streaming) {
-  const codes = [];
-  let text = String(src || "");
-  if (streaming && (text.match(/```/g) || []).length % 2 === 1) text += "\n```";
-  text = text.replace(/```([\w+#.-]*)[^\n]*\n([\s\S]*?)```/g, (_, lang, code) => {
-    codes.push({ lang: lang || "code", code: code.replace(/\n$/, "") });
-    return `\u0000${codes.length - 1}\u0000`;
-  });
-  const lines = esc(text).split("\n");
-  const out = [];
-  let i = 0;
-  while (i < lines.length) {
-    const ln = lines[i];
-    const codeMatch = ln.match(/^\u0000(\d+)\u0000$/);
-    if (codeMatch) {
-      const b = codes[+codeMatch[1]];
-      out.push(`<div class="codeblock"><div class="codebar"><span>${esc(b.lang)}</span><button onclick="copyCode(this)">COPY</button></div><pre><code>${esc(b.code)}</code></pre></div>`);
-      i++; continue;
-    }
-    if (/^#{1,4} /.test(ln)) { const lvl = ln.match(/^#+/)[0].length; out.push(`<h${lvl}>${inline(ln.slice(lvl + 1))}</h${lvl}>`); i++; continue; }
-    if (/^(-{3,}|\*{3,})$/.test(ln.trim())) { out.push("<hr/>"); i++; continue; }
-    if (/^&gt; ?/.test(ln)) {
-      const q = []; while (i < lines.length && /^&gt; ?/.test(lines[i])) q.push(lines[i++].replace(/^&gt; ?/, ""));
-      out.push(`<blockquote>${inline(q.join("<br/>"))}</blockquote>`); continue;
-    }
-    if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
-      const row = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
-      const head = row(ln); i += 2; const body = [];
-      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) body.push(row(lines[i++]));
-      out.push(`<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
-      continue;
-    }
-    if (/^\s*([-*+]|\d+[.)]) /.test(ln)) {
-      const ordered = /^\s*\d+[.)] /.test(ln); const items = [];
-      while (i < lines.length && /^\s*([-*+]|\d+[.)]) /.test(lines[i])) items.push(lines[i++].replace(/^\s*([-*+]|\d+[.)]) /, ""));
-      out.push(`<${ordered ? "ol" : "ul"}>${items.map((it) => `<li>${inline(it)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`); continue;
-    }
-    if (!ln.trim()) { i++; continue; }
-    const para = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,4} |\s*([-*+]|\d+[.)]) |&gt;|\u0000)/.test(lines[i]) && !/^\s*\|.*\|\s*$/.test(lines[i])) para.push(lines[i++]);
-    if (!para.length) para.push(lines[i++]);
-    out.push(`<p>${inline(para.join("<br/>"))}</p>`);
-  }
-  return out.join("");
-}
-function copyCode(btn) {
-  navigator.clipboard.writeText(btn.closest(".codeblock").querySelector("code").innerText);
-  btn.textContent = "COPIED"; setTimeout(() => (btn.textContent = "COPY"), 1200);
-}
-
-/* ---------- Thread rendering ---------- */
-function labelFor(v) {
-  for (const g of CATALOG) for (const it of g.items) if (it.v === v) return { n: it.n, g: g.group };
-  const [p, ...rest] = v.split(":"); return { n: rest.join(":") || v, g: p };
-}
-function renderThread() {
-  const c = activeConv(), th = $("thread");
-  if (!c || !c.messages.length) {
-    th.innerHTML = `<div class="welcome">
-      <div class="welcome-stripes"><div class="ribbon-amd"></div><div class="ribbon-radeon"></div></div>
-      <div class="welcome-body">
-        <div class="welcome-kicker">
-          <span class="kicker-amd">AMD RYZEN &amp; INSTINCT</span>
-          <span class="kicker-sep">//</span>
-          <span class="kicker-rad">RADEON TELEMETRY DECK</span>
-        </div>
-        <h1>Atari x AMD x Radeon Console</h1>
-        <p>Host-side Zen 3 SIMD gating runs in 0.091 ms on the left wing while 27B-31B models execute on AMD Instinct via Token Lab on the right wing—keeping local studio VRAM at 0 MB.</p>
-        <div class="telemetry-strip">
-          <div class="tele-cell amd-side"><div class="tele-k">ZEN 3 GATE</div><div class="tele-v">0.091 ms</div></div>
-          <div class="tele-cell amd-side"><div class="tele-k">SPECULATIVE MLP</div><div class="tele-v">5.37 &mu;s</div></div>
-          <div class="tele-cell rad-side"><div class="tele-k">STUDIO VRAM</div><div class="tele-v">0 MB</div></div>
-          <div class="tele-cell rad-side"><div class="tele-k">READY BUSES</div><div class="tele-v" id="welcome-buses">5 / 19</div></div>
-        </div>
-        <div class="starters">
-          <button class="starter" onclick="starter('Review the selected repo files for bugs and security risks. Show exact fixes.')"><b>01 // Audit Staged Code</b><span>Select files in the Radeon bay and inspect</span></button>
-          <button class="starter" onclick="starter('Explain step by step how MemoryOS keeps local VRAM at 0 MB while routing to AMD Instinct via Token Lab.')"><b>02 // Zero-VRAM Architecture</b><span>Trace the 0.091 ms Zen 3 gate to Instinct</span></button>
-          <button class="starter" onclick="starter('Write focused Python unittest tests for the attached or selected module.')"><b>03 // Generate Unit Tests</b><span>Verify edge cases &amp; SQL/telemetry safety</span></button>
-          <button class="starter" onclick="starter('Compare local 8 GB VRAM execution vs AMD Token Lab offload for a 31B model.')"><b>04 // Hardware Shootout</b><span>8 GB laptop GPU vs AMD Instinct MI300X</span></button>
-        </div>
+  // Code blocks: ```lang ... ```
+  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function(match, lang, code) {
+    const language = lang || "text";
+    const cleanCode = code.trim();
+    const encoded = encodeURIComponent(cleanCode);
+    return `<div class="code-block-container">
+      <div class="code-header">
+        <span>${language}</span>
+        <button class="code-copy-btn" onclick="copyCode(this, '${encoded}')">📋 Copy</button>
       </div>
+      <pre><code>${cleanCode}</code></pre>
     </div>`;
-    return;
-  }
-  th.innerHTML = c.messages.map((m, idx) => messageHtml(m, idx, idx === c.messages.length - 1)).join("");
-  scrollDown(true);
-}
-function messageHtml(m, idx, isLast) {
-  if (m.role === "user") {
-    const att = (m.attach || []).length ? `<div class="attach-line">ATTACHED: ${esc(m.attach.join(" · "))}</div>` : "";
-    return `<div class="msg user" data-i="${idx}">
-      <div class="who"><b>AMD // TX</b><span>COMMAND INPUT</span></div>
-      <div class="user-text">${esc(m.content)}</div>${att}
-      <div class="msg-tools"><button onclick="editMsg(${idx})">EDIT</button><button onclick="copyMsg(${idx})">COPY</button></div>
-    </div>`;
-  }
-  const lbl = labelFor(m.model || state.model);
-  const body = m.error
-    ? `<div class="err-box"><b>CARTRIDGE FAULT</b>${esc(m.error)}</div>`
-    : (m.content ? renderMarkdown(m.content, m.streaming) : `<span class="waiting">${m.streaming ? "RECEIVING STREAM..." : "(EMPTY RESPONSE)"}</span>`);
-  const think = m.reasoning ? `<details class="think" ${m.streaming && !m.content ? "open" : ""}><summary>REASONING TRACE (${m.reasoning.length.toLocaleString()} CHARS)</summary><div>${esc(m.reasoning)}</div></details>` : "";
-  const stat = m.stats ? `<span class="stat">${esc(m.stats)}</span>` : "";
-  const tools = m.streaming ? "" : `<div class="msg-tools"><button onclick="copyMsg(${idx})">COPY</button>${isLast ? `<button onclick="retry()">RETRY</button><button onclick="openPalette(true)">SWAP CARTRIDGE &amp; RETRY</button>` : ""}${stat}</div>`;
-  return `<div class="msg ai" data-i="${idx}">
-    <div class="who"><span class="dot ${m.streaming ? "busy" : m.error ? "bad" : ""}"></span><b>RADEON // ${esc(lbl.n)}</b><span>${esc(m.provider || lbl.g)}</span></div>
-    ${think}<div class="md ${m.streaming && m.content ? "caret" : ""}">${body}</div>${tools}
-  </div>`;
-}
-function updateLast() {
-  const c = activeConv(); if (!c) return;
-  const idx = c.messages.length - 1;
-  const el = document.querySelector(`.msg[data-i="${idx}"]`);
-  const html = messageHtml(c.messages[idx], idx, true);
-  if (el) el.outerHTML = html; else renderThread();
-  scrollDown();
-}
-function scrollDown(force) {
-  const s = $("scroller");
-  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 160) s.scrollTop = s.scrollHeight;
-}
-function copyMsg(idx) { navigator.clipboard.writeText(activeConv().messages[idx].content || ""); toast("COPIED TO CLIPBOARD"); }
-function editMsg(idx) {
-  if (busy) return;
-  const c = activeConv(); const m = c.messages[idx];
-  $("prompt").value = m.content; autosize();
-  c.messages = c.messages.slice(0, idx); save(); renderThread(); $("prompt").focus();
-}
-function starter(text) { $("prompt").value = text; autosize(); $("prompt").focus(); send(); }
+  });
 
-/* ---------- Sending & Streaming ---------- */
-function onSendClick() { busy ? stop() : send(); }
-function stop() { if (abortCtl) abortCtl.abort(); }
-function retry(modelOverride) {
-  if (busy) return;
-  const c = activeConv(); if (!c) return;
-  let lastUser = -1;
-  for (let k = c.messages.length - 1; k >= 0; k--) if (c.messages[k].role === "user") { lastUser = k; break; }
-  if (lastUser < 0) return;
-  const u = c.messages[lastUser];
-  c.messages = c.messages.slice(0, lastUser + 1);
-  if (modelOverride) setModel(modelOverride);
-  stream(c, u.content, u.payloadExtras || {});
-}
-async function send() {
-  const text = $("prompt").value.trim();
-  if (!text || busy) return;
-  const prov = state.model.split(":")[0];
-  const pstate = providers[prov === "auto" ? "auto" : prov];
-  if (pstate && !pstate.ready) { toast(pstate.reason || "CARTRIDGE OFFLINE"); openPalette(); return; }
+  // Inline code: `code`
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 
-  const c = ensureConv(text);
-  const extras = {
-    uploaded_files: attachments.filter((a) => a.kind === "file").map((a) => ({ name: a.name, content: a.content })),
-    image_base64: (attachments.find((a) => a.kind === "image") || {}).content || null,
-    workspace_files: Array.from(selectedFiles),
-  };
-  const attachLabels = [...attachments.map((a) => a.name), ...extras.workspace_files.map((f) => f.split("/").pop())];
-  c.messages.push({ role: "user", content: text, attach: attachLabels, payloadExtras: extras });
-  $("prompt").value = ""; autosize();
-  attachments = []; renderChips();
-  renderConvs();
-  stream(c, text, extras);
-}
-async function stream(c, text, extras) {
-  const history = c.messages.filter((m) => !m.error && m.content).slice(0, -1).slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-  const ai = { role: "assistant", content: "", reasoning: "", model: state.model, streaming: true };
-  c.messages.push(ai);
-  renderThread(); setBusy(true);
-  abortCtl = new AbortController();
-  const t0 = performance.now(); let firstTok = 0, pending = false;
-  const paint = () => { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; updateLast(); }); } };
-  try {
-    const res = await fetch("/api/chat/stream", {
-      method: "POST", headers: { "Content-Type": "application/json" }, signal: abortCtl.signal,
-      body: JSON.stringify({ prompt: text, target: state.model, history, ...extras }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const parts = buf.split("\n\n"); buf = parts.pop();
-      for (const part of parts) {
-        let ev = "delta", data = "";
-        for (const l of part.split("\n")) { if (l.startsWith("event:")) ev = l.slice(6).trim(); else if (l.startsWith("data:")) data += l.slice(5).trim(); }
-        if (!data) continue;
-        let p; try { p = JSON.parse(data); } catch { continue; }
-        if (ev === "start") { ai.model = state.model.startsWith("auto") ? (p.model_used || ai.model) : ai.model; ai.provider = p.provider; paint(); }
-        else if (ev === "reasoning") { ai.reasoning += p.delta || ""; if (!firstTok) firstTok = performance.now(); paint(); }
-        else if (ev === "delta") { ai.content += p.delta || ""; if (!firstTok) firstTok = performance.now(); paint(); }
-        else if (ev === "notice") { ai.provider = p.message; paint(); }
-        else if (ev === "error") { ai.error = p.error || "Unknown error"; }
-      }
-    }
-    if (!ai.content && !ai.error) ai.error = "No response text received. Try another cartridge.";
-  } catch (e) {
-    if (e.name === "AbortError") { ai.stats = "STOPPED"; if (!ai.content) ai.content = "_Stopped._"; }
-    else ai.error = e.message;
-  } finally {
-    const total = (performance.now() - t0) / 1000;
-    if (!ai.stats && !ai.error) {
-      const ttft = firstTok ? ((firstTok - t0) / 1000).toFixed(1) + "s TTFT · " : "";
-      ai.stats = `${ttft}${total.toFixed(1)}s TOTAL`;
-    }
-    ai.streaming = false; abortCtl = null; setBusy(false);
-    save(); updateLast();
-  }
-}
-function setBusy(b) {
-  busy = b;
-  const s = $("send");
-  s.classList.toggle("stop", b);
-  s.innerHTML = b ? "STOP &#9632;" : "FIRE &uarr;";
-  $("model-dot").className = "dot " + (b ? "busy" : (providers[state.model.split(":")[0]] || {}).ready === false ? "bad" : "");
-}
+  // Bold & Italic
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  html = html.replace(/\*([^*]+)\*/g, "<i>$1</i>");
 
-/* ---------- Attachments ---------- */
-function addFiles(list) {
-  for (const f of Array.from(list || [])) {
-    const r = new FileReader();
-    if (f.type.startsWith("image/")) {
-      r.onload = () => { attachments = attachments.filter((a) => a.kind !== "image"); attachments.push({ kind: "image", name: f.name, content: r.result }); renderChips(); };
-      r.readAsDataURL(f);
-    } else {
-      if (f.size > 2_000_000) { toast(`${f.name} EXCEEDS 2 MB`); continue; }
-      r.onload = () => { attachments.push({ kind: "file", name: f.name, content: String(r.result) }); renderChips(); };
-      r.readAsText(f);
-    }
-  }
-}
-function renderChips() {
-  const chips = attachments.map((a, i) => `<span class="chip">${a.kind === "image" ? `<img src="${a.content}" alt=""/>` : ""}${esc(a.name)}<button onclick="removeAttachment(${i})">&times;</button></span>`);
-  selectedFiles.forEach((p) => chips.push(`<span class="chip">REPO: ${esc(p.split("/").pop())}<button onclick="toggleFile('${esc(p).replace(/'/g, "\\'")}')">&times;</button></span>`));
-  $("chips").innerHTML = chips.join("");
-}
-function removeAttachment(i) { attachments.splice(i, 1); renderChips(); }
-$("file-in").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
-let dragDepth = 0;
-window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; $("composer").classList.add("drag"); });
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("composer").classList.remove("drag"); } });
-window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("composer").classList.remove("drag"); addFiles(e.dataTransfer.files); });
-$("prompt").addEventListener("paste", (e) => {
-  const imgs = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
-  if (imgs.length) { e.preventDefault(); addFiles(imgs); }
-});
+  // Headings
+  html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
+  html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
+  html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
 
-/* ---------- Repo files ---------- */
-async function loadFiles() {
-  try { const d = await (await fetch("/api/workspace/files")).json(); workspaceFiles = d.files || []; renderFiles(); }
-  catch { $("files").innerHTML = `<div class="file">Workspace scan failed</div>`; }
-}
-function renderFiles() {
-  const q = $("file-q").value.toLowerCase();
-  const list = workspaceFiles.filter((f) => !q || f.path.toLowerCase().includes(q)).slice(0, 150);
-  $("files").innerHTML = list.map((f) => {
-    const p = esc(f.path), on = selectedFiles.has(f.path);
-    return `<label class="file"><input type="checkbox" ${on ? "checked" : ""} onchange="toggleFile('${p.replace(/'/g, "\\'")}')"/><span class="p" title="${p}">${p}</span><span class="s">${f.size_kb}K</span></label>`;
-  }).join("") || `<div class="file">No matching files</div>`;
-  $("staged").textContent = `${selectedFiles.size} STAGED`;
-  $("ctx-tool").textContent = selectedFiles.size ? `REPO FILES (${selectedFiles.size})` : "REPO FILES";
-}
-function toggleFile(p) { selectedFiles.has(p) ? selectedFiles.delete(p) : selectedFiles.add(p); renderFiles(); renderChips(); }
+  // Bullet points
+  html = html.replace(/^\s*-\s+(.*$)/gim, "<li>$1</li>");
+  html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
 
-/* ---------- Cartridge Palette (Ctrl+K) ---------- */
-async function loadModels(announce) {
-  try {
-    const d = await (await fetch("/api/models")).json();
-    providers = d.providers || {};
-    const installed = d.ollama_installed || [];
-    const names = installed.length ? installed : OLLAMA_DEFAULTS;
-    CATALOG.find((g) => g.key === "ollama").items = names.map((n) => ({ v: "ollama:" + n, n, t: installed.length ? "installed" : "offline" }));
-    renderProviders(); setModel(state.model, true);
-    let readyCnt = 0, totalCnt = 0;
-    CATALOG.forEach((g) => {
-      const ok = (providers[g.key] || { ready: g.key === "auto" }).ready;
-      totalCnt += g.items.length;
-      if (ok) readyCnt += g.items.length;
-    });
-    const wb = $("welcome-buses"); if (wb) wb.textContent = `${readyCnt} / ${totalCnt}`;
-    if (announce) toast("BUS MATRIX PROBED");
-  } catch {}
-}
-function renderProviders() {
-  $("prov-list").innerHTML = CATALOG.filter((g) => g.key !== "auto").map((g) => {
-    const p = providers[g.key] || {};
-    return `<div class="kv"><span>${esc(g.group.split(" (")[0])}</span><span style="color:${p.ready ? "var(--ok)" : "var(--muted)"}" title="${esc(p.reason || "")}">${p.ready ? "ONLINE" : "OFFLINE"}</span></div>`;
+  // Line breaks to paragraphs
+  const paragraphs = html.split(/\n{2,}/);
+  return paragraphs.map(p => {
+    if (p.startsWith("<div") || p.startsWith("<ul") || p.startsWith("<h")) return p;
+    return `<p>${p.replace(/\n/g, "<br/>")}</p>`;
   }).join("");
 }
-let retryMode = false;
-function openPalette(forRetry) { retryMode = !!forRetry; $("overlay").classList.add("open"); $("pal-q").value = ""; palIndex = 0; renderPalette(); setTimeout(() => $("pal-q").focus(), 10); }
-function closePalette() { $("overlay").classList.remove("open"); $("prompt").focus(); }
-function renderPalette() {
-  const q = $("pal-q").value.toLowerCase(); palFlat = []; let html = "";
-  for (const g of CATALOG) {
-    const p = providers[g.key] || { ready: g.key === "auto" };
-    const items = g.items.filter((it) => !q || (it.n + " " + it.t + " " + g.group).toLowerCase().includes(q));
-    if (!items.length) continue;
-    html += `<div class="pal-group"><span>${esc(g.group)}</span>${p.ready ? "" : `<em>${esc(p.reason || "OFFLINE")}</em>`}</div>`;
-    for (const it of items) {
-      const k = palFlat.length; palFlat.push({ it, ready: p.ready });
-      html += `<button class="pal-item ${it.v === state.model ? "sel" : ""} ${p.ready ? "" : "off"} ${k === palIndex ? "kb" : ""}" onclick="pickModel(${k})">
-        <span class="dot ${p.ready ? "" : "bad"}"></span><span class="n">${esc(it.n)}</span><span class="t">${esc(it.t)}</span></button>`;
-    }
-  }
-  $("pal-list").innerHTML = html || `<div class="pal-group">NO MATCHING CARTRIDGES</div>`;
-  $("pal-count").textContent = `${palFlat.filter((x) => x.ready).length} READY / ${palFlat.length}`;
-}
-function pickModel(k) {
-  const entry = palFlat[k]; if (!entry) return;
-  if (!entry.ready) { toast("OFFLINE: " + ((providers[entry.it.v.split(":")[0]] || {}).reason || "NOT CONFIGURED")); return; }
-  setModel(entry.it.v); closePalette();
-  if (retryMode) { retryMode = false; retry(entry.it.v); }
-}
-function setModel(v, silent) {
-  state.model = v; save();
-  const l = labelFor(v); $("model-name").textContent = l.n; $("model-prov").textContent = v.startsWith("auto") ? "d3 router" : l.g.split(" (")[0];
-  const p = providers[v.split(":")[0]];
-  $("model-dot").className = "dot " + (p && !p.ready ? "bad" : "");
-  if (!silent) toast(`CARTRIDGE LOADED: ${l.n}`);
-}
-$("pal-q").addEventListener("keydown", (e) => {
-  if (e.key === "ArrowDown") { palIndex = Math.min(palFlat.length - 1, palIndex + 1); renderPalette(); e.preventDefault(); }
-  else if (e.key === "ArrowUp") { palIndex = Math.max(0, palIndex - 1); renderPalette(); e.preventDefault(); }
-  else if (e.key === "Enter") { pickModel(palIndex); e.preventDefault(); }
-  else if (e.key === "Escape") closePalette();
-});
 
-/* ---------- Hardware Status ---------- */
+function copyCode(btn, encoded) {
+  const code = decodeURIComponent(encoded);
+  navigator.clipboard.writeText(code).then(() => {
+    const orig = btn.innerText;
+    btn.innerText = "✓ Copied";
+    setTimeout(() => { btn.innerText = orig; }, 2000);
+  });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.innerText = msg;
+  toast.classList.add("show");
+  setTimeout(() => { toast.classList.remove("show"); }, 3000);
+}
+
 async function loadStatus() {
   try {
-    const d = await (await fetch("/api/status")).json();
-    const g = d.gpu || {}, h = d.health || {}, pol = d.policy || {};
-    const used = Math.round(g.used_vram_mb || 0), total = Math.round(g.total_vram_mb || 0);
-    $("hw-name").textContent = g.device_name || "CPU ONLY";
-    $("hw-vram").textContent = total ? `${used.toLocaleString()} / ${total.toLocaleString()} MB` : "--";
-    $("hw-temp").textContent = g.temperature_c != null ? `${Math.round(g.temperature_c)}°C · ${Math.round(g.utilization_pct || 0)}%` : "--";
-    $("hw-gate").textContent = `${pol.cpu_gate_ms ?? 0.091} ms`;
-    $("foot-gpu").textContent = (g.device_name || "CPU").replace(/NVIDIA GeForce |AMD Radeon /, "").replace(" Laptop GPU", "");
-    $("foot-vram").textContent = `${used.toLocaleString()} MB`;
-    $("vram-pill").textContent = `STUDIO 0 MB · GPU ${used.toLocaleString()} MB`;
-    if (h.score != null) {
-      $("h-score").textContent = h.score; $("h-grade").textContent = `GRADE ${h.grade}`;
-      $("h-status").textContent = (h.status || "healthy").toUpperCase();
-      $("h-bar").style.width = h.score + "%";
+    const res = await fetch("/api/status");
+    const data = await res.json();
+    
+    // Hardware
+    document.getElementById("hw-name").innerText = data.gpu.device_name || "CPU Mode";
+    const memSuffix = data.gpu.is_unified_memory ? " Unified" : "";
+    document.getElementById("hw-vram").innerText = `${data.gpu.used_vram_mb} / ${data.gpu.total_vram_mb} MB${memSuffix} (${data.gpu.utilization_pct}% Load)`;
+    
+    // Policy
+    if (data.policy) {
+      document.getElementById("pol-gate").innerText = `${data.policy.cpu_gate_ms} ms`;
+      document.getElementById("pol-vram").innerText = `${data.policy.local_vram_saved_pct}%`;
+      document.getElementById("pol-cards").innerText = `${data.policy.active_cards} Active`;
     }
-  } catch {}
+
+    // Provider Badges on Dropdown
+    const tlConf = data.cloud?.amd_tokenlab?.configured;
+    const nvConf = data.cloud?.nvidia_brev?.configured;
+    const doConf = data.cloud?.digitalocean_mi300x?.configured;
+
+    const optTL = document.getElementById("opt-tokenlab");
+    if (optTL) optTL.label = `AMD Token Lab Cloud ${tlConf ? "● Ready" : "○ (Not Configured)"}`;
+    
+    const optNV = document.getElementById("opt-nvidia");
+    if (optNV) optNV.label = `NVIDIA NIM / Brev Cloud ${nvConf ? "● Ready" : "○ (Set Key in .env)"}`;
+
+    const optDO = document.getElementById("opt-digitalocean");
+    if (optDO) optDO.label = `DigitalOcean Serverless ${doConf ? "● Ready" : "○ (Set Key in .env)"}`;
+
+  } catch(e) {
+    console.error("Status load error:", e);
+  }
 }
 
-/* ---------- Atari Toggle Switches ---------- */
-function toggleCrt() {
-  state.crt = state.crt === "color" ? "bw" : "color";
-  document.documentElement.dataset.crt = state.crt;
-  $("crt-label").textContent = state.crt === "color" ? "COLOR" : "B&W CRT";
-  save();
+async function loadWorkspaceFiles() {
+  try {
+    const res = await fetch("/api/workspace/files");
+    const data = await res.json();
+    workspaceFiles = data.files || [];
+    renderWorkspaceFileList();
+  } catch(e) {
+    console.error("Failed to load workspace files:", e);
+  }
 }
-function toggleDrawer(force) {
-  state.drawer = force === true ? true : !state.drawer;
-  $("app").classList.toggle("no-drawer", !state.drawer);
-  $("drawer-btn").classList.toggle("on", state.drawer);
-  save();
-}
-function toggleRail() { $("app").classList.toggle("no-rail"); }
-function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(220, t.scrollHeight) + "px"; }
-$("prompt").addEventListener("input", autosize);
-$("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
-document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
-  else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "o") { e.preventDefault(); newChat(); }
-  else if (e.key === "Escape" && busy) stop();
-});
 
-/* ---------- Boot ---------- */
-document.documentElement.dataset.crt = state.crt;
-$("crt-label").textContent = state.crt === "color" ? "COLOR" : "B&W CRT";
-$("app").classList.toggle("no-drawer", !state.drawer);
-$("drawer-btn").classList.toggle("on", state.drawer);
-state.convs.forEach((c) => c.messages.forEach((m) => { if (m.streaming) { m.streaming = false; if (!m.content) m.error = "Interrupted by reload."; } }));
-renderConvs(); renderThread(); setModel(state.model, true);
-loadModels(); loadStatus(); loadFiles();
-setInterval(loadStatus, 5000); setInterval(loadModels, 30000);
-$("prompt").focus();
+function renderWorkspaceFileList() {
+  const container = document.getElementById("workspace-file-list");
+  if (!workspaceFiles.length) {
+    container.innerHTML = `<div style="color:var(--muted); padding:4px;">No files found</div>`;
+    return;
+  }
+  container.innerHTML = workspaceFiles.slice(0, 50).map(f => {
+    return `<label class="file-item">
+      <input type="checkbox" value="${f.rel_path}" onchange="updateSelectedFilesCount()" />
+      <span title="${f.rel_path}">${f.rel_path}</span>
+    </label>`;
+  }).join("");
+}
+
+function updateSelectedFilesCount() {
+  const checked = document.querySelectorAll("#workspace-file-list input[type='checkbox']:checked");
+  document.getElementById("ws-file-count").innerText = `${checked.length} files selected`;
+}
+
+function selectCoreFiles() {
+  const coreTargets = ["apps/jupiter_studio.py", "src/memoryos/router.py", "src/memoryos/workspace_pack.py", "README.md"];
+  const checkboxes = document.querySelectorAll("#workspace-file-list input[type='checkbox']");
+  checkboxes.forEach(cb => {
+    if (coreTargets.includes(cb.value)) {
+      cb.checked = true;
+    }
+  });
+  updateSelectedFilesCount();
+  showToast("Selected core project files");
+}
+
+function getSelectedFiles() {
+  const checked = document.querySelectorAll("#workspace-file-list input[type='checkbox']:checked");
+  return Array.from(checked).map(cb => cb.value);
+}
+
+async function exportCopilotBundle() {
+  const files = getSelectedFiles();
+  const lastUserMsg = chatHistory.filter(m => m.role === "user").slice(-1)[0]?.content || "";
+  const lastAssMsg = chatHistory.filter(m => m.role === "assistant").slice(-1)[0]?.content || "";
+
+  try {
+    const res = await fetch("/api/workspace/copilot-bundle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        goal: lastUserMsg || "Build and optimize features for MemoryOS / Jupiter Studio",
+        files: files.length ? files : undefined,
+        advice: lastAssMsg
+      })
+    });
+    const data = await res.json();
+    if (data.bundle) {
+      await navigator.clipboard.writeText(data.bundle);
+      showToast("📋 Copied complete Context Bundle for Copilot to clipboard!");
+    }
+  } catch(e) {
+    alert("Failed to export Copilot bundle: " + e.message);
+  }
+}
+
+let currentAttachedImageName = "";
+let uploadedFiles = [];
+
+function renderAttachmentPreview() {
+  const preview = document.getElementById("attachment-preview");
+  const chips = [];
+  if (currentAttachedImage) {
+    chips.push(`
+      <div class="attachment-chip">
+        <span>🖼️ ${currentAttachedImageName || "Image"}</span>
+        <span class="remove-btn" onclick="removeAttachedImage()">✕</span>
+      </div>
+    `);
+  }
+  uploadedFiles.forEach((f, idx) => {
+    const kb = Math.max(1, Math.round((f.size || f.content.length) / 1024));
+    const safeName = f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    chips.push(`
+      <div class="attachment-chip">
+        <span>📄 ${safeName} (${kb} KB)</span>
+        <span class="remove-btn" onclick="removeUploadedFile(${idx})">✕</span>
+      </div>
+    `);
+  });
+  if (chips.length) {
+    preview.style.display = "flex";
+    preview.innerHTML = chips.join("");
+  } else {
+    preview.style.display = "none";
+    preview.innerHTML = "";
+  }
+}
+
+function handleImageSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    currentAttachedImage = evt.target.result;
+    currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+    renderAttachmentPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function addFilesFromList(fileList) {
+  const files = Array.from(fileList || []);
+  for (const file of files) {
+    if (file.type && file.type.startsWith("image/")) {
+      const imgReader = new FileReader();
+      imgReader.onload = function(evt) {
+        currentAttachedImage = evt.target.result;
+        currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+        renderAttachmentPreview();
+      };
+      imgReader.readAsDataURL(file);
+      continue;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(`⚠️ Skipped ${file.name}: exceeds 2 MB upload limit`);
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const content = String(evt.target.result || "");
+      uploadedFiles.push({ name: file.name, size: file.size, content: content });
+      renderAttachmentPreview();
+      showToast(`📎 Uploaded ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
+}
+
+function handleFilesSelected(e) {
+  addFilesFromList(e.target.files);
+  e.target.value = "";
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  const zone = document.getElementById("input-drop-zone");
+  if (zone) zone.style.borderColor = "var(--cyan)";
+}
+
+function handleDragLeave(e) {
+  const zone = document.getElementById("input-drop-zone");
+  if (zone) zone.style.borderColor = "";
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  handleDragLeave(e);
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+    addFilesFromList(e.dataTransfer.files);
+  }
+}
+
+function removeUploadedFile(idx) {
+  uploadedFiles.splice(idx, 1);
+  renderAttachmentPreview();
+}
+
+function removeAttachedImage() {
+  currentAttachedImage = null;
+  currentAttachedImageName = "";
+  document.getElementById("image-file-input").value = "";
+  renderAttachmentPreview();
+}
+
+function clearAllAttachments() {
+  currentAttachedImage = null;
+  currentAttachedImageName = "";
+  uploadedFiles = [];
+  document.getElementById("image-file-input").value = "";
+  document.getElementById("doc-file-input").value = "";
+  renderAttachmentPreview();
+}
+
+function onTargetChange() {
+  const sel = document.getElementById("target-selector");
+  const desc = document.getElementById("chat-target-desc");
+  const badge = document.getElementById("chat-mode-badge");
+
+  if (sel.value.startsWith("auto:")) {
+    badge.innerText = "AUTO-ROUTE (d3)";
+    badge.className = "badge";
+    desc.innerText = "d3 Smart Router dynamically selects optimal tier";
+  } else if (sel.value.startsWith("cloud:")) {
+    badge.innerText = "AMD TOKEN LAB";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("cloud:", "") + " (AMD Instinct Cloud)";
+  } else if (sel.value.startsWith("nv:")) {
+    badge.innerText = "NVIDIA NIM";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("nv:", "") + " (NVIDIA NIM / Brev)";
+  } else if (sel.value.startsWith("do:")) {
+    badge.innerText = "DIGITALOCEAN";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("do:", "") + " (AMD MI300X)";
+  } else if (sel.value.startsWith("vllm:")) {
+    badge.innerText = "LOCAL vLLM";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("vllm:", "") + " (DGX Spark / Local vLLM)";
+  } else if (sel.value.startsWith("flare:")) {
+    badge.innerText = "NVIDIA FLARE";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("flare:", "") + " (DGX Spark / NVIDIA Flare)";
+  } else {
+    badge.innerText = "LOCAL OLLAMA";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("ollama:", "") + " (Local Host)";
+  }
+}
+
+function clearChat() {
+  chatHistory = [];
+  const log = document.getElementById("chat-log");
+  log.innerHTML = `
+    <div class="msg assistant">
+      <div class="meta-tag meta-auto">NEW CHAT STARTED</div>
+      <div class="md-body"><p>Conversation cleared. MemoryOS ready for your next prompt.</p></div>
+    </div>
+  `;
+}
+
+let isGenerating = false;
+let responseTimer = null;
+
+function stopGeneration() {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  if (responseTimer) {
+    clearInterval(responseTimer);
+    responseTimer = null;
+  }
+  setRunningState(false);
+}
+
+function setRunningState(running) {
+  isGenerating = running;
+  document.getElementById("run-btn").style.display = running ? "none" : "block";
+  document.getElementById("stop-btn").style.display = running ? "block" : "none";
+}
+
+async function sendPrompt() {
+  if (isGenerating) return;
+  const input = document.getElementById("prompt-input");
+  let text = input.value.trim();
+  if (!text && !currentAttachedImage && !uploadedFiles.length) return;
+  if (!text) {
+    text = uploadedFiles.length ? "Analyze the uploaded file(s)." : "Analyze the attached image.";
+  }
+
+  const target = document.getElementById("target-selector").value;
+  const chatLog = document.getElementById("chat-log");
+  const selectedFiles = getSelectedFiles();
+  const filesToUpload = uploadedFiles.slice();
+
+  // Append user message
+  const uMsg = document.createElement("div");
+  uMsg.className = "msg user";
+  let userHtml = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (currentAttachedImage) {
+    userHtml += `<br/><img src="${currentAttachedImage}" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
+  }
+  if (filesToUpload.length) {
+    const names = filesToUpload.map(f => f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${names.join(", ")}</div>`;
+  }
+  if (selectedFiles.length) {
+    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${selectedFiles.join(", ")}</div>`;
+  }
+  uMsg.innerHTML = userHtml;
+  chatLog.appendChild(uMsg);
+
+  input.value = "";
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  // Add Assistant Response Container
+  const aMsg = document.createElement("div");
+  aMsg.className = "msg assistant";
+  const tagClass = target.startsWith("auto:") ? "meta-auto" : (target.startsWith("ollama:") ? "meta-local" : "meta-cloud");
+  aMsg.innerHTML = `
+    <div class="meta-tag ${tagClass}" id="cur-meta">CONNECTING...</div>
+    <div class="reasoning-box" id="cur-reasoning-box" style="display:none;">
+      <summary id="cur-reasoning-summary">Thinking Process...</summary>
+      <div class="reasoning-content" id="cur-reasoning-content"></div>
+    </div>
+    <div class="md-body" id="cur-content">Generating response...</div>
+  `;
+  chatLog.appendChild(aMsg);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  const metaEl = aMsg.querySelector("#cur-meta");
+  const reasoningBox = aMsg.querySelector("#cur-reasoning-box");
+  const reasoningContent = aMsg.querySelector("#cur-reasoning-content");
+  const contentEl = aMsg.querySelector("#cur-content");
+
+  // Remove temporary IDs
+  metaEl.removeAttribute("id");
+  reasoningBox.removeAttribute("id");
+  reasoningContent.removeAttribute("id");
+  contentEl.removeAttribute("id");
+
+  setRunningState(true);
+  currentAbortController = new AbortController();
+
+  let elapsedSec = 0;
+  if (responseTimer) clearInterval(responseTimer);
+  responseTimer = setInterval(() => {
+    elapsedSec++;
+    if (contentEl && contentEl.innerText.startsWith("Generating response")) {
+      contentEl.innerText = `Generating response... (${elapsedSec}s)`;
+    }
+  }, 1000);
+
+  let accumulatedContent = "";
+  let accumulatedReasoning = "";
+
+  const payload = {
+    prompt: text,
+    target: target,
+    history: chatHistory.slice(-8),
+    image_base64: currentAttachedImage,
+    workspace_files: selectedFiles,
+    uploaded_files: filesToUpload,
+  };
+
+  clearAllAttachments();
+
+  try {
+    const response = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: currentAbortController.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let streamFinished = false;
+
+    while (!streamFinished) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop(); // Keep remaining incomplete chunk
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const evLines = line.split("\n");
+        let evType = "delta";
+        let evData = "";
+
+        for (const el of evLines) {
+          if (el.startsWith("event:")) {
+            evType = el.replace("event:", "").trim();
+          } else if (el.startsWith("data:")) {
+            evData = el.replace("data:", "").trim();
+          }
+        }
+
+        if (!evData) continue;
+        const parsed = JSON.parse(evData);
+
+        if (evType === "start") {
+          metaEl.innerText = `${parsed.model_used || "STREAMING"} [${parsed.provider || "Active"}]`;
+          if (contentEl.innerText.startsWith("Generating response")) {
+            contentEl.innerHTML = "";
+          }
+        } else if (evType === "reasoning") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+          accumulatedReasoning += parsed.delta || "";
+          reasoningBox.style.display = "block";
+          reasoningContent.innerText = accumulatedReasoning;
+        } else if (evType === "delta") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+          if (contentEl.innerText.startsWith("Generating response")) {
+            contentEl.innerHTML = "";
+          }
+          accumulatedContent += parsed.delta || "";
+          contentEl.innerHTML = renderMarkdown(accumulatedContent);
+        } else if (evType === "done") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+          metaEl.innerText = `${parsed.model_used || target} (${parsed.latency_ms || 0} ms)`;
+          contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(No response text)");
+          streamFinished = true;
+          break;
+        } else if (evType === "error") {
+          if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+          metaEl.className = "meta-tag meta-error";
+          metaEl.innerText = "ERROR";
+          contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${parsed.error}</div>`;
+          streamFinished = true;
+          break;
+        }
+      }
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+    try { await reader.cancel(); } catch (_) {}
+
+    // Save to multi-turn conversation history
+    chatHistory.push({ role: "user", content: text });
+    chatHistory.push({ role: "assistant", content: accumulatedContent });
+
+  } catch(err) {
+    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+    if (err.name === "AbortError") {
+      metaEl.innerText += " (Stopped)";
+    } else {
+      metaEl.className = "meta-tag meta-error";
+      metaEl.innerText = "CALL FAILED";
+      contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${err.message}</div>`;
+    }
+  } finally {
+    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
+    setRunningState(false);
+    currentAbortController = null;
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+}
+
+// Init on load
+loadStatus();
+loadWorkspaceFiles();
+setInterval(loadStatus, 5000);
 </script>
 </body>
 </html>
 """
+
