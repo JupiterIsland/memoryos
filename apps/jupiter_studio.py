@@ -208,6 +208,10 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
     decision = select_model_with_d3(prompt_text=prompt or "code", has_image=has_image, context_chars=total_chars)
     selected_model = decision.get("selected_model", "Gemma-4-31B-IT")
     selected_tier = decision.get("selected_tier", "balanced_code")
+    # Promote interactive studio chat off the 2B edge-triage model to 27B/31B frontier models
+    if selected_model == "MiniCPM5-2B":
+        selected_model = "Gemma-4-31B-IT" if has_image else "Qwen3.8-27B"
+        selected_tier = "vision_heavy" if has_image else "balanced_code"
     vram_saved_gb = 18.5 if "31B" in selected_model else (16.2 if "27B" in selected_model else (14.0 if "DeepSeek" in selected_model else 2.4))
 
     return {
@@ -472,6 +476,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             decision = select_model_with_d3(prompt_text=prompt, has_image=has_image, context_chars=total_chars)
             selected_model = decision.get("selected_model", "Gemma-4-31B-IT")
             tier = decision.get("selected_tier", "balanced_code")
+            # Never downgrade interactive studio chat to the 2B triage model unless explicitly chosen
+            if selected_model == "MiniCPM5-2B":
+                selected_model = "Gemma-4-31B-IT" if has_image else "Qwen3.8-27B"
+                tier = "vision_heavy" if has_image else "balanced_code"
             # If AMD Token Lab is ready, use it; otherwise NIM or DO
             status = get_cloud_provider_status()
             if status["amd_tokenlab"]["configured"]:
@@ -565,23 +573,30 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         if api_key and api_key.upper() != "EMPTY":
             headers["Authorization"] = f"Bearer {api_key}"
 
-        req = urllib.request.Request(
-            url,
-            data=payload,
-            headers=headers,
-            method="POST",
-        )
+        candidate_models = [model_name]
+        if "Token Lab" in provider_key:
+            for fb in ("Qwen3.8-27B", "Gemma-4-31B-IT", "DeepSeek-V4.1-Flash"):
+                if fb not in candidate_models:
+                    candidate_models.append(fb)
 
         resp_ctx = None
-        for attempt in range(3):
+        for idx, cand_model in enumerate(candidate_models):
+            cand_payload = json.dumps({
+                "model": cand_model,
+                "messages": messages,
+                "temperature": 0.2,
+                "max_tokens": 2048,
+                "stream": True,
+            }).encode("utf-8")
+            req = urllib.request.Request(url, data=cand_payload, headers=headers, method="POST")
             try:
                 resp_ctx = urllib.request.urlopen(req, timeout=120.0)
+                if idx > 0:
+                    _send("start", {"model_used": cand_model, "provider": f"{provider_key} (Auto-Failover)", "is_local": False})
                 break
             except urllib.error.HTTPError as http_err:
-                if http_err.code == 429 and attempt < 2:
-                    wait_s = 3 * (attempt + 1)
-                    _send("notice", {"message": f"Rate limited by {provider_key}; retrying in {wait_s}s..."})
-                    time.sleep(wait_s)
+                if http_err.code == 429 and idx + 1 < len(candidate_models):
+                    time.sleep(1.0)
                     continue
                 detail = ""
                 try:
@@ -589,7 +604,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
                 if http_err.code == 429:
-                    raise RuntimeError(f"{provider_key}: still rate limited after 3 tries (HTTP 429). Wait a minute or pick another model.") from http_err
+                    raise RuntimeError(f"{provider_key}: rate limited across all models (HTTP 429). Wait a few seconds and retry.") from http_err
                 if http_err.code in (401, 403):
                     raise RuntimeError(f"{provider_key}: API key rejected (HTTP {http_err.code}). Check .env.") from http_err
                 if http_err.code == 404:
