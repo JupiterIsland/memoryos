@@ -4,9 +4,9 @@
 
 ![MemoryOS // The Quiet Advisor — Powered by AMD Token Lab](docs/memoryos_executive_banner.png)
 
-[![Release: v1.0.0-RC1](https://img.shields.io/badge/Release-v1.0.0--RC1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](RELEASE_NOTES.md)
-[![Status: AMD Release Candidate](https://img.shields.io/badge/Status-AMD_Release_Candidate-2E8B57?style=for-the-badge)](AMD_RELEASE_CANDIDATE.md)
-[![Hardware: AMD Ryzen + AMD Instinct](https://img.shields.io/badge/Hardware-AMD_Ryzen_%2B_AMD_Instinct-00AEEF?style=for-the-badge)](tests/run_gamer_hardware_tests.py)
+[![Release: v1.0.0-RC1](https://img.shields.io/badge/Release-v1.0.0--RC1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
+[![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio-FF6A00?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
 [![Architecture: Zero-VRAM Hybrid](https://img.shields.io/badge/Architecture-Zero--VRAM_Hybrid-38BDF8?style=for-the-badge)](ARCHITECTURE.md)
 

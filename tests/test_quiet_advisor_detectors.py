@@ -5,7 +5,7 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +37,7 @@ from src.memoryos.quiet_advisor_db import QuietAdvisorDB
 
 def _make_inference(**overrides) -> InferenceLog:
     base = {
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None),
         "model_id": "Gemma-4-31B-IT",
         "context_tokens_provided": 4096,
         "context_tokens_used": 2800,
@@ -218,7 +218,7 @@ class TestQuietAdvisorDetectors(unittest.TestCase):
                     display = CardDisplayService(db)
 
                     hostile_user = "alice' OR '1'='1; DROP TABLE users; --"
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc).replace(tzinfo=None)
                     await db.insert(
                         "memoryos.inference_log",
                         {

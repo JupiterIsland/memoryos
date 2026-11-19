@@ -7,7 +7,7 @@ This module logs every inference and runs daily pattern detection
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional, Dict, List
 import logging
@@ -72,7 +72,7 @@ class InferenceLogger:
         inference_record = {
             "user_id": user_id,
             "session_id": session_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "model_id": model_id,
             "context_tokens_provided": context_tokens_provided,
             "context_tokens_used": context_tokens_used,
@@ -125,7 +125,7 @@ class QuietAdvisorScheduler:
                 user_id = user["user_id"]
                 
                 # Get recent inferences in lookback window
-                since = datetime.utcnow() - timedelta(hours=lookback_hours)
+                since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=lookback_hours)
                 inferences = await self._get_user_inferences(user_id, since, window_hours=lookback_hours)
                 
                 if len(inferences) < 3:
@@ -260,8 +260,8 @@ class QuietAdvisorScheduler:
             "user_archived": False,
             "user_actioned": False,
             "state": CardState.TRIGGERED.value,
-            "created_at": datetime.utcnow().isoformat(),
-            "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "expires_at": (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7)).isoformat(),
         }
         
         await self.db.insert("quiet_advisor.cards", card_record)
@@ -295,7 +295,7 @@ class CardActionHandler:
             "card_id": card_id,
             "action_type": action,
             "action_result": json.dumps(metadata or {}),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
         
         await self.db.insert("quiet_advisor.card_actions", action_record)

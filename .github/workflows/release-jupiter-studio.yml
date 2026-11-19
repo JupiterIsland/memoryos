@@ -59,6 +59,7 @@ jobs:
           Copy-Item "dist/JupiterStudio.exe" "$stage/JupiterStudio.exe"
           Copy-Item ".env.example" "$stage/.env.example"
           Copy-Item "README.md" "$stage/README.md"
+          if (Test-Path "HOW_TO_USE_JUPITER_STUDIO.md") { Copy-Item "HOW_TO_USE_JUPITER_STUDIO.md" "$stage/HOW_TO_USE_JUPITER_STUDIO.md" }
           if (Test-Path "LICENSE") { Copy-Item "LICENSE" "$stage/LICENSE" }
           Compress-Archive -Path "$stage/*" -DestinationPath "dist/JupiterStudio-${{ matrix.label }}.zip" -Force
 
@@ -71,6 +72,7 @@ jobs:
           cp dist/JupiterStudio "$stage/JupiterStudio"
           cp .env.example "$stage/.env.example"
           cp README.md "$stage/README.md"
+          [[ -f HOW_TO_USE_JUPITER_STUDIO.md ]] && cp HOW_TO_USE_JUPITER_STUDIO.md "$stage/HOW_TO_USE_JUPITER_STUDIO.md"
           [[ -f LICENSE ]] && cp LICENSE "$stage/LICENSE"
           tar -czf "dist/JupiterStudio-${{ matrix.label }}.tar.gz" -C dist "JupiterStudio-${{ matrix.label }}"
 

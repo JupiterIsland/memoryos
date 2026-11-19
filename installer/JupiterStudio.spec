@@ -21,6 +21,9 @@ if weights_file.exists():
     datas.append((str(weights_file), "memory/models"))
 
 hiddenimports = [
+    "apps.jupiter_studio_ui",
+    "jupiter_studio_ui",
+    "quiet_advisor_detectors",
     "src.memoryos.gpu_backends",
     "src.memoryos.router",
     "src.memoryos.workspace_pack",
@@ -30,7 +33,7 @@ hiddenimports = [
 
 a = Analysis(
     [str(REPO_ROOT / "apps" / "jupiter_studio.py")],
-    pathex=[str(REPO_ROOT), str(REPO_ROOT / "src")],
+    pathex=[str(REPO_ROOT), str(REPO_ROOT / "src"), str(REPO_ROOT / "apps")],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,

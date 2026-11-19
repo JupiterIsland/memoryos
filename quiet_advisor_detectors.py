@@ -857,7 +857,7 @@ def ingest_tokenlab_export(
             comp_tok = int(req.get("completion_tokens") or 0)
             has_err = bool(req.get("has_error"))
             est_lat = 0.0 if has_err else (140.0 if "2B" in model or model == "d3" else 520.0)
-            ts_raw = str(req.get("created_at") or datetime.utcnow().isoformat()).replace(" ", "T")
+            ts_raw = str(req.get("created_at") or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()).replace(" ", "T")
             db.conn.execute(
                 """
                 INSERT INTO memoryos_inference_log (
@@ -925,15 +925,15 @@ def ingest_tokenlab_export(
                     insight.time_savings_seconds,
                     insight.quality_improvement_percent,
                     json.dumps(insight.suggested_experiments or []),
-                    datetime.utcnow().isoformat(),
-                    (datetime.utcnow() + timedelta(days=7)).isoformat(),
+                    datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                    (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7)).isoformat(),
                 ),
             )
             ingested_cards += 1
 
         db.conn.execute(
             "INSERT INTO quiet_advisor_ingest_log (export_hash, ingested_at) VALUES (?, ?)",
-            (export_hash, datetime.utcnow().isoformat()),
+            (export_hash, datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
         )
         db.conn.commit()
     except Exception:
