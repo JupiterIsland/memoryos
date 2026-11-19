@@ -10,12 +10,40 @@
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
 [![Architecture: Zero-VRAM Hybrid](https://img.shields.io/badge/Architecture-Zero--VRAM_Hybrid-38BDF8?style=for-the-badge)](ARCHITECTURE.md)
 
-MemoryOS is a high-performance local AI orchestration layer engineered for client workstations and mobile rigs where GPU memory (VRAM) is constrained, but real-time responsiveness is non-negotiable. It solves consumer GPU memory exhaustion by pairing lightweight host-side SIMD gatekeeping on AMD Ryzen CPUs and NPUs with remote zero-VRAM inference on **AMD Instinct** accelerators via **AMD Token Lab**.
+MemoryOS is a hardware-aware local AI workstation and orchestration layer built for laptops and desktops where GPU VRAM is tight. It pairs host-side CPU gating (`0.091 ms` AMD Zen 3 SIMD gate + `5.37 μs` pure-Python Speculative Offload MLP) with zero-VRAM cloud and LAN routing across **AMD Token Lab**, **Hugging Face Inference Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark (`vLLM`/`Flare`)**, and **Ollama**.
 
-The system centers on three integrated architectural components:
-1. **MemoryOS Core:** Host-side hardware-aware execution scheduler, sub-millisecond AMD Zen 3 frame-delta kernel, 5.37 μs speculative offload MLP, and atomic NVMe checkpoint manager.
-2. **The Quiet Advisor:** Continuous telemetry engine (`QuietAdvisorDB.sqlite`) running autonomous detectors for context waste, VRAM pressure, model thrashing, and checkpoint integrity, enforcing closed-loop policy controls.
-3. **Jupiter Studio:** Standalone zero-dependency Python hybrid workstation featuring real-time Server-Sent Events (SSE) token streaming, multi-provider model switching, workspace context packing, and one-click IDE bundle export.
+---
+
+## Jupiter Studio — Live Screenshot Gallery
+
+![Jupiter Studio — Quantum Smoked-Crystal Glassmorphism](docs/screenshots/jupiter_studio_quantum.png)
+
+| Live Streaming (`Qwen3.8-27B`) + Pre-Send Speculative Radar | Daylight Ceramic Theme |
+| :---: | :---: |
+| ![Live Streaming & Speculative Neural Radar](docs/screenshots/jupiter_studio_live_stream.png) | ![Jupiter Studio Daylight Ceramic Theme](docs/screenshots/jupiter_studio_daylight.png) |
+
+---
+
+## 60-Second Quick Start
+
+### Option 1 — Download Standalone Binary (No Python Setup Required)
+Grab the latest **`v1.0.0-rc1`** build from **[GitHub Releases](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0-rc1)** (`SHA256SUMS.txt` included):
+* **Windows:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe`
+* **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio`
+* **Linux:** `JupiterStudio-Linux-x64.tar.gz` → `tar -xzf JupiterStudio-Linux-x64.tar.gz` → `./JupiterStudio-Linux-x64/JupiterStudio`
+
+### Option 2 — One-Command Source Launch
+```bash
+git clone https://github.com/JupiterIsland/memoryos.git && cd memoryos && cp .env.example .env && python3 -B apps/jupiter_studio.py
+```
+Then open **[http://127.0.0.1:7860](http://127.0.0.1:7860)** — see **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** for the plain-English walkthrough.
+
+---
+
+### Three Integrated Components
+1. **Jupiter Studio (`apps/jupiter_studio.py`):** Zero-dependency Python hybrid workstation with live SSE token streaming, Pre-Send Speculative Neural Radar (`/api/speculate`), `Dual Arena` side-by-side model compare, 3 themes (`Quantum`, `Radeon`, `Daylight`), workspace file staging, `.env`/secret upload blocker, and Copilot bundle export.
+2. **MemoryOS Core (`src/memoryos/`):** Host-side hardware-aware execution scheduler, `0.091 ms` AMD Zen 3 frame-delta kernel, `5.37 μs` Speculative Offload MLP, and `3.07 ms` atomic NVMe checkpoint manager.
+3. **The Quiet Advisor (`quiet_advisor_detectors.py`, `quiet_advisor_scheduler.py`):** Local SQLite telemetry engine (`QuietAdvisorDB.sqlite`) with parameterized queries, versioned migrations, alert `CardState` machine, per-detector circuit breakers, `ThermalThrottlingDetector`, and `0–100` Workstation Health Score.
 
 ---
 
@@ -32,38 +60,14 @@ The system centers on three integrated architectural components:
 
 ## Core Systems Architecture
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                CLIENT WORKSTATION LAYER                                │
-│   Jupiter Studio (Workstation UI)  •  Quiet Advisor Dashboard  •  Autonomous Aider Agent  │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                       LAYER 1: HOST-SIDE TELEMETRY & DELTA GATE                         │
-│   • AMD Zen 3 Fast MSE Kernel (0.091 ms / AVX2 + FMA SIMD)                             │
-│   • SpeculativeOffloadModel MLP (5.37 μs pure-Python forward pass)                     │
-│   • Local SQLite WAL Telemetry Ledger (QuietAdvisorDB.sqlite)                          │
-│   • Atomic NVMe Checkpoint Engine (3.07 ms per-checkpoint restoration)                     │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        LAYER 2: PROBABILISTIC GATEKEEPER                               │
-│   • AMD Token Lab d3 Engine (POST https://api.tokenlab.amd.com/v1/systemone)           │
-│   • Telemetry State Evaluation -> {surface_now, defer_to_cooldown, ignore}             │
-│   • Static frame suppression: skip_vision=True (saves 60-80% of API calls)             │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                   LAYER 3: CLUSTER INFERENCE ON AMD INSTINCT                           │
-│   • Vision-Language Reasoning: Gemma-4-31B-IT (AMD Instinct MI300X)                   │
-│   • Code Synthesis & Architecture: Qwen3.8-27B (AMD Instinct MI300X)                  │
-│   • Fast Edge Triage: MiniCPM5-2B                                                      │
-│   • Extended Context & Synthesis: DeepSeek-V4.1-Flash (1M context)                     │
-│   • Dynamic Multi-Cloud Failover: DigitalOcean Serverless MI300X                       │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    UI["Client Workstation Layer<br/>Jupiter Studio UI • Quiet Advisor Dashboard • Dual Arena"]
+    L1["Layer 1: Host-Side Telemetry &amp; Delta Gate<br/>AMD Zen 3 MSE Kernel (0.091 ms) • Speculative MLP (5.37 us)<br/>SQLite WAL Ledger + Migrations • NVMe Checkpoints (3.07 ms)"]
+    L2["Layer 2: Probabilistic Gatekeeper<br/>AMD Token Lab d3 Aux-Router (POST /v1/systemone)<br/>State Evaluation &amp; Static Frame Suppression"]
+    L3["Layer 3: Multi-Provider Inference (0 MB Local VRAM)<br/>AMD Token Lab (Gemma-4-31B-IT, Qwen3.8-27B, DeepSeek-V4.1-Flash)<br/>Hugging Face Router • NVIDIA NIM • DigitalOcean MI300X<br/>Local DGX Spark (vLLM / Flare) • Local Ollama"]
+
+    UI --> L1 --> L2 --> L3
 ```
 
 For full architectural specifications, see [ARCHITECTURE.md](ARCHITECTURE.md).
