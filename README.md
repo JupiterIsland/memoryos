@@ -3,7 +3,7 @@
 > One workspace for local and cloud AI, automatic model routing, project context, and live hardware telemetry.  
 > **Not another chatbot. An AI workstation.**
 
-[![Release: v1.0.0-RC1](https://img.shields.io/badge/Release-v1.0.0--RC1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Release: v1.0.0-RC2](https://img.shields.io/badge/Release-v1.0.0--RC2-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
 [![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio-FF6A00?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
@@ -34,7 +34,7 @@ The platform automatically routes tasks, manages project context, and gives you 
 ## Get Started in Under 60 Seconds
 
 ### Option 1 — Download Standalone Binary (No Python Setup Required)
-Download the latest release: **[MemoryOS v1.0.0-RC1](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0-rc1)** (`SHA256SUMS.txt` included)
+Download the latest release: **[MemoryOS v1.0.0-RC2](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0-rc2)** (`SHA256SUMS.txt` included)
 
 * **Windows x64:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe`
 * **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio`
@@ -100,16 +100,16 @@ Built to use hardware efficiently.
 ### 8. Developer Features
 Built by developers for developers.
 * Open, extensible Python architecture with zero PyTorch or Electron overhead
-* Automated **GitHub Actions CI** (`32/32` unit tests + `8/8` hardware benchmark suites)
+* Automated **GitHub Actions CI** (`35/35` unit tests + `8/8` hardware benchmark suites)
 * Cross-platform standalone builds published on GitHub Releases
 
 ---
 
 ## Screenshots
 
-| Sharp Smoked-Crystal Quantum Theme | Atari ST / Commodore B&amp;W Monochrome Mode |
-| :---: | :---: |
-| ![Jupiter Studio Quantum Smoked-Crystal](docs/screenshots/jupiter_studio_quantum.png) | ![Jupiter Studio Atari B&W Monochrome](docs/screenshots/jupiter_studio_daylight.png) |
+| AMD Radeon Carbon Theme | Sharp Smoked-Crystal Quantum Theme | Atari ST / Commodore B&amp;W Mode |
+| :---: | :---: | :---: |
+| ![Jupiter Studio Radeon Theme](docs/screenshots/jupiter_studio_radeon.png) | ![Jupiter Studio Quantum Smoked-Crystal](docs/screenshots/jupiter_studio_quantum.png) | ![Jupiter Studio Atari B&W Monochrome](docs/screenshots/jupiter_studio_daylight.png) |
 
 ---
 
@@ -175,7 +175,7 @@ MemoryOS started with a simple idea:
 * **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** — Plain-English user guide for Jupiter Studio
 * **[AMD_RELEASE_CANDIDATE.md](AMD_RELEASE_CANDIDATE.md)** — Master Release Candidate Dossier for AMD Developer Relations & Token Lab
 * **[ARCHITECTURE.md](ARCHITECTURE.md)** — Complete architectural specification and systems topology
-* **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Production Release Notes for `v1.0.0-RC1`
+* **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Production Release Notes (`v1.0.0-RC1` / `v1.0.0-RC2`)
 * **[INSTALL.md](INSTALL.md)** — Installation and deployment guide
 * **[PROOF_OF_RESULTS.md](PROOF_OF_RESULTS.md)** — Verified telemetry audit and Token Lab usage records
 * **[VALIDATION_SUMMARY.md](VALIDATION_SUMMARY.md)** — Static analysis and regression verification
