@@ -107,6 +107,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Jupiter Studio // Hybrid AI Workstation</title>
+<link rel="icon" type="image/png" href="/assets/jupiter_studio_icon.png" />
 <style>
   :root {
     --bg: #07090f;
@@ -463,25 +464,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
   <div class="sidebar">
     <div class="brand">
       <div class="logo-badge" title="Jupiter Studio RC1 — Powered by AMD Token Lab">
-        <svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
-          <defs>
-            <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#FF8A00"/>
-              <stop offset="100%" stop-color="#E52E71"/>
-            </linearGradient>
-            <linearGradient id="ringG" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#38BDF8"/>
-              <stop offset="50%" stop-color="#A855F7"/>
-              <stop offset="100%" stop-color="#FF8A00"/>
-            </linearGradient>
-          </defs>
-          <rect width="40" height="40" rx="9" fill="#0d1424" stroke="#1e2942" stroke-width="1.2"/>
-          <g transform="translate(20, 20) rotate(-22)">
-            <ellipse cx="0" cy="0" rx="14" ry="4" fill="none" stroke="url(#ringG)" stroke-width="1.6"/>
-            <circle cx="0" cy="0" r="7" fill="url(#orbGrad)"/>
-            <ellipse cx="2.5" cy="1" rx="1.5" ry="0.9" fill="#991B1B"/>
-          </g>
-        </svg>
+        <img src="/assets/jupiter_studio_icon.png" alt="Jupiter Studio" width="40" height="40" style="width:40px; height:40px; border-radius:10px; display:block; object-fit:cover;" />
       </div>
       <div>
         <h1>Jupiter Studio <span class="rc-pill">RC1</span></h1>
@@ -1098,6 +1081,25 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
+            return
+
+        if self.path in ("/assets/jupiter_studio_icon.png", "/favicon.ico"):
+            for candidate in (
+                BUNDLE_ROOT / "assets" / "jupiter_studio_icon.png",
+                APP_DIR / "assets" / "jupiter_studio_icon.png",
+                REPO_ROOT / "assets" / "jupiter_studio_icon.png",
+            ):
+                if candidate.is_file():
+                    payload = candidate.read_bytes()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.send_header("Cache-Control", "public, max-age=3600")
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+            self.send_response(HTTPStatus.NOT_FOUND)
+            self.end_headers()
             return
 
         if self.path == "/api/status":

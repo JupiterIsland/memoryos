@@ -13,6 +13,9 @@ REPO_ROOT = SPEC_DIR.parent
 datas = [
     (str(REPO_ROOT / ".env.example"), "."),
 ]
+icon_png = REPO_ROOT / "assets" / "jupiter_studio_icon.png"
+if icon_png.exists():
+    datas.append((str(icon_png), "assets"))
 weights_file = REPO_ROOT / "memory" / "models" / "speculative_offload_v1.json"
 if weights_file.exists():
     datas.append((str(weights_file), "memory/models"))
@@ -53,6 +56,8 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data)
 
+icon_ico = REPO_ROOT / "assets" / "jupiter_studio_icon.ico"
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -61,6 +66,7 @@ exe = EXE(
     a.datas,
     [],
     name="JupiterStudio",
+    icon=str(icon_ico) if icon_ico.exists() else None,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
