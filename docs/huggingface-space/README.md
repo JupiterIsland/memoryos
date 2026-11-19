@@ -4,6 +4,7 @@ emoji: ⚡
 colorFrom: red
 colorTo: yellow
 sdk: static
+app_file: index.html
 pinned: true
 license: mit
 short_description: Zero-VRAM AI Workstation & Hardware-Aware Offload Router (0.091 ms Zen 3 Gate)
