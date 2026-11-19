@@ -14,13 +14,22 @@ MemoryOS is a hardware-aware local AI workstation and orchestration layer built 
 
 ---
 
-## Jupiter Studio — Live Screenshot Gallery
+## Jupiter Studio RC1
 
-![Jupiter Studio — Quantum Smoked-Crystal Glassmorphism](docs/screenshots/jupiter_studio_quantum.png)
+![Jupiter Studio RC1 — Live Qwen3.8-27B Streaming & Speculative Neural Radar](docs/screenshots/jupiter_studio_live_stream.png)
 
-| Live Streaming (`Qwen3.8-27B`) + Pre-Send Speculative Radar | Daylight Ceramic Theme |
+> **Jupiter Studio RC1** — A hardware-aware AI workstation that automatically routes requests between models while monitoring performance, memory usage, and execution cost.
+
+* ✓ **Multi-model routing** — automatic `d3` routing across AMD Token Lab, Hugging Face Router, NVIDIA NIM, DigitalOcean MI300X, local DGX Spark (`vLLM`/`Flare`), and Ollama
+* ✓ **Local and cloud AI** — keep local GPU VRAM at **0 MB** while running 27B–72B models
+* ✓ **Workspace-aware context** — stage repo files and attach multi-file uploads or screenshots directly
+* ✓ **Hardware telemetry** — live GPU detection, VRAM monitoring, thermal throttling guard, and `0–100` Workstation Health Score
+* ✓ **Persistent memory** — SQLite telemetry ledger + atomic NVMe checkpoint recovery
+* ✓ **One-click Copilot export** — copy structured workspace bundles straight into IDE agents
+
+| Sharp Smoked-Crystal Quantum Theme | Atari / Commodore B&amp;W Monochrome Mode |
 | :---: | :---: |
-| ![Live Streaming & Speculative Neural Radar](docs/screenshots/jupiter_studio_live_stream.png) | ![Jupiter Studio Daylight Ceramic Theme](docs/screenshots/jupiter_studio_daylight.png) |
+| ![Jupiter Studio Quantum Smoked-Crystal](docs/screenshots/jupiter_studio_quantum.png) | ![Jupiter Studio Atari B&W Monochrome](docs/screenshots/jupiter_studio_daylight.png) |
 
 ---
 

@@ -1261,36 +1261,78 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     border-right-color: rgba(237, 28, 36, 0.30) !important;
   }
 
-  /* DAYLIGHT FROSTED CRYSTAL THEME */
+  /* ATARI ST / COMMODORE HI-RES MONOCHROME BLACK & WHITE THEME */
+  html[data-studio-theme="daylight"] {
+    --bg: #ffffff;
+    --sidebar-bg: #ffffff;
+    --panel: #ffffff;
+    --card-bg: #ffffff;
+    --border: #000000;
+    --border-highlight: #000000;
+    --text: #000000;
+    --muted: #222222;
+    --orange: #000000;
+    --cyan: #000000;
+    --green: #000000;
+    --red: #000000;
+    --code-bg: #000000;
+  }
   html[data-studio-theme="daylight"] body {
+    font-family: var(--font-mono) !important;
     background:
-      radial-gradient(ellipse 55% 45% at 80% 10%, rgba(11, 110, 88, 0.10), transparent 65%),
-      radial-gradient(ellipse 48% 42% at 18% 92%, rgba(232, 72, 0, 0.09), transparent 65%),
-      linear-gradient(rgba(22, 22, 20, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(22, 22, 20, 0.04) 1px, transparent 1px),
-      #f2efe9 !important;
-    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
+      radial-gradient(#000000 0.55px, transparent 0.55px),
+      radial-gradient(#000000 0.55px, #ffffff 0.55px) !important;
+    background-size: 4px 4px !important;
+    background-position: 0 0, 2px 2px !important;
+    color: #000000 !important;
+  }
+  html[data-studio-theme="daylight"] * {
+    border-radius: 0px !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   html[data-studio-theme="daylight"] .sidebar {
-    background: rgba(242, 239, 233, 0.78) !important;
-    border-right: 1px solid rgba(22, 22, 20, 0.14) !important;
+    background: #ffffff !important;
+    border-right: 2px solid #000000 !important;
+    box-shadow: none !important;
   }
   html[data-studio-theme="daylight"] .card,
   html[data-studio-theme="daylight"] .msg.assistant,
   html[data-studio-theme="daylight"] .radar-cell,
   html[data-studio-theme="daylight"] .input-bar {
-    background: rgba(255, 255, 255, 0.78) !important;
-    border: 1px solid rgba(22, 22, 20, 0.14) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.90), 0 8px 24px rgba(22, 22, 20, 0.07) !important;
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    box-shadow: 3px 3px 0px #000000 !important;
+    color: #000000 !important;
   }
   html[data-studio-theme="daylight"] .msg.assistant {
-    border-left: 2px solid #e84800 !important;
+    border-left: 5px solid #000000 !important;
+  }
+  html[data-studio-theme="daylight"] .msg.user {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    box-shadow: 3px 3px 0px #555555 !important;
   }
   html[data-studio-theme="daylight"] .chat-header,
   html[data-studio-theme="daylight"] .input-bar-wrapper,
   html[data-studio-theme="daylight"] .spec-radar {
-    background: rgba(235, 230, 220, 0.76) !important;
-    border-color: rgba(22, 22, 20, 0.14) !important;
+    background: #ffffff !important;
+    border-color: #000000 !important;
+    border-width: 2px !important;
+    box-shadow: none !important;
+  }
+  html[data-studio-theme="daylight"] #quantum-canvas {
+    filter: grayscale(100%) contrast(300%);
+    opacity: 0.25;
+  }
+  html[data-studio-theme="daylight"] .chat-header .badge,
+  html[data-studio-theme="daylight"] .meta-tag,
+  html[data-studio-theme="daylight"] .rc-pill {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
   }
   html[data-studio-theme="daylight"] .md-body,
   html[data-studio-theme="daylight"] .md-body h1,
@@ -1298,30 +1340,66 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   html[data-studio-theme="daylight"] .md-body h3,
   html[data-studio-theme="daylight"] .select-box,
   html[data-studio-theme="daylight"] .starter-chip,
-  html[data-studio-theme="daylight"] .theme-pill-btn {
-    color: #161614 !important;
+  html[data-studio-theme="daylight"] .starter-chip span,
+  html[data-studio-theme="daylight"] .theme-pill-btn,
+  html[data-studio-theme="daylight"] .hw-val,
+  html[data-studio-theme="daylight"] .radar-k,
+  html[data-studio-theme="daylight"] .radar-v,
+  html[data-studio-theme="daylight"] #prompt-input {
+    color: #000000 !important;
   }
-  html[data-studio-theme="daylight"] .select-box {
-    background: rgba(255, 255, 255, 0.85) !important;
-    border-color: rgba(22, 22, 20, 0.22) !important;
+  html[data-studio-theme="daylight"] .select-box,
+  html[data-studio-theme="daylight"] .starter-chip,
+  html[data-studio-theme="daylight"] .workspace-file-list,
+  html[data-studio-theme="daylight"] .btn-secondary,
+  html[data-studio-theme="daylight"] .btn-icon,
+  html[data-studio-theme="daylight"] .btn-arena {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    box-shadow: 2px 2px 0px #000000 !important;
   }
-  html[data-studio-theme="daylight"] .starter-chip {
-    background: rgba(255, 255, 255, 0.65) !important;
-    border-color: rgba(22, 22, 20, 0.16) !important;
+  html[data-studio-theme="daylight"] .starter-chip:hover,
+  html[data-studio-theme="daylight"] .btn-secondary:hover,
+  html[data-studio-theme="daylight"] .btn-icon:hover,
+  html[data-studio-theme="daylight"] .btn-arena:hover,
+  html[data-studio-theme="daylight"] .btn-arena.active,
+  html[data-studio-theme="daylight"] .theme-pill-btn.active,
+  html[data-studio-theme="daylight"] .btn {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    box-shadow: 2px 2px 0px #555555 !important;
   }
-  html[data-studio-theme="daylight"] .workspace-file-list {
-    background: rgba(255, 255, 255, 0.75) !important;
-    border-color: rgba(22, 22, 20, 0.16) !important;
+  html[data-studio-theme="daylight"] .starter-chip:hover span {
+    color: #ffffff !important;
+  }
+  html[data-studio-theme="daylight"] .theme-pill-group {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
   }
   html[data-studio-theme="daylight"] input[type="checkbox"],
   html[data-studio-theme="daylight"] .ws-file-cb {
-    border-color: rgba(22, 22, 20, 0.35) !important;
+    border: 2px solid #000000 !important;
     background: #ffffff !important;
   }
-  html[data-studio-theme="daylight"] .btn-arena {
-    background: rgba(11, 110, 88, 0.10) !important;
-    border-color: #0b6e58 !important;
-    color: #0b6e58 !important;
+  html[data-studio-theme="daylight"] input[type="checkbox"]:checked,
+  html[data-studio-theme="daylight"] .ws-file-cb:checked {
+    background: #000000 !important;
+    border-color: #000000 !important;
+    box-shadow: none !important;
+  }
+  html[data-studio-theme="daylight"] #rad-mlp-bar {
+    background: repeating-linear-gradient(45deg, #000000, #000000 2px, #ffffff 2px, #ffffff 5px) !important;
+    opacity: 0.14;
+  }
+  html[data-studio-theme="daylight"] .code-block-container {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #000000 !important;
+  }
+  html[data-studio-theme="daylight"] .logo-badge img {
+    filter: grayscale(100%) contrast(220%);
   }
 
 </style>
@@ -1445,7 +1523,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <div class="theme-pill-group" title="Switch Studio Surface Theme">
           <button class="theme-pill-btn active" data-t="quantum" onclick="setStudioTheme('quantum')">QUANTUM</button>
           <button class="theme-pill-btn" data-t="radeon" onclick="setStudioTheme('radeon')">RADEON</button>
-          <button class="theme-pill-btn" data-t="daylight" onclick="setStudioTheme('daylight')">DAYLIGHT</button>
+          <button class="theme-pill-btn" data-t="daylight" onclick="setStudioTheme('daylight')">ATARI B&amp;W</button>
         </div>
         <button class="btn-secondary" onclick="clearChat()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Clear</button>
       </div>
