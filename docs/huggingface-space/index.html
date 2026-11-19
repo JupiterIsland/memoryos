@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jupiter-One // MemoryOS &amp; Jupiter Studio</title>
+<style>
+  :root {
+    --bg: #080a0f;
+    --card: #111520;
+    --border: rgba(255, 106, 0, 0.28);
+    --text: #f3f5fa;
+    --muted: #93a1b8;
+    --amber: #ff6a00;
+    --ruby: #ed1c24;
+    --cyan: #00e5ff;
+    --green: #10b981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at 85% 10%, rgba(237,28,36,0.14), transparent 45%),
+                radial-gradient(circle at 15% 10%, rgba(255,106,0,0.14), transparent 45%),
+                var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    padding: 24px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  .hero {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--amber);
+    border-radius: 12px;
+    padding: 24px 26px;
+  }
+  .kicker {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .lead { color: var(--muted); font-size: 14.5px; max-width: 720px; }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .m {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .m-k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .m-v { font-size: 18px; font-weight: 800; margin-top: 4px; color: var(--cyan); }
+  .m-v.ok { color: var(--green); }
+  .m-v.hot { color: var(--amber); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .box {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .box h2 { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #fff; }
+  .box p { font-size: 13px; color: var(--muted); }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 15px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    color: #fff;
+    background: linear-gradient(135deg, var(--amber), var(--ruby));
+  }
+  .btn.sec {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.16);
+    color: var(--text);
+  }
+  .btn:hover { filter: brightness(1.1); }
+  @media (max-width: 720px) {
+    .metrics, .grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">JUPITER-ONE // MEMORYOS v1.0.0-RC1</div>
+      <h1>Zero-VRAM AI Workstation &amp; Hardware-Aware Router</h1>
+      <p class="lead">
+        Built for consumer laptops and workstations where GPU VRAM is tight. MemoryOS pairs a 0.091 ms
+        AMD Zen 3 SIMD gate and a 5.37 &mu;s pure-Python Speculative Offload MLP with zero-download remote
+        inference across AMD Token Lab, Hugging Face Inference Router, NVIDIA NIM, and local DGX Spark.
+      </p>
+
+      <div class="metrics">
+        <div class="m"><div class="m-k">Local Studio VRAM</div><div class="m-v ok">0 MB</div></div>
+        <div class="m"><div class="m-k">AMD Zen 3 Gate</div><div class="m-v">0.091 ms</div></div>
+        <div class="m"><div class="m-k">Speculative MLP</div><div class="m-v hot">5.37 &mu;s</div></div>
+        <div class="m"><div class="m-k">LTE Data Saved</div><div class="m-v ok">94.0%</div></div>
+      </div>
+
+      <div class="links">
+        <a class="btn" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener">Open GitHub Repository</a>
+        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos/blob/main/AMD_RELEASE_CANDIDATE.md" target="_blank" rel="noopener">RC1 Technical Dossier</a>
+        <a class="btn sec" href="https://github.com/JupiterIsland/memoryos/blob/main/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="box">
+        <h2>1. MemoryOS Core</h2>
+        <p>Sub-millisecond Zen 3 frame-delta gate, 4&rarr;8&rarr;1 SpeculativeOffloadModel MLP, and atomic 3.07 ms NVMe checkpoint recovery.</p>
+      </div>
+      <div class="box">
+        <h2>2. The Quiet Advisor</h2>
+        <p>Autonomous SQLite telemetry engine detecting VRAM pressure, thermal throttling, context waste, and model thrashing with closed-loop routing rules.</p>
+      </div>
+      <div class="box">
+        <h2>3. Jupiter Studio</h2>
+        <p>Zero-dependency Python hybrid workstation with live pre-send Speculative Neural Radar, Dual-Model Split Arena, and multi-provider SSE streaming.</p>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

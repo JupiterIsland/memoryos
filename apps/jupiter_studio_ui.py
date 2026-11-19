@@ -661,6 +661,12 @@ STUDIO_HTML = r"""<!DOCTYPE html>
           <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
           <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
         </optgroup>
+        <optgroup label="Hugging Face Cloud (Zero Download / HF_TOKEN)" id="opt-hf">
+          <option value="hf:Qwen/Qwen2.5-72B-Instruct">Qwen2.5-72B-Instruct (HF Router)</option>
+          <option value="hf:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B-Instruct (HF Router)</option>
+          <option value="hf:deepseek-ai/DeepSeek-R1">DeepSeek-R1 (HF Router)</option>
+          <option value="hf:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5-Coder-32B-Instruct (HF Router)</option>
+        </optgroup>
         <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
           <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
           <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
@@ -1122,6 +1128,10 @@ function onTargetChange() {
     badge.innerText = "DIGITALOCEAN";
     badge.className = "badge";
     desc.innerText = sel.value.replace("do:", "") + " (AMD MI300X)";
+  } else if (sel.value.startsWith("hf:")) {
+    badge.innerText = "HUGGING FACE";
+    badge.className = "badge";
+    desc.innerText = sel.value.replace("hf:", "") + " (Zero-Download Serverless Router)";
   } else if (sel.value.startsWith("vllm:")) {
     badge.innerText = "LOCAL vLLM";
     badge.className = "badge";

@@ -101,6 +101,13 @@ def _get_nvidia_flare_credentials() -> Tuple[str, str]:
     api_key = os.getenv("NVIDIA_FLARE_API_KEY", "EMPTY").strip()
     return api_key, base_url
 
+
+def _get_huggingface_credentials() -> Tuple[str, str]:
+    """Return (api_key, base_url) for Hugging Face Inference Providers (zero-download serverless router)."""
+    base_url = os.getenv("HF_BASE_URL", "https://router.huggingface.co/v1").strip().rstrip("/")
+    api_key = (os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
+    return api_key, base_url
+
 try:
     from apps.jupiter_studio_ui import STUDIO_HTML as HTML_PAGE
 except ImportError:
@@ -510,6 +517,9 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         if target.startswith("flare:"):
             return target.split(":", 1)[1], "NVIDIA Flare (Spark)", False
 
+        if target.startswith("hf:"):
+            return target.split(":", 1)[1], "Hugging Face Router", False
+
         return "Gemma-4-31B-IT", "AMD Token Lab", False
 
     def _stream_cloud(
@@ -532,6 +542,8 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             api_key, base_url = _get_nvidia_credentials()
         elif "DigitalOcean" in provider_key:
             api_key, base_url = _get_do_credentials()
+        elif "Hugging Face" in provider_key:
+            api_key, base_url = _get_huggingface_credentials()
         else:
             api_key, base_url = _get_tokenlab_credentials()
 
@@ -701,6 +713,8 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             api_key, base_url = _get_nvidia_credentials()
         elif "DigitalOcean" in provider_key:
             api_key, base_url = _get_do_credentials()
+        elif "Hugging Face" in provider_key:
+            api_key, base_url = _get_huggingface_credentials()
         else:
             api_key, base_url = _get_tokenlab_credentials()
 
