@@ -3,7 +3,7 @@
 > One workspace for local and cloud AI, automatic model routing, project context, and live hardware telemetry.  
 > **Not another chatbot. An AI workstation.**
 
-[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Release: v1.0.1](https://img.shields.io/badge/Release-v1.0.1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
 [![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio-FF6A00?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
@@ -34,11 +34,11 @@ The platform automatically routes tasks, manages project context, and gives you 
 ## Get Started in Under 60 Seconds
 
 ### Option 1 — Download Standalone Binary (No Python Setup Required)
-Download the latest release: **[MemoryOS v1.0.0](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.0)** (`SHA256SUMS.txt` included)
+Download the latest release: **[MemoryOS v1.0.1](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.1)** (`SHA256SUMS.txt` included)
 
-* **Windows x64:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe`
-* **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio`
-* **Linux x64:** `JupiterStudio-Linux-x64.tar.gz` → `tar -xzf JupiterStudio-Linux-x64.tar.gz` → `./JupiterStudio-Linux-x64/JupiterStudio`
+* **Windows x64:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe --workspace "C:\path\to\your-project"`
+* **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio --workspace ~/projects/your-repo`
+* **Linux x64:** `JupiterStudio-Linux-x64.tar.gz` → `tar -xzf JupiterStudio-Linux-x64.tar.gz` → `./JupiterStudio-Linux-x64/JupiterStudio --workspace ~/projects/your-repo`
 
 ### Option 2 — Run From Source
 ```bash
@@ -57,7 +57,7 @@ Then open **[http://127.0.0.1:7860](http://127.0.0.1:7860)** — see **[HOW_TO_U
 Work with multiple AI models from a single desktop interface.
 * Unified zero-dependency workstation (`Jupiter Studio`)
 * Local and cloud AI access in one place
-* Multi-provider support (**AMD Token Lab**, **Hugging Face Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark `vLLM`/`Flare`**, and **Ollama**)
+* Multi-provider support (**AMD Token Lab**, **AMD Lemonade Server / Ryzen AI FastFlowLM**, **Hugging Face Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark `vLLM`/`Flare`**, and **Ollama**)
 * Three built-in themes: **Quantum** (smoked-crystal dark), **Radeon** (crimson carbon), and **Atari B&W** (high-res monochrome)
 
 ### 2. Smart Model Routing
@@ -100,7 +100,7 @@ Built to use hardware efficiently.
 ### 8. Developer Features
 Built by developers for developers.
 * Open, extensible Python architecture with zero PyTorch or Electron overhead
-* Automated **GitHub Actions CI** (`35/35` unit tests + `8/8` hardware benchmark suites)
+* Automated **GitHub Actions CI** (`60+` unit tests + live binary HTTP/CORS smoke verification)
 * Cross-platform standalone builds published on GitHub Releases
 
 ---
@@ -120,7 +120,7 @@ flowchart TD
     UI["Client Workstation Layer<br/>Jupiter Studio UI • Quiet Advisor Dashboard • Dual Arena"]
     L1["Layer 1: Host-Side Telemetry &amp; Delta Gate<br/>AMD Zen 3 MSE Kernel (0.091 ms) • Speculative MLP (5.37 us)<br/>SQLite WAL Ledger + Migrations • NVMe Checkpoints (3.07 ms)"]
     L2["Layer 2: Probabilistic Gatekeeper<br/>AMD Token Lab d3 Aux-Router (POST /v1/systemone)<br/>State Evaluation &amp; Static Frame Suppression"]
-    L3["Layer 3: Multi-Provider Inference (0 MB Local VRAM)<br/>AMD Token Lab (Gemma-4-31B-IT, Qwen3.8-27B, DeepSeek-V4.1-Flash)<br/>Hugging Face Router • NVIDIA NIM • DigitalOcean MI300X<br/>Local DGX Spark (vLLM / Flare) • Local Ollama"]
+    L3["Layer 3: Multi-Provider Inference (0 MB Local VRAM on Cloud Offload)<br/>AMD Token Lab (Gemma-4-31B-IT, Qwen3.8-27B, DeepSeek-V4.1-Flash)<br/>AMD Lemonade Server (FastFlowLM XDNA 2 / llama.cpp)<br/>Hugging Face Router • NVIDIA NIM • DigitalOcean MI300X<br/>Local DGX Spark (vLLM / Flare) • Local Ollama"]
 
     UI --> L1 --> L2 --> L3
 ```
@@ -143,7 +143,7 @@ All figures are verified on physical AMD Ryzen hardware via the automated test s
 | **Suite 4: Chaos Recovery** | 20-Checkpoint NVMe Quick-Save Scan | **3.072 ms** per checkpoint reload | Total 20 CPs scanned in 61.43 ms | **PASS** |
 | **Suite 5: Router Ping** | Local Port 5000 API Contract | Deterministic fallback | Verified contract response | **PASS** |
 | **Suite 6: AMD Zen 3 Kernel** | 200 Iterations Zen 3 AVX2/FMA Gate | **0.091 ms** avg (**0.158 ms** p99) | Consumes 0.55% of 60 FPS budget | **PASS** |
-| **Suite 7: Mobile Hotspot** | 1,000 Frames over Cellular Uplink | **94.0% Bandwidth Reduction** | 385.5 MB / 205.6 s airtime saved | **PASS** |
+| **Suite 7: Mobile Hotspot** | 1,000 Frames (Modeled LTE Uplinks) | **94.0% Modeled Bandwidth Reduction** | 385.5 MB / 205.6 s airtime estimate | **PASS** |
 | **Suite 8: Speculative MLP** | 1,000 Forward Passes (Pure Python) | **5.37 μs** avg latency | Sub-millisecond pre-network host gate | **PASS** |
 
 ---

@@ -45,10 +45,37 @@ jobs:
       - name: Build Jupiter Studio standalone executable
         run: python -m PyInstaller --clean --noconfirm installer/JupiterStudio.spec
 
-      - name: Smoke-test standalone executable (--help)
+      - name: Smoke-test standalone executable (--help & HTTP /api/health + CORS)
         shell: bash
         run: |
           ./dist/JupiterStudio${{ matrix.ext }} --help
+          ./dist/JupiterStudio${{ matrix.ext }} --no-browser --port 17860 >/tmp/studio_smoke.log 2>&1 &
+          PID=$!
+          trap "kill $PID 2>/dev/null || true" EXIT
+          python3 - << 'PY'
+          import time, urllib.request, urllib.error, json
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:17860/api/health", timeout=2) as r:
+                      body = json.loads(r.read().decode("utf-8"))
+                      assert r.status == 200 and body.get("status") == "ok", body
+                      assert r.headers.get("Access-Control-Allow-Origin") != "*", r.headers
+                  break
+              except Exception:
+                  time.sleep(0.5)
+          else:
+              raise SystemExit("Smoke test failed: /api/health did not respond cleanly")
+          req = urllib.request.Request(
+              "http://127.0.0.1:17860/api/workspace/files",
+              headers={"Origin": "https://evil.example"},
+          )
+          try:
+              urllib.request.urlopen(req, timeout=2)
+              raise SystemExit("CORS check failed: expected 403 for foreign Origin")
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 403, f"Expected 403, got {exc.code}"
+          print("SMOKE_OK: /api/health 200 & cross-origin blocked (403)")
+          PY
 
       - name: Package Windows ZIP
         if: matrix.archive == 'zip'

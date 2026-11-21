@@ -374,13 +374,13 @@ function renderCards(state) {
     const pIgn = Math.max(0, 100 - pSurf - pDef);
     const metrics = (c.metrics || []).map(m => `<span class="metric-chip">${esc(m)}</span>`).join("");
     const exps = (c.suggested_experiments || []).map(e =>
-      `<button class="exp-btn" onclick="cardAction(${c.id}, 'learn_more', {experiment: ${JSON.stringify(e)}})">Try: ${esc(e)}</button>`
+      `<button class="exp-btn" data-card-id="${c.id}" data-action="learn_more" data-experiment="${esc(e)}">Try: ${esc(e)}</button>`
     ).join("");
     const actionsHtml = currentTab === "active" ? `
       <div class="card-actions">
-        <button class="primary" onclick="cardAction(${c.id}, 'action', {recommended: ${JSON.stringify(c.recommended_action)}})">Acknowledge &amp; Apply</button>
-        <button onclick="cardAction(${c.id}, 'dismiss')">Dismiss</button>
-        <button class="warn" onclick="cardAction(${c.id}, 'archive')">Mute Detector</button>
+        <button class="primary" data-card-id="${c.id}" data-action="action" data-recommended="${esc(c.recommended_action || '')}">Acknowledge &amp; Apply</button>
+        <button data-card-id="${c.id}" data-action="dismiss">Dismiss</button>
+        <button class="warn" data-card-id="${c.id}" data-action="archive">Mute Detector</button>
       </div>` : `<div class="card-actions"><span class="badge">${c.user_actioned ? "ACTIONED" : (c.user_archived ? "MUTED" : "DISMISSED")}</span></div>`;
 
     return `
@@ -445,11 +445,22 @@ function renderPrefs(prefs) {
     ? entries.map(([k, v]) => `
       <div class="row-item">
         <span style="min-width:130px">${esc(k)}</span>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(v * 100)}%"></div></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, Math.round(v * 100)))}%"></div></div>
         <span>${(v * 100).toFixed(0)}%</span>
       </div>`).join("")
     : `<p style="color:var(--muted);font-size:12px;">Act on cards (Apply / Dismiss / Mute) to train detector preferences.</p>`;
 }
+
+document.getElementById("cardsContainer").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-card-id][data-action]");
+  if (!btn) return;
+  const cardId = Number(btn.dataset.cardId);
+  const action = btn.dataset.action;
+  const meta = {};
+  if (btn.dataset.experiment) meta.experiment = btn.dataset.experiment;
+  if (btn.dataset.recommended) meta.recommended = btn.dataset.recommended;
+  cardAction(cardId, action, meta);
+});
 
 function renderCheckpoints(cp) {
   const items = cp.recent || [];

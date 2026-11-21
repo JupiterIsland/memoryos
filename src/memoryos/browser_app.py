@@ -35,8 +35,18 @@ class ContextSyncBridge:
         
         # Internal Heat Stream import
         try:
-            from memoryos.core.heat_stream import MemoryHeatStream
-            self._heat_stream = MemoryHeatStream()
+            try:
+                from src.memoryos.core.heat_stream import MemoryHeatStream
+            except ImportError:
+                from memoryos.core.heat_stream import MemoryHeatStream
+            if memoryos_cli_dir:
+                self._heat_stream = MemoryHeatStream(
+                    tlb_cache_dir=os.path.join(self.cli_dir, "tlb"),
+                    temp_graph_path=os.path.join(self.cli_dir, "temporal_graph"),
+                    checkpoint_dir=os.path.join(self.cli_dir, "checkpoints"),
+                )
+            else:
+                self._heat_stream = MemoryHeatStream()
         except ImportError:
             print("[ContextSync] Using fallback sync mode")
             self._heat_stream = None

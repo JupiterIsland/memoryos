@@ -1396,7 +1396,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <canvas id="quantum-canvas"></canvas>
       <div style="display:flex; align-items:center; gap:10px;">
         <span class="badge" id="chat-mode-badge">AUTO-ROUTE (d3)</span>
-        <span style="font-size:12px; color:var(--muted);" id="chat-target-desc">Quantum Lattice // 0.091ms Zen 3 Gate + 5.37μs Speculative MLP</span>
+        <span style="font-size:12px; color:var(--muted);" id="chat-target-desc">Hardware-Aware Gate + Speculative Offload MLP</span>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <div class="theme-pill-group" title="Switch Studio Surface Theme">
@@ -1410,10 +1410,10 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 
     <div class="chat-log" id="chat-log">
       <div class="msg assistant">
-        <div class="meta-tag meta-auto">MEMORYOS v1.0.0 // ZERO LOCAL VRAM</div>
+        <div class="meta-tag meta-auto">MEMORYOS v1.0.1 // HARDWARE-AWARE ROUTER</div>
         <div class="md-body">
           <h3 style="margin-top:2px; font-size:18px; letter-spacing:-0.02em;">Jupiter Studio Workstation</h3>
-          <p style="color:var(--muted);">Hardware-aware routing via 0.091 ms AMD Zen 3 gate and 5.37 μs Speculative Offload MLP. Local GPU VRAM remains completely free for native apps.</p>
+          <p style="color:var(--muted);">Hardware-aware routing across cloud accelerators (AMD Token Lab, NIM, MI300X, HF Router) and local servers (AMD Lemonade / FastFlowLM, Ollama, vLLM). Cloud offload keeps local GPU VRAM free for native apps.</p>
           <div class="starter-chips">
             <button class="starter-chip" onclick="useStarter('Review the selected repository files for bugs, security risks, or performance improvements.')">
               <span>Code Audit</span>
@@ -2468,6 +2468,8 @@ async function updateSpeculativeRadar() {
   const input = document.getElementById("prompt-input");
   if (!input) return;
   const text = input.value || "";
+  const sel = document.getElementById("target-selector");
+  const targetVal = sel ? sel.value : "auto:d3";
   quantumPulse = Math.min(1.0, quantumPulse + 0.25);
   const extraChars = uploadedFiles.reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
   const fileCount = uploadedFiles.length + selectedWorkspaceSet.size;
@@ -2477,6 +2479,7 @@ async function updateSpeculativeRadar() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: text,
+        target: targetVal,
         has_image: Boolean(currentAttachedImage),
         file_count: fileCount,
         extra_chars: extraChars,
@@ -2484,16 +2487,18 @@ async function updateSpeculativeRadar() {
     });
     if (!res.ok) return;
     const d = await res.json();
-    const pct = (Number(d.p_offload || 0.88) * 100).toFixed(1);
+    const rawProb = d.p_offload ?? 0.88;
+    const pct = (Number(rawProb) * 100).toFixed(1);
     const latStr = Number(d.mlp_latency_us) >= 1000 ? `${(Number(d.mlp_latency_us) / 1000).toFixed(2)} ms` : `${Number(d.mlp_latency_us).toFixed(1)} μs`;
     document.getElementById("rad-mlp").innerText = `${pct}% · ${latStr}`;
     const barEl = document.getElementById("rad-mlp-bar");
     if (barEl) barEl.style.width = `${Math.max(4, Math.min(100, Number(pct)))}%`;
-    const sel = document.getElementById("target-selector").value;
-    const routeLabel = sel === "auto:d3" ? `d3 → ${d.predicted_model}` : sel;
+    const routeLabel = targetVal === "auto:d3" ? `d3 → ${d.predicted_model}` : targetVal;
     document.getElementById("rad-route").innerText = routeLabel;
     document.getElementById("rad-tok").innerText = `~${Number(d.est_tokens || 1).toLocaleString()} tokens`;
-    document.getElementById("rad-vram").innerText = `${d.vram_saved_gb} GB saved (0 MB used)`;
+    document.getElementById("rad-vram").innerText = d.is_local
+      ? "Local Execution (Host RAM/VRAM/NPU)"
+      : `${d.vram_saved_gb} GB saved (0 MB used)`;
   } catch (_) {}
 }
 document.getElementById("prompt-input").addEventListener("input", () => {
@@ -2546,6 +2551,21 @@ function pickArenaChallenger(primaryTarget) {
     return primaryTarget === "hf:Qwen/Qwen2.5-72B-Instruct"
       ? "hf:meta-llama/Llama-3.3-70B-Instruct"
       : "hf:Qwen/Qwen2.5-72B-Instruct";
+  }
+  if (primaryTarget.startsWith("lemonade:")) {
+    return primaryTarget === "lemonade:Qwen3-4B-Instruct-2507-FLM"
+      ? "cloud:Qwen3.8-27B"
+      : "lemonade:Qwen3-4B-Instruct-2507-FLM";
+  }
+  if (primaryTarget.startsWith("vllm:")) {
+    return primaryTarget === "vllm:Qwen/Qwen3.8-Flash-Next"
+      ? "vllm:deepseek-ai/DeepSeek-V4.1-Flash"
+      : "vllm:Qwen/Qwen3.8-Flash-Next";
+  }
+  if (primaryTarget.startsWith("flare:")) {
+    return primaryTarget === "flare:Qwen3.8-Flash-Next"
+      ? "flare:DeepSeek-V4.1-Flash"
+      : "flare:Qwen3.8-Flash-Next";
   }
   if (primaryTarget.startsWith("ollama:")) {
     return primaryTarget === "ollama:qwen2.5-coder:7b"

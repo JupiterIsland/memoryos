@@ -95,6 +95,7 @@ from src.memoryos.router import (
     _get_nvidia_credentials,
     _get_tokenlab_credentials,
     _is_configured_key,
+    _local_d3_fallback,
     get_cloud_provider_status,
     get_policy_telemetry,
     route_task,
@@ -261,11 +262,44 @@ def _get_nvidia_flare_credentials() -> Tuple[str, str]:
     return api_key, base_url
 
 
+_LEMONADE_CACHE: Dict[str, Any] = {"url": None, "checked": 0.0}
+_LEMONADE_CACHE_LOCK = threading.Lock()
+
+
 def _get_lemonade_credentials() -> Tuple[str, str]:
     """Return (api_key, base_url) for a local AMD Lemonade Server (Ryzen AI XDNA 2 / FastFlowLM) endpoint."""
-    base_url = os.getenv("LEMONADE_BASE_URL", "http://127.0.0.1:13305/api/v1").strip().rstrip("/")
+    env_url = os.getenv("LEMONADE_BASE_URL", "").strip().rstrip("/")
     api_key = os.getenv("LEMONADE_API_KEY", "EMPTY").strip()
-    return api_key, base_url
+    if env_url:
+        return api_key, env_url
+
+    now = time.time()
+    with _LEMONADE_CACHE_LOCK:
+        if _LEMONADE_CACHE["checked"] and now - _LEMONADE_CACHE["checked"] < 10 and _LEMONADE_CACHE["url"]:
+            return api_key, _LEMONADE_CACHE["url"]
+
+    candidates = ["http://127.0.0.1:13305/api/v1"]
+    try:
+        for line in Path("/etc/resolv.conf").read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("nameserver"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    addr = parts[1].strip()
+                    if ":" in addr and not addr.startswith("["):
+                        addr = f"[{addr}]"
+                    candidates.append(f"http://{addr}:13305/api/v1")
+    except Exception:
+        pass
+
+    found = candidates[0]
+    for cand in dict.fromkeys(candidates):
+        if _http_ok(f"{cand}/models", 0.6) is not None:
+            found = cand
+            break
+
+    with _LEMONADE_CACHE_LOCK:
+        _LEMONADE_CACHE.update(url=found, checked=time.time())
+    return api_key, found
 
 
 def _get_huggingface_credentials() -> Tuple[str, str]:
@@ -364,17 +398,79 @@ def _probe_model_availability() -> Dict[str, Any]:
 
 _SPEC_MODEL: Any = None
 _SPEC_MODEL_LOCK = threading.Lock()
+_TELEM_LOCK = threading.Lock()
+_LAST_OFFLOAD_TS: Optional[float] = None
+_LAST_TARGET_SEEN: str = "auto:d3"
+_MODEL_SWITCH_COUNT: int = 0
+_STUDIO_START_TS: float = time.time()
+
+_STUDIO_SYSTEM_PROMPT = (
+    "You are an AI systems engineer and coding assistant inside MemoryOS // Jupiter Studio. "
+    "Architecture facts (never invent unimplemented subsystems like NVMe SSD weight streaming): "
+    "MemoryOS uses a local host CPU delta gate + SpeculativeOffloadNet MLP (4->8->1) and d3 router "
+    "to route prompts across cloud GPUs (AMD Token Lab, NVIDIA NIM, DigitalOcean MI300X, HF Router) "
+    "or local servers (AMD Lemonade Server / FastFlowLM on Ryzen AI XDNA 2, Ollama, vLLM/Flare), "
+    "keeping local GPU VRAM at 0 MB when offloaded."
+)
+
+
+def _record_target_activity(target_key: str, did_offload: bool = False) -> None:
+    """Update real runtime offload timestamp and target-switch counter."""
+    global _LAST_OFFLOAD_TS, _LAST_TARGET_SEEN, _MODEL_SWITCH_COUNT
+    with _TELEM_LOCK:
+        if did_offload:
+            _LAST_OFFLOAD_TS = time.time()
+        if target_key and target_key != _LAST_TARGET_SEEN:
+            _MODEL_SWITCH_COUNT += 1
+            _LAST_TARGET_SEEN = target_key
+
+
+def _local_route_preview(prompt: str, has_image: bool, total_chars: int) -> Tuple[str, str]:
+    """Zero-network local d3 preview used during typing/speculation (never hits remote /v1/systemone)."""
+    state_text = (
+        f"Prompt preview ({total_chars} chars, has image input: {str(has_image).lower()}): {prompt[:240]}"
+    )
+    criteria = {
+        "vision_heavy": "Requires vision",
+        "balanced_code": "Requires code or architecture",
+        "fast_light": "Short simple query",
+    }
+    decision = _local_d3_fallback(state_text=state_text, criteria=criteria, model="d3-local")
+    tier = str(decision.get("choice") or ("vision_heavy" if has_image else "balanced_code"))
+    if tier == "fast_light":
+        # Interactive Studio routes short chat to 27B/31B unless local selected explicitly
+        tier = "balanced_code"
+    model_map = {
+        "vision_heavy": "Gemma-4-31B-IT",
+        "balanced_code": "Qwen3.8-27B",
+        "fast_light": "Qwen3.8-27B",
+    }
+    return model_map.get(tier, "Qwen3.8-27B"), tier
+
+
+def _is_local_execution_provider(provider_key: str, is_local_ollama: bool) -> bool:
+    """Return True when inference executes on a local host/LAN server rather than external cloud."""
+    if is_local_ollama:
+        return True
+    low = (provider_key or "").lower()
+    return any(tok in low for tok in ("lemonade", "ollama", "local vllm", "nvidia flare"))
 
 
 def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Run the real 4->8->1 SpeculativeOffloadModel MLP + d3 router preview on a draft prompt."""
+    """Run the real 4->8->1 SpeculativeOffloadModel MLP + local d3 preview (zero network calls)."""
     global _SPEC_MODEL
     prompt = str(body.get("prompt") or "")
+    target = str(body.get("target") or "auto:d3").strip()
     has_image = bool(body.get("has_image"))
     file_count = _safe_nonneg_int(body.get("file_count"), 0)
     extra_chars = _safe_nonneg_int(body.get("extra_chars"), 0)
     total_chars = len(prompt) + extra_chars
     est_tokens = max(1, total_chars // 4)
+
+    with _TELEM_LOCK:
+        secs_since = (time.time() - _LAST_OFFLOAD_TS) if _LAST_OFFLOAD_TS else 60.0
+        uptime_mins = max(1.0, (time.time() - _STUDIO_START_TS) / 60.0)
+        switch_rate = min(1.0, _MODEL_SWITCH_COUNT / max(4.0, uptime_mins * 2.0))
 
     mlp_us = 0.0
     try:
@@ -389,14 +485,14 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
                     _SPEC_MODEL = SpeculativeOffloadModel.load()
                 model = _SPEC_MODEL
 
-        # Map prompt complexity, context load, and attachments into the 4 normalized MLP features
+        # Map prompt complexity, context load, and real session counters into normalized MLP features
         complexity = min(1.0, (len(prompt) / 600.0) + (0.35 if has_image else 0.0) + (0.15 * min(3, file_count)))
         ctx_util = min(1.0, max(0.05, est_tokens / 4096.0))
         features = {
             "mse_delta_norm": round(max(0.15, complexity), 4),
             "context_utilization": round(ctx_util, 4),
-            "secs_since_offload": 0.45,
-            "model_switch_rate": 0.20,
+            "secs_since_offload": round(min(1.0, secs_since / 120.0), 4),
+            "model_switch_rate": round(switch_rate, 4),
         }
         t0 = time.perf_counter_ns()
         p_offload = model.predict_proba(features)
@@ -412,14 +508,29 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
         action = "offload_now"
         mlp_us = 0.0
 
-    decision = select_model_with_d3(prompt_text=prompt or "code", has_image=has_image, context_chars=total_chars)
-    selected_model = decision.get("selected_model", "Gemma-4-31B-IT")
-    selected_tier = decision.get("selected_tier", "balanced_code")
-    # Promote interactive studio chat off the 2B edge-triage model to 27B/31B frontier models
-    if selected_model == "MiniCPM5-2B":
-        selected_model = "Gemma-4-31B-IT" if has_image else "Qwen3.8-27B"
-        selected_tier = "vision_heavy" if has_image else "balanced_code"
-    vram_saved_gb = 18.5 if "31B" in selected_model else (16.2 if "27B" in selected_model else (14.0 if "DeepSeek" in selected_model else 2.4))
+    local_target = target.startswith(("ollama:", "lemonade:", "vllm:", "flare:"))
+    if target == "auto:d3":
+        selected_model, selected_tier = _local_route_preview(prompt, has_image, total_chars)
+    else:
+        selected_model = target.split(":", 1)[1] if ":" in target else target
+        selected_tier = "local_device" if local_target else "explicit_cloud"
+
+    if local_target:
+        vram_saved_gb = 0.0
+    else:
+        upper = selected_model.upper()
+        if "72B" in upper or "70B" in upper:
+            vram_saved_gb = 42.0
+        elif "31B" in upper or "32B" in upper:
+            vram_saved_gb = 18.5
+        elif "27B" in upper:
+            vram_saved_gb = 16.2
+        elif "DEEPSEEK" in upper:
+            vram_saved_gb = 14.0
+        elif "2B" in upper:
+            vram_saved_gb = 2.4
+        else:
+            vram_saved_gb = 8.0
 
     return {
         "p_offload": round(float(p_offload), 4),
@@ -429,11 +540,71 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
         "predicted_tier": selected_tier,
         "est_tokens": est_tokens,
         "vram_saved_gb": vram_saved_gb,
+        "is_local": local_target,
     }
 
 
+def _record_studio_inference(
+    model_id: str,
+    is_local_exec: bool,
+    prompt_chars: int,
+    latency_ms: float,
+    success: bool = True,
+) -> None:
+    """Persist completed Jupiter Studio turns to QuietAdvisorDB for real health/telemetry."""
+    try:
+        import sqlite3
+        from datetime import datetime, timezone
+        from src.memoryos.quiet_advisor_db import QuietAdvisorDB
+
+        db_path = REPO_ROOT / "QuietAdvisorDB.sqlite"
+        if not db_path.exists():
+            return
+        prof = MultiGPUDetector.get_active_profile()
+        used_vram = int(getattr(prof, "used_vram_mb", 0) or 0) if is_local_exec else 0
+        est_tokens = max(1, int(prompt_chars // 4))
+        tps = round((est_tokens / max(latency_ms / 1000.0, 0.05)), 1) if success else 0.0
+        conn = sqlite3.connect(db_path, timeout=1.0)
+        try:
+            db = QuietAdvisorDB(db_path)
+            db.close()
+        except Exception:
+            pass
+        conn.execute(
+            """
+            INSERT INTO memoryos_inference_log (
+                user_id, session_id, timestamp, model_id,
+                context_tokens_provided, context_tokens_used,
+                time_to_first_token_ms, total_latency_ms, tokens_per_second,
+                gpu_id, gpu_utilization_percent, gpu_temperature_celsius,
+                gpu_memory_used_mb, cache_hit, speculative_hit, error_occurred
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+            """,
+            (
+                "studio-user",
+                "jupiter-studio",
+                datetime.now(timezone.utc).isoformat(),
+                str(model_id or "unknown")[:120],
+                max(4096, est_tokens),
+                est_tokens,
+                round(float(latency_ms) * 0.25, 2),
+                round(float(latency_ms), 2),
+                tps,
+                "local-host" if is_local_exec else "cloud-offload",
+                float(getattr(prof, "utilization_pct", 0.0) or 0.0),
+                float(getattr(prof, "temperature_c", 0.0) or 0.0),
+                used_vram,
+                0 if success else 1,
+            ),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 def _compute_live_health(prof: Any) -> Dict[str, Any]:
-    """Compute live Workstation Health Score from current GPU profile."""
+    """Compute live Workstation Health Score from current GPU profile and real recent DB logs."""
     try:
         from datetime import datetime, timezone
         from quiet_advisor_detectors import InferenceLog, compute_workstation_health
@@ -446,23 +617,57 @@ def _compute_live_health(prof: Any) -> Dict[str, Any]:
             used_mb = getattr(prof, "memory_used_mb", 0)
         total_mb = getattr(prof, "total_vram_mb", None)
         if total_mb is None:
-            total_mb = getattr(prof, "memory_total_mb", 8192)
+            total_mb = getattr(prof, "memory_total_mb", 0)
         temp_c = getattr(prof, "temperature_c", 0.0)
 
-        sample = InferenceLog(
-            timestamp=datetime.now(timezone.utc),
-            model_id="live-probe",
-            context_tokens_provided=4096,
-            context_tokens_used=3600,
-            time_to_first_token_ms=0.0,
-            total_latency_ms=0.091,
-            tokens_per_second=64.5,
-            gpu_utilization_percent=float(util or 0.0),
-            gpu_temperature_celsius=float(temp_c or 0.0),
-            gpu_memory_used_mb=int(used_mb or 0),
-        )
-        cap = int(total_mb or 8192)
-        return compute_workstation_health([sample], vram_capacity_mb=cap)
+        logs: List[InferenceLog] = []
+        db_path = REPO_ROOT / "QuietAdvisorDB.sqlite"
+        if db_path.exists():
+            try:
+                import sqlite3
+                conn = sqlite3.connect(db_path, timeout=1.0)
+                rows = conn.execute(
+                    "SELECT model_id, context_tokens_provided, context_tokens_used, total_latency_ms, "
+                    "tokens_per_second, error_occurred FROM memoryos_inference_log ORDER BY id DESC LIMIT 12"
+                ).fetchall()
+                conn.close()
+                for r in rows:
+                    logs.append(
+                        InferenceLog(
+                            timestamp=datetime.now(timezone.utc),
+                            model_id=str(r[0] or "studio"),
+                            context_tokens_provided=int(r[1] or 4096),
+                            context_tokens_used=int(r[2] or 256),
+                            time_to_first_token_ms=0.0,
+                            total_latency_ms=float(r[3] or 100.0),
+                            tokens_per_second=float(r[4] or 30.0),
+                            gpu_utilization_percent=float(util or 0.0),
+                            gpu_temperature_celsius=float(temp_c or 0.0),
+                            gpu_memory_used_mb=int(used_mb or 0),
+                            error_occurred=bool(r[5]),
+                        )
+                    )
+            except Exception:
+                logs = []
+
+        if not logs:
+            logs = [
+                InferenceLog(
+                    timestamp=datetime.now(timezone.utc),
+                    model_id="live-probe",
+                    context_tokens_provided=4096,
+                    context_tokens_used=2048,
+                    time_to_first_token_ms=0.0,
+                    total_latency_ms=0.0,
+                    tokens_per_second=0.0,
+                    gpu_utilization_percent=float(util or 0.0),
+                    gpu_temperature_celsius=float(temp_c or 0.0),
+                    gpu_memory_used_mb=int(used_mb or 0),
+                )
+            ]
+
+        cap = int(total_mb) if total_mb and int(total_mb) > 0 else 8192
+        return compute_workstation_health(logs, vram_capacity_mb=cap)
     except Exception:
         return {"score": 100, "grade": "A", "status": "healthy", "components": {"vram_headroom": 100.0, "thermal_headroom": 100.0}}
 
@@ -537,12 +742,29 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _origin_matches_host(self, origin: str) -> bool:
+        """Validate Origin: loopback-only when loopback-bound, or matching Host when LAN-bound."""
+        if self._is_loopback_bound():
+            return _is_allowed_origin(origin)
+        host_header = self._get_header("Host").strip()
+        try:
+            o_parsed = urllib.parse.urlsplit(origin.strip())
+            h_parsed = urllib.parse.urlsplit(f"http://{host_header}") if host_header else None
+        except ValueError:
+            return False
+        if o_parsed.scheme not in ("http", "https") or o_parsed.username is not None or o_parsed.password is not None:
+            return False
+        o_host = (o_parsed.hostname or "").lower()
+        if o_host in _LOCAL_ORIGIN_HOSTS:
+            return True
+        return bool(h_parsed and o_host and o_host == (h_parsed.hostname or "").lower())
+
     def _enforce_origin(self) -> bool:
         if not self._enforce_host():
             return False
         origin = self._get_header("Origin").strip()
-        if origin and not _is_allowed_origin(origin):
-            self._send_json({"error": "Cross-origin requests from non-local origins are forbidden"}, status=403)
+        if origin and not self._origin_matches_host(origin):
+            self._send_json({"error": "Cross-origin requests are forbidden"}, status=403)
             return False
         sec_fetch_site = self._get_header("Sec-Fetch-Site").strip().lower()
         if sec_fetch_site == "cross-site":
@@ -556,7 +778,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                     ref_origin = f"{ref_parsed.scheme}://{ref_parsed.netloc}" if ref_parsed.scheme and ref_parsed.netloc else referer
                 except ValueError:
                     ref_origin = referer
-                if not _is_allowed_origin(ref_origin):
+                if not self._origin_matches_host(ref_origin):
                     self._send_json({"error": "Cross-origin Referer is forbidden"}, status=403)
                     return False
         return True
@@ -675,7 +897,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             if route == "/api/health":
-                self._send_json({"status": "ok", "version": "1.0.0"})
+                self._send_json({"status": "ok", "version": "1.0.1"})
                 return
 
             if route == "/api/status":
@@ -892,23 +1114,35 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 _send("error", {"error": "Prompt cannot be empty"})
                 return
 
-            model_name, provider_key, is_local = self._resolve_target(target, effective_prompt, bool(image_base64))
-            if not _send("start", {"model_used": model_name, "provider": provider_key, "is_local": is_local}):
+            model_name, provider_key, is_ollama = self._resolve_target(target, effective_prompt, bool(image_base64))
+            is_local_exec = _is_local_execution_provider(provider_key, is_ollama)
+            _record_target_activity(target, did_offload=(not is_local_exec))
+            if not _send("start", {"model_used": model_name, "provider": provider_key, "is_local": is_local_exec}):
                 return
 
             active_model = model_name
-            if is_local:
+            if is_ollama:
                 self._stream_ollama(model_name, effective_prompt, history, _send, image_base64=image_base64)
             else:
                 active_model = (
-                    self._stream_cloud(provider_key, model_name, effective_prompt, history, image_base64, _send)
+                    self._stream_cloud(
+                        provider_key,
+                        model_name,
+                        effective_prompt,
+                        history,
+                        image_base64,
+                        _send,
+                        allow_hydra=(target == "auto:d3"),
+                    )
                     or model_name
                 )
 
             if client_alive:
                 latency = round((time.perf_counter() - t0) * 1000, 2)
+                _record_studio_inference(active_model, is_local_exec, len(effective_prompt), latency, success=True)
                 _send("done", {"latency_ms": latency, "model_used": active_model})
         except Exception as exc:
+            _record_studio_inference(target, False, len(prompt), round((time.perf_counter() - t0) * 1000, 2), success=False)
             _send("error", {"error": str(exc)})
 
     def _handle_chat_sync(self, body: Dict[str, Any]) -> None:
@@ -931,12 +1165,14 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Prompt cannot be empty"}, status=400)
             return
 
-        model_name, provider_key, is_local = self._resolve_target(target, effective_prompt, bool(image_base64))
+        model_name, provider_key, is_ollama = self._resolve_target(target, effective_prompt, bool(image_base64))
+        is_local_exec = _is_local_execution_provider(provider_key, is_ollama)
+        _record_target_activity(target, did_offload=(not is_local_exec))
         content = ""
         err = ""
 
         try:
-            if is_local:
+            if is_ollama:
                 content, err = self._call_ollama_chat(
                     model_name,
                     effective_prompt,
@@ -955,12 +1191,13 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             err = str(exc)
 
         latency = round((time.perf_counter() - t0) * 1000, 2)
+        _record_studio_inference(model_name, is_local_exec, len(effective_prompt), latency, success=not bool(err))
         self._send_json({
             "model_used": f"{provider_key}: {model_name}",
             "content": content or f"[{err}]",
             "error": err or None,
             "latency_ms": latency,
-            "is_local": is_local,
+            "is_local": is_local_exec,
         })
 
     def _resolve_target(self, target: str, prompt: str, has_image: bool) -> Tuple[str, str, bool]:
@@ -972,7 +1209,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             # Never downgrade interactive studio chat to the 2B triage model unless explicitly chosen
             if selected_model == "MiniCPM5-2B":
                 selected_model = "Gemma-4-31B-IT" if has_image else "Qwen3.8-27B"
-            # If AMD Token Lab is ready, use it; otherwise NIM, DO, HF, or Local Ollama
+            # Cascade across configured cloud accelerators -> live local Lemonade -> Local Ollama
             status = get_cloud_provider_status()
             if status["amd_tokenlab"]["configured"]:
                 return selected_model, "AMD Token Lab", False
@@ -983,7 +1220,14 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 do_model = DO_MODEL_MAP.get(selected_model, "meta-llama/Llama-3.3-70B-Instruct")
                 return do_model, "DigitalOcean MI300X", False
             if status.get("huggingface", {}).get("configured"):
-                return "Qwen/Qwen2.5-Coder-32B-Instruct", "Hugging Face Router", False
+                hf_model = "Qwen/Qwen2.5-VL-72B-Instruct" if has_image else "Qwen/Qwen2.5-Coder-32B-Instruct"
+                return hf_model, "Hugging Face Router", False
+            _, lemon_url = _get_lemonade_credentials()
+            lemon_resp = _http_ok(f"{lemon_url}/models", 0.5)
+            if isinstance(lemon_resp, dict):
+                lemon_models = [str(m.get("id", "")) for m in lemon_resp.get("data", []) if isinstance(m, dict) and m.get("id")]
+                if lemon_models:
+                    return lemon_models[0], "Lemonade Server (Ryzen AI)", False
             return "qwen2.5-coder:7b", "Local Ollama", True
 
         if target_str.startswith("ollama:"):
@@ -1057,15 +1301,16 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         history: List[Dict[str, str]],
         image_base64: Optional[str],
         _send: Any,
+        allow_hydra: bool = False,
     ) -> str:
         api_key, base_url, is_local_openai = self._resolve_cloud_credentials(provider_key)
 
         if not is_local_openai and not self._has_real_api_key(api_key):
             raise RuntimeError(f"{provider_key} API key not configured in .env")
 
-        # Build messages with sanitized history
+        # Build grounded messages with sanitized history
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": "You are a world-class AI software architect and coding engineer in Jupiter Studio."}
+            {"role": "system", "content": _STUDIO_SYSTEM_PROMPT}
         ]
         for h in _sanitize_history(history):
             messages.append({"role": h["role"], "content": h["content"]})
@@ -1078,16 +1323,6 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         else:
             messages.append({"role": "user", "content": prompt})
 
-        url = f"{base_url.rstrip('/')}/chat/completions"
-
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "User-Agent": "JupiterStudio/1.0",
-        }
-        if api_key and api_key.upper() != "EMPTY":
-            headers["Authorization"] = f"Bearer {api_key}"
-
         candidate_models = [model_name]
         if "Token Lab" in provider_key:
             for fb in ("Qwen3.8-27B", "Gemma-4-31B-IT", "DeepSeek-V4.1-Flash"):
@@ -1096,6 +1331,16 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         resp_ctx = None
         active_model = model_name
+        last_exc: Optional[Exception] = None
+        url = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "User-Agent": "JupiterStudio/1.0.1",
+        }
+        if api_key and api_key.upper() != "EMPTY":
+            headers["Authorization"] = f"Bearer {api_key}"
+
         for idx, cand_model in enumerate(candidate_models):
             cand_payload = json.dumps({
                 "model": cand_model,
@@ -1109,15 +1354,15 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 resp_ctx = urllib.request.urlopen(req, timeout=120.0)
                 active_model = cand_model
                 if idx > 0:
-                    if not _send("start", {"model_used": cand_model, "provider": f"{provider_key} (Auto-Failover)", "is_local": False}):
+                    if not _send("start", {"model_used": cand_model, "provider": f"{provider_key} (Auto-Failover)", "is_local": is_local_openai}):
                         resp_ctx.close()
                         return active_model
                 break
             except urllib.error.HTTPError as http_err:
                 detail = ""
                 try:
-                    if http_err.code == 429 and idx + 1 < len(candidate_models):
-                        time.sleep(1.0)
+                    if http_err.code in (429, 502, 503, 504) and idx + 1 < len(candidate_models):
+                        time.sleep(0.5)
                         continue
                     try:
                         detail = http_err.read().decode("utf-8", errors="replace")[:400]
@@ -1129,18 +1374,65 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
                 if http_err.code == 429:
-                    raise RuntimeError(f"{provider_key}: rate limited across all models (HTTP 429). Wait a few seconds and retry.") from http_err
-                if http_err.code in (401, 403):
-                    raise RuntimeError(f"{provider_key}: API key rejected (HTTP {http_err.code}). Check .env.") from http_err
-                if http_err.code == 404:
-                    raise RuntimeError(f"{provider_key}: model '{cand_model}' not found on this provider (HTTP 404).") from http_err
-                raise RuntimeError(f"{provider_key}: HTTP {http_err.code} {detail}".strip()) from http_err
+                    last_exc = RuntimeError(f"{provider_key}: rate limited across all models (HTTP 429). Wait a few seconds and retry.")
+                elif http_err.code in (401, 403):
+                    last_exc = RuntimeError(f"{provider_key}: API key rejected (HTTP {http_err.code}). Check .env.")
+                elif http_err.code == 404:
+                    last_exc = RuntimeError(f"{provider_key}: model '{cand_model}' not found on this provider (HTTP 404).")
+                else:
+                    last_exc = RuntimeError(f"{provider_key}: HTTP {http_err.code} {detail}".strip())
+                break
             except urllib.error.URLError as url_err:
-                raise RuntimeError(
+                last_exc = RuntimeError(
                     f"{provider_key}: cannot reach {base_url} ({url_err.reason}). Is the server running?"
-                ) from url_err
+                )
+                break
+
+        # Hydra Failover for auto:d3: secondary configured cloud -> live Lemonade Server -> live Ollama
+        if resp_ctx is None and allow_hydra:
+            cloud_stat = get_cloud_provider_status()
+            hydra_targets: List[Tuple[str, str, bool]] = []
+            if "AMD Token Lab" not in provider_key and cloud_stat["amd_tokenlab"]["configured"]:
+                hydra_targets.append(("AMD Token Lab", "Qwen3.8-27B", False))
+            if "NVIDIA" not in provider_key and cloud_stat["nvidia_brev"]["configured"]:
+                hydra_targets.append(("NVIDIA NIM", NVIDIA_MODEL_MAP.get(model_name, "meta/llama-3.3-70b-instruct"), False))
+            if "DigitalOcean" not in provider_key and cloud_stat["digitalocean_mi300x"]["configured"]:
+                hydra_targets.append(("DigitalOcean MI300X", DO_MODEL_MAP.get(model_name, "meta-llama/Llama-3.3-70B-Instruct"), False))
+            _, lemon_url = _get_lemonade_credentials()
+            lemon_resp = _http_ok(f"{lemon_url}/models", 0.5)
+            if isinstance(lemon_resp, dict):
+                lemon_models = [str(m.get("id", "")) for m in lemon_resp.get("data", []) if isinstance(m, dict) and m.get("id")]
+                if lemon_models:
+                    hydra_targets.append(("Lemonade Server (Ryzen AI)", lemon_models[0], True))
+            for h_prov, h_model, h_local in hydra_targets:
+                h_key, h_base, _ = self._resolve_cloud_credentials(h_prov)
+                h_headers = {"Content-Type": "application/json", "Accept": "text/event-stream", "User-Agent": "JupiterStudio/1.0.1"}
+                if h_key and h_key.upper() != "EMPTY":
+                    h_headers["Authorization"] = f"Bearer {h_key}"
+                h_payload = json.dumps({"model": h_model, "messages": messages, "temperature": 0.2, "max_tokens": 2048, "stream": True}).encode("utf-8")
+                try:
+                    resp_ctx = urllib.request.urlopen(urllib.request.Request(f"{h_base.rstrip('/')}/chat/completions", data=h_payload, headers=h_headers, method="POST"), timeout=120.0)
+                    active_model = h_model
+                    if not _send("start", {"model_used": h_model, "provider": f"{h_prov} (Hydra Failover)", "is_local": h_local}):
+                        resp_ctx.close()
+                        return active_model
+                    break
+                except Exception:
+                    resp_ctx = None
+            if resp_ctx is None:
+                o_host = _resolve_ollama_host()
+                if o_host:
+                    o_tags = _http_ok(f"{o_host}/api/tags", 0.5) or {}
+                    o_models = [m.get("name", "") for m in o_tags.get("models", []) if isinstance(m, dict) and m.get("name")]
+                    if o_models:
+                        chosen_o = o_models[0]
+                        if _send("start", {"model_used": chosen_o, "provider": "Local Ollama (Hydra Failover)", "is_local": True}):
+                            self._stream_ollama(chosen_o, prompt, history, _send, image_base64=image_base64)
+                        return chosen_o
 
         if resp_ctx is None:
+            if last_exc is not None:
+                raise last_exc
             raise RuntimeError(f"{provider_key}: no upstream response established")
 
         with resp_ctx as resp:
@@ -1192,7 +1484,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 "Ollama is not running. Start it on Windows (open the Ollama app or run `ollama serve`), "
                 f"then `ollama pull {model_name}`."
             )
-        messages: List[Dict[str, Any]] = list(_sanitize_history(history))
+        messages: List[Dict[str, Any]] = [
+            {"role": "system", "content": _STUDIO_SYSTEM_PROMPT},
+            *_sanitize_history(history),
+        ]
         user_msg: Dict[str, Any] = {"role": "user", "content": prompt}
         raw_b64 = _extract_raw_base64_image(image_base64)
         if raw_b64:
@@ -1256,7 +1551,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         if not is_local_openai and not self._has_real_api_key(api_key):
             return "", f"{provider_key} API key not configured in .env"
 
-        messages: List[Dict[str, Any]] = list(_sanitize_history(history))
+        messages: List[Dict[str, Any]] = [
+            {"role": "system", "content": _STUDIO_SYSTEM_PROMPT},
+            *_sanitize_history(history),
+        ]
         if image_base64:
             messages.append({
                 "role": "user",
@@ -1324,7 +1622,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
     ) -> Tuple[str, str]:
         host = _resolve_ollama_host() or OLLAMA_HOST.rstrip("/")
         url = f"{host}/api/chat"
-        messages: List[Dict[str, Any]] = list(_sanitize_history(history))
+        messages: List[Dict[str, Any]] = [
+            {"role": "system", "content": _STUDIO_SYSTEM_PROMPT},
+            *_sanitize_history(history),
+        ]
         user_msg: Dict[str, Any] = {"role": "user", "content": prompt}
         raw_b64 = _extract_raw_base64_image(image_base64)
         if raw_b64:

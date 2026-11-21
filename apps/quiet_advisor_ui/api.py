@@ -267,10 +267,7 @@ def apply_card_action(
     target_db = Path(db_path) if db_path else DEFAULT_DB_PATH
     db = QuietAdvisorDB(target_db)
     try:
-        resolved_user = user_id
-        if not resolved_user:
-            row = db.conn.execute("SELECT user_id FROM quiet_advisor_cards WHERE id = ?", (card_id,)).fetchone()
-            resolved_user = str(row["user_id"]) if row else "default"
+        resolved_user = str(user_id).strip() if user_id else "default"
         handler = CardActionHandler(db)
         _run_coro_sync(lambda: handler.handle_action(user_id=resolved_user, card_id=str(card_id), action=action, metadata=metadata))
     finally:

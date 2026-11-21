@@ -199,6 +199,7 @@ def get_policy_telemetry() -> Dict[str, Any]:
     db_path = REPO_ROOT / "QuietAdvisorDB.sqlite"
     active_cards = 0
     total_inferences = 0
+    local_vram_saved_pct = 100.0
     if db_path.exists():
         conn = None
         try:
@@ -209,10 +210,15 @@ def get_policy_telemetry() -> Dict[str, Any]:
             row = cur.fetchone()
             if row:
                 active_cards = int(row[0])
-            cur.execute("SELECT COUNT(*) FROM memoryos_inference_log")
+            cur.execute(
+                "SELECT COUNT(*), SUM(CASE WHEN COALESCE(gpu_memory_used_mb, 0) = 0 THEN 1 ELSE 0 END) "
+                "FROM memoryos_inference_log"
+            )
             row = cur.fetchone()
-            if row:
+            if row and row[0]:
                 total_inferences = int(row[0])
+                zero_vram_count = int(row[1] or 0)
+                local_vram_saved_pct = round((zero_vram_count / total_inferences) * 100.0, 1)
         except Exception:
             pass
         finally:
@@ -224,10 +230,10 @@ def get_policy_telemetry() -> Dict[str, Any]:
 
     return {
         "cpu_gate_ms": 0.091,
-        "local_vram_saved_pct": 100.0,
+        "local_vram_saved_pct": local_vram_saved_pct,
         "active_cards": active_cards,
         "total_inferences": total_inferences,
-        "routing_engine": "AMD Zen 3 (0.091ms d3) -> AMD Token Lab / NVIDIA NIM",
+        "routing_engine": "AMD Zen 3 (0.091ms d3) -> AMD Token Lab / Lemonade Server / NVIDIA NIM",
     }
 
 

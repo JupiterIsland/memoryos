@@ -59,7 +59,10 @@ class GPUTelemetry:
     def _query_nvidia_smi(self) -> Optional[Dict]:
         """Fallback telemetry via MultiGPUDetector (nvidia-smi) when pynvml is absent."""
         try:
-            from memoryos.gpu_backends import MultiGPUDetector
+            try:
+                from src.memoryos.gpu_backends import MultiGPUDetector
+            except ImportError:
+                from memoryos.gpu_backends import MultiGPUDetector
 
             prof = MultiGPUDetector.detect_nvidia(device_index=self.gpu_id)
             if prof is not None and prof.total_vram_mb > 0:

@@ -41,6 +41,7 @@ IGNORED_FILES: Set[str] = {
     ".env.production",
     ".env.staging",
     ".env.test",
+    ".htpasswd",
     "credentials.json",
     "secrets.json",
     "token.json",
@@ -180,18 +181,18 @@ def is_binary_or_ignored(rel_path: Path | str) -> bool:
         if _is_ignored_dir_name(part):
             return True
 
-    name = norm_path.name
+    name = norm_path.name.rstrip(". ")
     low_name = name.lower()
     if not name or name in {".", ".."}:
         return True
     if low_name in _IGNORED_FILES_LOWER:
         return True
-    if low_name.startswith(".env.") and low_name not in ALLOWED_DOTFILES:
+    if (low_name.startswith(".env.") or low_name.endswith(".env")) and low_name not in ALLOWED_DOTFILES:
         return True
     if name.startswith(".") and low_name not in ALLOWED_DOTFILES:
         return True
 
-    suffix = norm_path.suffix.lower()
+    suffix = Path(name).suffix.lower()
     if suffix in BINARY_EXTENSIONS or suffix in SENSITIVE_EXTENSIONS:
         return True
     return False

@@ -265,8 +265,11 @@ class FallbackRouterHTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def _read_json_body(self) -> Dict[str, Any]:
-        length = int(self.headers.get("Content-Length") or "0")
-        if length <= 0:
+        try:
+            length = int(self.headers.get("Content-Length") or "0")
+        except ValueError:
+            return {}
+        if length <= 0 or length > 2 * 1024 * 1024:
             return {}
         try:
             data = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -377,15 +380,18 @@ class FallbackRouterHTTPHandler(BaseHTTPRequestHandler):
             action = str(body.get("action") or "view")
             user_id = str(body["user_id"]) if body.get("user_id") else None
             metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else None
-            self._send_json(
-                apply_card_action(
-                    card_id=card_id,
-                    action=action,
-                    user_id=user_id,
-                    metadata=metadata,
-                    db_path=target_db,
+            try:
+                self._send_json(
+                    apply_card_action(
+                        card_id=card_id,
+                        action=action,
+                        user_id=user_id,
+                        metadata=metadata,
+                        db_path=target_db,
+                    )
                 )
-            )
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
 
         self._send_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)

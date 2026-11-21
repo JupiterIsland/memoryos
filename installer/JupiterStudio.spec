@@ -24,6 +24,7 @@ hiddenimports = [
     "apps.jupiter_studio_ui",
     "jupiter_studio_ui",
     "quiet_advisor_detectors",
+    "src.memoryos.quiet_advisor_db",
     "src.memoryos.gpu_backends",
     "src.memoryos.router",
     "src.memoryos.workspace_pack",
