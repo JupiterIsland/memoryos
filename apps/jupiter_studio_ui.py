@@ -1,1494 +1,1597 @@
-"""Jupiter Studio UI — Original Dark Workstation Look (restored from af08106)."""
+"""Single-module Precision Obsidian UI for Jupiter Studio (v1.1.0)."""
 
 STUDIO_HTML = r"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="quantum">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Jupiter Studio // Hybrid AI Workstation</title>
-<link rel="icon" type="image/png" href="/assets/jupiter_studio_icon.png" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jupiter Studio — MemoryOS Command Workstation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --bg: #07090f;
-    --sidebar-bg: #0d121f;
-    --card-bg: rgba(255, 255, 255, 0.03);
-    --border: #1e2942;
-    --border-highlight: #334155;
-    --orange: #ff6a00;
-    --orange-hover: #e05d00;
+  :root,
+  [data-theme="quantum"] {
+    --bg: #090a0f;
+    --bg-rail: #0d0f15;
+    --bg-surface: #12151e;
+    --bg-elevated: #171b26;
+    --bg-hover: rgba(255, 255, 255, 0.045);
+    --bg-active: rgba(56, 189, 248, 0.11);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --border-accent: rgba(56, 189, 248, 0.35);
+    --text: #f3f5f8;
+    --text-soft: #c7cdd8;
+    --muted: #7f8798;
+    --accent: #38bdf8;
+    --accent-dim: rgba(56, 189, 248, 0.14);
     --cyan: #38bdf8;
-    --green: #10b981;
-    --purple: #a855f7;
-    --red: #ef4444;
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --code-bg: #05070d;
+    --amber: #f59e0b;
+    --orange: #fb923c;
+    --green: #34d399;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --user-bg: #161b26;
+    --code-bg: #0b0d13;
+    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.55);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
+
+  [data-theme="radeon"] {
+    --bg: #0c090a;
+    --bg-rail: #120d0f;
+    --bg-surface: #181114;
+    --bg-elevated: #21161a;
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --bg-active: rgba(239, 68, 68, 0.14);
+    --border: rgba(255, 200, 190, 0.09);
+    --border-strong: rgba(255, 200, 190, 0.18);
+    --border-accent: rgba(239, 68, 68, 0.42);
+    --text: #f7f1f1;
+    --text-soft: #d9c7c9;
+    --muted: #9b8186;
+    --accent: #ef4444;
+    --accent-dim: rgba(239, 68, 68, 0.15);
+    --cyan: #f59e0b;
+    --amber: #fbbf24;
+    --orange: #f97316;
+    --green: #4ade80;
+    --red: #ff5a5f;
+    --purple: #fb7185;
+    --user-bg: #1e1316;
+    --code-bg: #0b0708;
+    --shadow-lg: 0 22px 54px rgba(0, 0, 0, 0.65);
+  }
+
+  [data-theme="atari"] {
+    --bg: #000000;
+    --bg-rail: #070707;
+    --bg-surface: #0e0e0e;
+    --bg-elevated: #161616;
+    --bg-hover: rgba(255, 255, 255, 0.08);
+    --bg-active: rgba(255, 255, 255, 0.16);
+    --border: rgba(255, 255, 255, 0.22);
+    --border-strong: rgba(255, 255, 255, 0.48);
+    --border-accent: #ffffff;
+    --text: #ffffff;
+    --text-soft: #e5e5e5;
+    --muted: #a3a3a3;
+    --accent: #ffffff;
+    --accent-dim: rgba(255, 255, 255, 0.14);
+    --cyan: #ffffff;
+    --amber: #d4d4d4;
+    --orange: #e5e5e5;
+    --green: #ffffff;
+    --red: #ffffff;
+    --purple: #d4d4d4;
+    --user-bg: #141414;
+    --code-bg: #050505;
+    --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.9);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-  .sidebar {
-    width: 340px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 18px 16px;
-    gap: 16px;
-    overflow-y: auto;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .logo-badge {
-    width: 38px; height: 38px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 9px;
-    box-shadow: 0 0 16px rgba(255, 106, 0, 0.25);
-  }
-  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; }
-  .brand p { font-size: 11px; color: var(--muted); }
-  .rc-pill {
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.8px;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: rgba(237, 28, 36, 0.18);
-    border: 1px solid rgba(237, 28, 36, 0.45);
-    color: #ff4d4f;
-    margin-left: 6px;
-  }
-  .section-title {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-  }
-  .hw-val { font-size: 13px; font-weight: 600; color: var(--cyan); margin-top: 3px; }
-  .select-box, input, textarea {
-    width: 100%;
-    background: #090d17;
-    border: 1px solid var(--border);
-    color: #fff;
-    padding: 9px 11px;
-    border-radius: 6px;
-    font-size: 13px;
-    outline: none;
-    transition: border 0.15s;
-  }
-  .select-box:focus, input:focus, textarea:focus { border-color: var(--cyan); }
-  .main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    background: radial-gradient(circle at top right, #11182c 0%, var(--bg) 60%);
-  }
-  .chat-header {
-    height: 52px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    background: rgba(13, 18, 31, 0.7);
-    backdrop-filter: blur(8px);
-  }
-  .chat-header .badge {
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-family: monospace;
-    background: rgba(56, 189, 248, 0.12);
-    color: var(--cyan);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-  }
-  .chat-log {
-    flex: 1;
-    padding: 24px 28px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .msg {
-    max-width: 82%;
-    padding: 14px 18px;
-    border-radius: 10px;
-    line-height: 1.55;
+    font-family: var(--font-sans);
     font-size: 14px;
-    word-break: break-word;
-  }
-  .msg.user {
-    align-self: flex-end;
-    background: #182238;
-    border: 1px solid #283758;
-    color: #fff;
-  }
-  .msg.assistant {
-    align-self: flex-start;
-    background: #0c1221;
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--cyan);
-    width: 84%;
-  }
-  .meta-tag {
-    display: inline-block;
-    font-size: 11px;
-    font-family: monospace;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-bottom: 8px;
-  }
-  .meta-local { background: rgba(16, 185, 129, 0.15); color: var(--green); border: 1px solid var(--green); }
-  .meta-cloud { background: rgba(255, 106, 0, 0.15); color: var(--orange); border: 1px solid var(--orange); }
-  .meta-auto { background: rgba(56, 189, 248, 0.15); color: var(--cyan); border: 1px solid var(--cyan); }
-  .meta-error { background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid var(--red); }
-  
-  /* Reasoning box */
-  .reasoning-box {
-    margin-bottom: 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed var(--border-highlight);
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .reasoning-box summary {
-    cursor: pointer;
-    font-weight: 600;
-    color: var(--cyan);
-    outline: none;
-    user-select: none;
-  }
-  .reasoning-content {
-    margin-top: 8px;
-    white-space: pre-wrap;
-    font-family: monospace;
-    font-size: 11.5px;
-    max-height: 240px;
-    overflow-y: auto;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Markdown body */
-  .md-body p { margin-bottom: 8px; }
-  .md-body p:last-child { margin-bottom: 0; }
-  .md-body h1, .md-body h2, .md-body h3 { margin: 12px 0 6px; color: #fff; }
-  .md-body ul, .md-body ol { margin-left: 20px; margin-bottom: 8px; }
-  .md-body code {
-    background: rgba(255, 255, 255, 0.08);
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 12.5px;
-  }
-  .code-block-container {
-    position: relative;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin: 10px 0;
-    overflow: hidden;
-  }
-  .code-header {
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid var(--border);
-    padding: 5px 12px;
-    font-size: 11px;
-    font-family: monospace;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .code-copy-btn {
-    background: transparent;
-    border: 1px solid var(--border-highlight);
-    color: var(--muted);
-    font-size: 11px;
-    padding: 2px 7px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: 0.15s;
-  }
-  .code-copy-btn:hover { color: #fff; border-color: var(--cyan); }
-  .code-block-container pre {
-    padding: 12px;
-    overflow-x: auto;
-    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
-    font-size: 12.5px;
-    line-height: 1.45;
-  }
-  .code-block-container code { background: none; padding: 0; }
-
-  /* Input area */
-  .input-bar-wrapper {
-    padding: 14px 24px;
-    background: var(--sidebar-bg);
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .attachment-preview {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .attachment-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(56, 189, 248, 0.15);
-    border: 1px solid var(--cyan);
-    color: #fff;
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 4px;
-  }
-  .attachment-chip .remove-btn {
-    cursor: pointer;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  .attachment-chip .remove-btn:hover { color: var(--red); }
-  .input-bar {
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-  }
-  .input-actions {
-    display: flex;
-    gap: 8px;
-  }
-  .btn {
-    background: var(--orange);
-    color: #fff;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .btn:hover { background: var(--orange-hover); }
-  .btn-stop {
-    background: var(--red);
-  }
-  .btn-stop:hover { background: #dc2626; }
-  .btn-secondary {
-    background: #182238;
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: 0.15s;
-  }
-  .btn-secondary:hover { border-color: var(--cyan); color: #fff; }
-  .btn-icon {
-    padding: 10px;
-    background: #141b2c;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--muted);
-    cursor: pointer;
-  }
-  .btn-icon:hover { color: #fff; border-color: var(--cyan); }
-  
-  /* Workspace panel */
-  .workspace-file-list {
-    max-height: 140px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: #090d17;
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 11.5px;
-  }
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .file-item:hover { background: rgba(255, 255, 255, 0.05); }
-  .file-item input[type="checkbox"] { width: auto; }
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: #0f172a;
-    border: 1px solid var(--green);
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 6px;
-    font-size: 13px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-  }
-  .toast.show { opacity: 1; }
-
-  /* ── QUANTUM LATTICE & 3-THEME ENGINE ──────────────────────────────── */
-  :root {
-    --bg: #07090e;
-    --sidebar-bg: #0c101a;
-    --panel: rgba(13, 17, 26, 0.92);
-    --card-bg: rgba(18, 24, 38, 0.88);
-    --border: rgba(255, 106, 0, 0.22);
-    --border-highlight: rgba(255, 106, 0, 0.45);
-    --text: #f3f6fc;
-    --muted: #8b9bb4;
-    --orange: #ff6a00;
-    --cyan: #00f0ff;
-    --green: #10b981;
-    --red: #f43f5e;
-    --code-bg: #05070d;
-  }
-  .main {
-    background: radial-gradient(circle at top right, rgba(0, 240, 255, 0.06) 0%, var(--bg) 55%);
-  }
-
-  /* RADEON CARBON THEME */
-  html[data-studio-theme="radeon"] {
-    --bg: #090608;
-    --sidebar-bg: #120b0f;
-    --panel: rgba(20, 11, 16, 0.94);
-    --card-bg: rgba(30, 16, 23, 0.90);
-    --border: rgba(237, 28, 36, 0.34);
-    --border-highlight: rgba(255, 176, 0, 0.55);
-    --orange: #ed1c24;
-    --cyan: #ffb000;
-    --text: #faf5f7;
-    --muted: #b098a3;
-  }
-  html[data-studio-theme="radeon"] .main {
-    background: radial-gradient(circle at top right, rgba(237, 28, 36, 0.11) 0%, var(--bg) 55%);
-  }
-
-  .sidebar {
-    backdrop-filter: blur(16px);
-    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.35);
-  }
-  .chat-header {
-    position: relative;
-    overflow: hidden;
-    border-bottom: 1px solid var(--border);
-  }
   #quantum-canvas {
-    position: absolute;
+    position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;
-    opacity: 0.65;
+    z-index: 0;
+    opacity: 0.55;
   }
-  .chat-header > * { position: relative; z-index: 2; }
 
-  .theme-pill-group {
-    display: inline-flex;
-    border: 1px solid var(--border);
-    border-radius: 7px;
+  .studio-shell {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    height: 100vh;
     overflow: hidden;
-    background: rgba(0,0,0,0.28);
-  }
-  .theme-pill-btn {
-    padding: 4px 9px;
-    font-size: 10px;
-    font-family: monospace;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
-  .theme-pill-btn.active {
-    background: var(--orange);
-    color: #fff;
   }
 
-  /* ── LIVE PRE-SEND SPECULATIVE NEURAL RADAR BAR ────────────────────── */
-  .spec-radar {
-    display: grid;
-    grid-template-columns: 1.3fr 1.3fr 0.9fr 1.1fr;
-    gap: 8px;
-    padding: 7px 16px;
-    background: linear-gradient(90deg, rgba(255,106,0,0.12) 0%, rgba(0,240,255,0.09) 100%);
-    border-top: 1px solid var(--border);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+  /* ── LEFT RAIL ─────────────────────────────────────────── */
+  .sidebar {
+    width: 292px;
+    min-width: 292px;
+    height: 100vh;
+    background: var(--bg-rail);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: margin-left 0.2s ease, transform 0.2s ease;
+    z-index: 20;
   }
-  .radar-cell {
+
+  .sidebar.collapsed {
+    margin-left: -292px;
+  }
+
+  .brand-header {
+    height: 54px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--accent-dim);
+    border: 1px solid var(--border-accent);
+    display: grid;
+    place-items: center;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--text);
+  }
+
+  .brand-ver {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .rail-actions {
+    padding: 12px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .btn-new-session {
+    width: 100%;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .btn-new-session:hover {
+    border-color: var(--border-accent);
+    background: var(--bg-hover);
+  }
+
+  .kbd-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .rail-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .rail-tab {
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+
+  .rail-tab.active {
+    background: var(--bg-elevated);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .rail-pane {
+    flex: 1;
+    min-height: 0;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .rail-pane.active {
+    display: flex;
+  }
+
+  /* Sessions list */
+  .session-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .session-item {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 4px 10px;
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-  }
-  .radar-k { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .radar-v { font-weight: 700; color: var(--cyan); white-space: nowrap; }
-  .radar-v.hot { color: var(--orange); }
-  .radar-v.ok { color: var(--green); }
-
-  /* ── DUAL-MODEL SPLIT ARENA ────────────────────────────────────────── */
-  .btn-arena {
-    background: rgba(0, 240, 255, 0.12);
-    color: var(--cyan);
-    border: 1px solid var(--cyan);
+    padding: 9px 10px;
     border-radius: 8px;
-    padding: 8px 12px;
-    font-weight: 700;
-    font-size: 11.5px;
-    font-family: monospace;
+    border: 1px solid transparent;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+    transition: background 0.14s ease, border-color 0.14s ease;
+  }
+
+  .session-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+  }
+
+  .session-item.active {
+    background: var(--bg-active);
+    border-color: var(--border-accent);
+  }
+
+  .session-main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .session-title {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text);
     white-space: nowrap;
-    transition: all 0.15s;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .btn-arena.active {
-    background: linear-gradient(135deg, var(--orange), #e11d48);
-    color: #fff;
-    border-color: #fff;
-    box-shadow: 0 0 14px rgba(255, 106, 0, 0.45);
+
+  .session-meta {
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .arena-grid {
+
+  .session-del {
+    opacity: 0;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    width: 100%;
+    place-items: center;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
   }
-  .arena-col {
-    background: rgba(0, 0, 0, 0.24);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
+
+  .session-item:hover .session-del,
+  .session-item.active .session-del {
+    opacity: 0.85;
+  }
+
+  .session-del:hover {
+    opacity: 1;
+    color: var(--red);
+    background: rgba(248, 113, 113, 0.12);
+  }
+
+  /* Workspace pane */
+  .ws-toolbar {
+    padding: 10px 12px 8px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
-  .arena-keep-btn {
-    align-self: flex-start;
-    margin-top: 6px;
-    padding: 4px 10px;
+
+  .ws-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 11px;
-    font-family: monospace;
-    font-weight: 700;
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--green);
-    border: 1px solid var(--green);
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  .arena-keep-btn:hover { background: var(--green); color: #000; }
-
-
-  /* ── FLAGSHIP TYPOGRAPHY, SCROLLBARS & SURFACE POLISH ─────────────── */
-  :root {
-    --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, monospace;
-    --bg: #090b10;
-    --sidebar-bg: #0d1017;
-    --card-bg: rgba(255, 255, 255, 0.032);
-    --border: rgba(255, 255, 255, 0.085);
-    --border-highlight: rgba(255, 255, 255, 0.16);
-    --text: #eef1f7;
-    --muted: #8a94a6;
-    --orange: #ff6b1a;
-    --cyan: #38bdf8;
-    --green: #22c55e;
-    --red: #f43f5e;
-  }
-
-  body {
-    font-family: var(--font-sans) !important;
-    font-size: 14px;
-    letter-spacing: -0.011em;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
-
-  /* Slim custom scrollbars (no glaring native Windows white track) */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
-  }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
-  html[data-studio-theme="atari"] * {
-    scrollbar-color: #000000 #ffffff;
-  }
-  html[data-studio-theme="atari"] ::-webkit-scrollbar-thumb {
-    background: #000000;
-  }
-
-  /* Sidebar polish */
-  .sidebar {
-    width: 316px;
-    padding: 18px 16px;
-    gap: 14px;
-    border-right: 1px solid var(--border);
-  }
-  .brand h1 {
-    font-size: 15.5px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-  .brand p {
-    font-size: 11.5px;
     color: var(--muted);
-    margin-top: 1px;
   }
-  .section-title {
+
+  .branch-pill {
+    font-family: var(--font-mono);
     font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    margin-bottom: 7px;
-  }
-  .card {
-    border-radius: 11px;
-    padding: 13px 14px;
-    border: 1px solid var(--border);
-    background: var(--card-bg);
-  }
-  .hw-val {
-    font-size: 13.5px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    font-variant-numeric: tabular-nums;
-  }
-  .select-box {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 10px 12px;
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border-highlight);
-    color: var(--text);
-  }
-  .select-box option, .select-box optgroup {
-    background: #111520;
-    color: #eef1f7;
-  }
-  html[data-studio-theme="atari"] .select-box option,
-  html[data-studio-theme="atari"] .select-box optgroup {
-    background: #ffffff;
-    color: #000000;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--border-accent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    max-width: 155px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  /* Custom sleek checkboxes inside workspace file list */
-  .workspace-file-list {
-    background: rgba(0, 0, 0, 0.24) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px;
-    padding: 4px;
-    max-height: 176px;
+  .ws-input {
+    width: 100%;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    padding: 0 10px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    outline: none;
   }
-  .workspace-file-item {
+
+  .ws-input:focus {
+    border-color: var(--border-accent);
+  }
+
+  .ws-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .btn-mini {
+    height: 27px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-soft);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+
+  .btn-mini:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+
+  .ws-file-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px;
+  }
+
+  .ws-file-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 7px;
+    padding: 5px 8px;
     border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    color: var(--text);
-    transition: background 0.12s;
-  }
-  .workspace-file-item:hover { background: rgba(255, 255, 255, 0.05); }
-  .workspace-file-item input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px;
-    padding: 0 !important;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
-    position: relative;
-    transition: all 0.12s;
-  }
-  .workspace-file-item input[type="checkbox"]:checked {
-    background: var(--orange);
-    border-color: var(--orange);
-  }
-  .workspace-file-item input[type="checkbox"]:checked::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 1px;
-    width: 4px;
-    height: 8px;
-    border: solid #fff;
-    border-width: 0 1.8px 1.8px 0;
-    transform: rotate(45deg);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-soft);
+    user-select: none;
   }
 
-  /* Header & Theme Pill polish */
-  .chat-header {
-    height: 58px;
-    padding: 0 24px;
-    background: rgba(13, 16, 23, 0.78);
-    backdrop-filter: blur(14px);
+  .ws-file-row:hover {
+    background: var(--bg-hover);
+    color: var(--text);
   }
-  .chat-header .badge {
+
+  .ws-file-row input {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  /* Bottom Telemetry Dock */
+  .telemetry-dock {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.22);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .tel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+
+  .tel-title {
+    font-weight: 600;
+    color: var(--text-soft);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .health-pill {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--green);
+    background: rgba(52, 211, 153, 0.08);
+  }
+
+  .hw-gpu-line {
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .hw-vram-line {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .vram-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .vram-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.35s ease;
+  }
+
+  .tel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+
+  .tel-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .tel-k {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  .tel-v {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 4px 10px;
-    border-radius: 999px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .theme-pill-group {
+
+  /* ── MAIN STAGE ────────────────────────────────────────── */
+  .stage {
+    flex: 1;
+    min-width: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .topbar {
+    height: 54px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9, 10, 15, 0.72);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  [data-theme="radeon"] .topbar {
+    background: rgba(12, 9, 10, 0.78);
+  }
+
+  [data-theme="atari"] .topbar {
+    background: rgba(0, 0, 0, 0.92);
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-soft);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.14s ease;
+  }
+
+  .icon-btn:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .target-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  #target-selector {
+    height: 32px;
+    max-width: 340px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    padding: 0 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  #target-selector:focus {
+    border-color: var(--border-accent);
+  }
+
+  .cmd-trigger {
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-soft);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.14s ease;
+  }
+
+  .cmd-trigger:hover {
+    border-color: var(--border-accent);
+    color: var(--text);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .theme-switch {
+    display: flex;
+    align-items: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 2px;
     gap: 2px;
   }
-  .theme-pill-btn {
+
+  .theme-btn {
+    height: 26px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
     font-family: var(--font-mono);
     font-size: 10.5px;
-    padding: 5px 10px;
-    border-radius: 6px;
-    transition: all 0.15s;
-  }
-  .btn-secondary {
-    font-family: var(--font-sans);
-    font-size: 12.5px;
     font-weight: 600;
-    border-radius: 8px;
-    padding: 7px 12px;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+
+  .theme-btn.active {
+    background: var(--bg-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-clear {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-clear:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+  }
+
+  /* ── THREAD & MESSAGES ─────────────────────────────────── */
+  .thread-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 28px 24px 16px;
+    scroll-behavior: smooth;
+  }
+
+  .thread-inner {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .empty-state {
+    margin: 56px auto 24px;
+    max-width: 640px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .empty-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--border-accent);
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  .empty-title {
+    margin: 0 0 8px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text);
+  }
+
+  .empty-sub {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .starter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .starter-card {
+    text-align: left;
+    padding: 13px 15px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  }
+
+  .starter-card:hover {
+    border-color: var(--border-accent);
+    background: var(--bg-elevated);
+    transform: translateY(-1px);
+  }
+
+  .starter-k {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .starter-t {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: msgIn 0.18s ease-out;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    max-width: 82%;
+    background: var(--user-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px 12px 3px 12px;
+    padding: 12px 16px;
+    color: var(--text);
+  }
+
+  .msg.assistant {
+    align-self: stretch;
+    padding: 2px 0 4px 16px;
+    border-left: 2px solid var(--border-accent);
+  }
+
+  .msg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .meta-tag {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border-highlight);
-    color: var(--text);
-  }
-  .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.10);
-    border-color: rgba(255, 255, 255, 0.25);
-  }
-
-  /* Centered, spacious conversation thread */
-  .chat-log {
-    padding: 28px 32px;
-    align-items: center;
-  }
-  .msg {
-    width: 100% !important;
-    max-width: 840px !important;
-    padding: 18px 22px;
-    border-radius: 14px;
-    font-size: 14.5px;
-    line-height: 1.68;
-  }
-  .msg.user {
-    align-self: center;
-    max-width: 840px !important;
-    background: rgba(255, 107, 26, 0.10);
-    border: 1px solid rgba(255, 107, 26, 0.28);
-    color: var(--text);
-  }
-  .msg.assistant {
-    align-self: center;
-    background: rgba(255, 255, 255, 0.028);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--cyan);
-  }
-  .md-body p { margin-bottom: 10px; }
-  .md-body li { margin-bottom: 5px; }
-  .md-body code, .code-block-container pre {
-    font-family: var(--font-mono) !important;
-  }
-
-  /* Starter prompt chips inside welcome card */
-  .starter-chips {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 16px;
-  }
-  .starter-chip {
-    text-align: left;
-    padding: 10px 13px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.035);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.14s;
-  }
-  .starter-chip:hover {
-    border-color: var(--orange);
-    background: rgba(255, 107, 26, 0.08);
-    transform: translateY(-1px);
-  }
-  .starter-chip span {
-    display: block;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
+    font-weight: 600;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 2px;
   }
 
-  /* Speculative Neural Radar — sleek pill bar with tabular-nums */
-  .spec-radar {
-    padding: 8px 24px;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.018);
+  .meta-local { color: var(--green); }
+  .meta-cloud { color: var(--accent); }
+  .meta-auto  { color: var(--amber); }
+  .meta-error { color: var(--red); }
+
+  .msg-copy-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--muted);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    cursor: pointer;
+  }
+
+  .msg-copy-btn:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .reasoning-box {
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
+
+  .reasoning-box summary {
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    user-select: none;
+  }
+
+  .reasoning-content {
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid var(--border);
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    color: var(--text-soft);
+    white-space: pre-wrap;
+    line-height: 1.5;
   }
-  .radar-cell {
+
+  /* Markdown styles */
+  .md-body {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.65;
+    word-break: break-word;
+  }
+
+  .md-body p { margin: 0 0 10px; }
+  .md-body p:last-child { margin-bottom: 0; }
+  .md-body h1, .md-body h2, .md-body h3 {
+    margin: 14px 0 8px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .md-body h1 { font-size: 18px; }
+  .md-body h2 { font-size: 16px; }
+  .md-body h3 { font-size: 14.5px; }
+  .md-body ul, .md-body ol { margin: 6px 0 10px; padding-left: 20px; }
+  .md-body li { margin: 3px 0; }
+  .md-body blockquote {
+    margin: 8px 0;
     padding: 6px 12px;
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid var(--border-strong);
+    color: var(--text-soft);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .md-body code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 1.5px 5px;
+    border-radius: 5px;
+    background: var(--code-bg);
     border: 1px solid var(--border);
   }
-  .radar-k {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
+  .md-body pre {
+    position: relative;
+    margin: 10px 0;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--code-bg);
+    overflow: hidden;
   }
-  .radar-v {
+  .code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .code-copy {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-soft);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .code-copy:hover { color: var(--text); border-color: var(--border-strong); }
+  .md-body pre code {
+    display: block;
+    border: none;
+    background: transparent;
+    padding: 12px 14px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  /* Dual Arena Split Grid */
+  .arena-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .arena-col {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .arena-keep-btn {
+    align-self: flex-start;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-accent);
+    background: var(--accent-dim);
+    color: var(--text);
     font-size: 11.5px;
     font-weight: 600;
+    cursor: pointer;
   }
 
-  /* Unified sleek input composer */
-  .input-bar-wrapper {
-    padding: 12px 24px 16px;
-    background: rgba(13, 16, 23, 0.85);
-    border-top: 1px solid var(--border);
+  /* ── FLOATING COMPOSER DOCK ────────────────────────────── */
+  .composer-region {
+    padding: 8px 24px 20px;
+    flex-shrink: 0;
   }
-  .input-bar {
-    max-width: 840px;
-    margin: 0 auto;
+
+  .composer-card {
     width: 100%;
-    background: rgba(255, 255, 255, 0.035);
-    border: 1px solid var(--border-highlight);
+    max-width: 820px;
+    margin: 0 auto;
     border-radius: 14px;
-    padding: 8px 10px;
-    gap: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    transition: border-color 0.16s ease;
+  }
+
+  .composer-card:focus-within {
+    border-color: var(--border-accent);
+  }
+
+  .composer-card.drag-over {
+    border-color: var(--accent);
+    background: var(--bg-elevated);
+  }
+
+  .radar-strip {
+    display: flex;
     align-items: center;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.22);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
   }
-  .input-bar:focus-within {
-    border-color: var(--orange);
-    box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.14);
+
+  .radar-items {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
   }
-  #prompt-input {
-    background: transparent !important;
-    border: none !important;
-    font-family: var(--font-sans) !important;
-    font-size: 14.5px !important;
-    line-height: 1.5;
-    padding: 6px 8px !important;
-    color: var(--text) !important;
+
+  .radar-metric {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .btn-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+
+  .radar-metric b {
+    color: var(--text-soft);
+    font-weight: 600;
+  }
+
+  .radar-bar-track {
+    width: 48px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.09);
+    overflow: hidden;
+  }
+
+  #rad-mlp-bar {
+    height: 100%;
+    width: 24%;
+    background: var(--accent);
+    transition: width 0.22s ease;
+  }
+
+  .attach-row {
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 14px 0;
+  }
+
+  .attach-row.visible {
+    display: flex;
+  }
+
+  .attach-chip {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.04);
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 6px;
     border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-soft);
+  }
+
+  .attach-chip button {
+    border: none;
+    background: transparent;
     color: var(--muted);
-    transition: all 0.14s;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 2px;
   }
-  .btn-icon:hover {
+
+  .attach-chip button:hover { color: var(--red); }
+
+  #prompt-input {
+    width: 100%;
+    min-height: 54px;
+    max-height: 190px;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
     color: var(--text);
-    border-color: var(--border-highlight);
-    background: rgba(255, 255, 255, 0.09);
+    padding: 12px 16px 8px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
   }
-  .btn-arena {
+
+  #prompt-input::placeholder {
+    color: var(--muted);
+  }
+
+  .composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 10px;
+    gap: 10px;
+  }
+
+  .footer-left, .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tool-pill {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.14s ease;
+  }
+
+  .tool-pill:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .tool-pill.arena-active {
+    border-color: var(--border-accent);
+    background: var(--accent-dim);
+    color: var(--text);
+  }
+
+  .btn-send {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-accent);
+    background: var(--accent);
+    color: #06090f;
     font-family: var(--font-sans);
     font-size: 12.5px;
-    font-weight: 600;
-    height: 36px;
-    padding: 0 13px;
-    border-radius: 9px;
-  }
-  .btn {
-    font-family: var(--font-sans);
-    font-size: 13px;
     font-weight: 700;
-    height: 36px;
-    padding: 0 18px;
-    border-radius: 9px;
-    letter-spacing: -0.01em;
-  }
-
-
-  /* ── ARCHITECTURAL SHARP GLASSMORPHISM (SMOKED CRYSTAL EDITION) ────── */
-  :root {
-    --bg: #05070c;
-    --sidebar-bg: rgba(11, 15, 24, 0.72);
-    --card-bg: linear-gradient(155deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.02) 100%);
-    --border: rgba(255, 255, 255, 0.13);
-    --border-highlight: rgba(255, 255, 255, 0.24);
-    --rim: inset 0 1px 0 rgba(255, 255, 255, 0.20);
-    --depth: 0 14px 36px rgba(0, 0, 0, 0.52);
-    --text: #ffffff;
-    --muted: #98a4b8;
-    --orange: #ff6a00;
-    --cyan: #22d3ee;
-    --green: #10b981;
-    --red: #fb7185;
-  }
-
-  /* Optical light-pool + faint architectural grid so frosted glass actually refracts depth */
-  body {
-    background:
-      radial-gradient(ellipse 55% 45% at 78% 8%, rgba(34, 211, 238, 0.14), transparent 65%),
-      radial-gradient(ellipse 48% 42% at 22% 92%, rgba(255, 106, 0, 0.13), transparent 65%),
-      linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px),
-      #05070c !important;
-    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
-  }
-  .main {
-    background: transparent !important;
-  }
-
-  /* Smoked-glass sidebar with crisp 1px edge */
-  .sidebar {
-    background: var(--sidebar-bg) !important;
-    backdrop-filter: blur(26px) saturate(165%) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(165%) !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06), 12px 0 40px rgba(0, 0, 0, 0.55) !important;
-  }
-
-  /* Sharper architectural geometry + crystalline top-rim highlight */
-  .card {
-    background: var(--card-bg) !important;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    border: 1px solid var(--border) !important;
-    border-radius: 5px !important;
-    box-shadow: var(--rim), 0 8px 24px rgba(0, 0, 0, 0.34);
-  }
-  .select-box {
-    border-radius: 4px !important;
-    background: rgba(8, 12, 20, 0.72) !important;
-    border: 1px solid var(--border-highlight) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-    color: #ffffff !important;
-  }
-  .select-box:focus {
-    border-color: var(--cyan) !important;
-    box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(34, 211, 238, 0.22);
-  }
-
-  /* Kill glaring white native checkboxes (.ws-file-cb) -> sharp smoked-glass squares */
-  .workspace-file-list {
-    border-radius: 4px !important;
-    background: rgba(4, 7, 13, 0.65) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  }
-  input[type="checkbox"],
-  .ws-file-cb {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border-radius: 2px !important;
-    border: 1px solid rgba(255, 255, 255, 0.30) !important;
-    background: rgba(255, 255, 255, 0.05) !important;
     cursor: pointer;
-    position: relative;
-    vertical-align: middle;
-    transition: all 0.12s ease;
-  }
-  input[type="checkbox"]:hover,
-  .ws-file-cb:hover {
-    border-color: var(--cyan) !important;
-  }
-  input[type="checkbox"]:checked,
-  .ws-file-cb:checked {
-    background: var(--orange) !important;
-    border-color: var(--orange) !important;
-    box-shadow: 0 0 10px rgba(255, 106, 0, 0.45);
-  }
-  input[type="checkbox"]:checked::after,
-  .ws-file-cb:checked::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 1px;
-    width: 4px;
-    height: 8px;
-    border: solid #ffffff;
-    border-width: 0 1.8px 1.8px 0;
-    transform: rotate(45deg);
+    transition: filter 0.15s ease;
   }
 
-  /* Crisp frosted top header */
-  .chat-header {
-    background: rgba(10, 14, 22, 0.66) !important;
-    backdrop-filter: blur(22px) saturate(165%) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(165%) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 8px 28px rgba(0, 0, 0, 0.35);
-  }
-  .chat-header .badge {
-    border-radius: 3px !important;
-    background: rgba(34, 211, 238, 0.12) !important;
-    border: 1px solid rgba(34, 211, 238, 0.48) !important;
-    color: #67e8f9 !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  }
-  .theme-pill-group {
-    border-radius: 4px !important;
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
-  }
-  .theme-pill-btn {
-    border-radius: 2px !important;
-    color: #c5cedd;
-  }
-  .theme-pill-btn.active {
-    background: linear-gradient(135deg, #ff6a00, #ff8533) !important;
-    color: #ffffff !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  [data-theme="atari"] .btn-send {
+    background: #ffffff;
+    color: #000000;
   }
 
-  /* Sharp cut-crystal glass message panes */
-  .msg {
-    border-radius: 6px !important;
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    box-shadow: var(--rim), var(--depth);
-  }
-  .msg.assistant {
-    background: linear-gradient(155deg, rgba(19, 25, 39, 0.78) 0%, rgba(11, 15, 24, 0.68) 100%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-left: 2px solid var(--cyan) !important;
-  }
-  .msg.user {
-    background: linear-gradient(155deg, rgba(255, 106, 0, 0.16) 0%, rgba(255, 106, 0, 0.06) 100%) !important;
-    border: 1px solid rgba(255, 106, 0, 0.42) !important;
-    color: #ffffff !important;
-  }
-  .meta-tag {
-    border-radius: 3px !important;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
-  .md-body { color: #e2e8f2; }
-  .md-body h1, .md-body h2, .md-body h3 { color: #ffffff; font-weight: 700; }
+  .btn-send:hover { filter: brightness(1.08); }
+  .btn-send:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* Sharp faceted starter tiles */
-  .starter-chip {
-    border-radius: 4px !important;
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.13) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    color: #f8fafc !important;
-  }
-  .starter-chip:hover {
-    background: rgba(34, 211, 238, 0.09) !important;
-    border-color: rgba(34, 211, 238, 0.55) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0, 0, 0, 0.35);
-  }
-  .starter-chip span { color: var(--cyan); font-weight: 700; }
-
-  /* Sharp glass Speculative Neural Radar strip */
-  .spec-radar {
-    background: rgba(8, 12, 20, 0.62) !important;
-    backdrop-filter: blur(20px) saturate(160%);
-    border-top: 1px solid rgba(255, 255, 255, 0.13) !important;
-  }
-  .radar-cell {
-    border-radius: 4px !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.13) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  .btn-stop {
+    display: none;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.14);
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
   }
 
-  /* Precision glass composer dock + sharp controls */
-  .input-bar-wrapper {
-    background: rgba(8, 11, 18, 0.72) !important;
-    backdrop-filter: blur(24px) saturate(170%) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
-  }
-  .input-bar {
-    border-radius: 6px !important;
-    background: rgba(16, 22, 34, 0.74) !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 28px rgba(0, 0, 0, 0.45);
-  }
-  .input-bar:focus-within {
-    border-color: var(--orange) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 0 1px var(--orange), 0 0 24px rgba(255, 106, 0, 0.22) !important;
-  }
-  .btn, .btn-secondary, .btn-icon, .btn-arena {
-    border-radius: 4px !important;
-  }
-  .btn {
-    background: linear-gradient(135deg, #ff6a00 0%, #ff4500 100%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.26) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 16px rgba(255, 106, 0, 0.35);
-    color: #ffffff !important;
-  }
-  .btn-arena {
-    background: rgba(34, 211, 238, 0.10) !important;
-    border: 1px solid rgba(34, 211, 238, 0.48) !important;
-    color: #67e8f9 !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  }
-  .btn-arena:hover {
-    background: rgba(34, 211, 238, 0.18) !important;
-    border-color: #67e8f9 !important;
-  }
-  .btn-secondary {
-    background: rgba(255, 255, 255, 0.06) !important;
-    border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-    color: #ffffff !important;
-  }
-  .btn-icon {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    color: #cbd5e1 !important;
-  }
-  .code-block-container {
-    border-radius: 5px !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  /* ── COMMAND PALETTE MODAL ─────────────────────────────── */
+  .cmd-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+    z-index: 90;
   }
 
-  /* RADEON SHARP CRYSTAL THEME */
-  html[data-studio-theme="radeon"] body {
-    background:
-      radial-gradient(ellipse 55% 45% at 78% 10%, rgba(237, 28, 36, 0.20), transparent 65%),
-      radial-gradient(ellipse 48% 42% at 22% 90%, rgba(255, 176, 0, 0.14), transparent 65%),
-      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-      #080507 !important;
-    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px, 100% 100% !important;
-  }
-  html[data-studio-theme="radeon"] .sidebar {
-    background: rgba(18, 9, 13, 0.76) !important;
-    border-right-color: rgba(237, 28, 36, 0.30) !important;
+  .cmd-backdrop.open {
+    display: flex;
   }
 
-  /* ATARI ST / COMMODORE HI-RES MONOCHROME BLACK & WHITE THEME */
-  html[data-studio-theme="atari"] {
-    --bg: #ffffff;
-    --sidebar-bg: #ffffff;
-    --panel: #ffffff;
-    --card-bg: #ffffff;
-    --border: #000000;
-    --border-highlight: #000000;
-    --text: #000000;
-    --muted: #222222;
-    --orange: #000000;
-    --cyan: #000000;
-    --green: #000000;
-    --red: #000000;
-    --code-bg: #000000;
-  }
-  html[data-studio-theme="atari"] body {
-    font-family: var(--font-mono) !important;
-    background:
-      radial-gradient(#000000 0.55px, transparent 0.55px),
-      radial-gradient(#000000 0.55px, #ffffff 0.55px) !important;
-    background-size: 4px 4px !important;
-    background-position: 0 0, 2px 2px !important;
-    color: #000000 !important;
-  }
-  html[data-studio-theme="atari"] * {
-    border-radius: 0px !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  html[data-studio-theme="atari"] .sidebar {
-    background: #ffffff !important;
-    border-right: 2px solid #000000 !important;
-    box-shadow: none !important;
-  }
-  html[data-studio-theme="atari"] .card,
-  html[data-studio-theme="atari"] .msg.assistant,
-  html[data-studio-theme="atari"] .radar-cell,
-  html[data-studio-theme="atari"] .input-bar {
-    background: #ffffff !important;
-    border: 2px solid #000000 !important;
-    box-shadow: 3px 3px 0px #000000 !important;
-    color: #000000 !important;
-  }
-  html[data-studio-theme="atari"] .msg.assistant {
-    border-left: 5px solid #000000 !important;
-  }
-  html[data-studio-theme="atari"] .msg.user {
-    background: #000000 !important;
-    color: #ffffff !important;
-    border: 2px solid #000000 !important;
-    box-shadow: 3px 3px 0px #555555 !important;
-  }
-  html[data-studio-theme="atari"] .chat-header,
-  html[data-studio-theme="atari"] .input-bar-wrapper,
-  html[data-studio-theme="atari"] .spec-radar {
-    background: #ffffff !important;
-    border-color: #000000 !important;
-    border-width: 2px !important;
-    box-shadow: none !important;
-  }
-  html[data-studio-theme="atari"] #quantum-canvas {
-    filter: grayscale(100%) contrast(300%);
-    opacity: 0.25;
-  }
-  html[data-studio-theme="atari"] .chat-header .badge,
-  html[data-studio-theme="atari"] .meta-tag,
-  html[data-studio-theme="atari"] .rc-pill {
-    background: #000000 !important;
-    color: #ffffff !important;
-    border: 1px solid #000000 !important;
-    box-shadow: none !important;
-  }
-  html[data-studio-theme="atari"] .md-body,
-  html[data-studio-theme="atari"] .md-body h1,
-  html[data-studio-theme="atari"] .md-body h2,
-  html[data-studio-theme="atari"] .md-body h3,
-  html[data-studio-theme="atari"] .select-box,
-  html[data-studio-theme="atari"] .starter-chip,
-  html[data-studio-theme="atari"] .starter-chip span,
-  html[data-studio-theme="atari"] .theme-pill-btn,
-  html[data-studio-theme="atari"] .hw-val,
-  html[data-studio-theme="atari"] .radar-k,
-  html[data-studio-theme="atari"] .radar-v,
-  html[data-studio-theme="atari"] #prompt-input {
-    color: #000000 !important;
-  }
-  html[data-studio-theme="atari"] .select-box,
-  html[data-studio-theme="atari"] .starter-chip,
-  html[data-studio-theme="atari"] .workspace-file-list,
-  html[data-studio-theme="atari"] .btn-secondary,
-  html[data-studio-theme="atari"] .btn-icon,
-  html[data-studio-theme="atari"] .btn-arena {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #000000 !important;
-    box-shadow: 2px 2px 0px #000000 !important;
-  }
-  html[data-studio-theme="atari"] .starter-chip:hover,
-  html[data-studio-theme="atari"] .btn-secondary:hover,
-  html[data-studio-theme="atari"] .btn-icon:hover,
-  html[data-studio-theme="atari"] .btn-arena:hover,
-  html[data-studio-theme="atari"] .btn-arena.active,
-  html[data-studio-theme="atari"] .theme-pill-btn.active,
-  html[data-studio-theme="atari"] .btn {
-    background: #000000 !important;
-    color: #ffffff !important;
-    border: 2px solid #000000 !important;
-    box-shadow: 2px 2px 0px #555555 !important;
-  }
-  html[data-studio-theme="atari"] .starter-chip:hover span {
-    color: #ffffff !important;
-  }
-  html[data-studio-theme="atari"] .theme-pill-group {
-    background: #ffffff !important;
-    border: 2px solid #000000 !important;
-  }
-  html[data-studio-theme="atari"] input[type="checkbox"],
-  html[data-studio-theme="atari"] .ws-file-cb {
-    border: 2px solid #000000 !important;
-    background: #ffffff !important;
-  }
-  html[data-studio-theme="atari"] input[type="checkbox"]:checked,
-  html[data-studio-theme="atari"] .ws-file-cb:checked {
-    background: #000000 !important;
-    border-color: #000000 !important;
-    box-shadow: none !important;
-  }
-  html[data-studio-theme="atari"] #rad-mlp-bar {
-    background: repeating-linear-gradient(45deg, #000000, #000000 2px, #ffffff 2px, #ffffff 5px) !important;
-    opacity: 0.14;
-  }
-  html[data-studio-theme="atari"] .code-block-container {
-    background: #000000 !important;
-    color: #ffffff !important;
-    border: 2px solid #000000 !important;
-  }
-  html[data-studio-theme="atari"] .logo-badge img {
-    filter: grayscale(100%) contrast(220%);
+  .cmd-dialog {
+    width: min(560px, 92vw);
+    border-radius: 14px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
+  .cmd-search-wrap {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #cmd-search {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+  }
+
+  .cmd-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  .cmd-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+
+  .cmd-item:hover,
+  .cmd-item.selected {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+
+  .cmd-group {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 120;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-size: 12.5px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      box-shadow: var(--shadow-lg);
+    }
+    .starter-grid, .arena-grid {
+      grid-template-columns: 1fr;
+    }
+    .cmd-trigger span.hide-sm { display: none; }
+  }
 </style>
 </head>
 <body>
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="brand">
-      <div class="logo-badge" title="Jupiter Studio v1.0.0 — Powered by AMD Token Lab">
-        <img src="/assets/jupiter_studio_icon.png" alt="Jupiter Studio" width="40" height="40" style="width:40px; height:40px; border-radius:10px; display:block; object-fit:cover;" />
+<canvas id="quantum-canvas"></canvas>
+
+<div class="studio-shell">
+  <!-- LEFT NAVIGATION & TELEMETRY RAIL -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand-header">
+      <div class="brand-lockup">
+        <div class="brand-mark">JS</div>
+        <span class="brand-title">Jupiter Studio</span>
       </div>
-      <div>
-        <h1>Jupiter Studio <span class="rc-pill">v1.0</span></h1>
-        <p>MemoryOS Hybrid Workstation // AMD Token Lab</p>
+      <span class="brand-ver">v1.1.0</span>
+    </div>
+
+    <div class="rail-actions">
+      <button class="btn-new-session" id="btn-new-session" onclick="newSession()">
+        <span>+ New Session</span>
+        <span class="kbd-hint">Ctrl+K</span>
+      </button>
+
+      <div class="rail-tabs" role="tablist">
+        <button class="rail-tab active" id="tab-sessions" onclick="switchRailTab('sessions')">Sessions</button>
+        <button class="rail-tab" id="tab-workspace" onclick="switchRailTab('workspace')">Workspace</button>
       </div>
     </div>
 
-    <!-- Execution Target Selector -->
-    <div>
-      <div class="section-title">Execution Target</div>
-      <select class="select-box" id="target-selector" onchange="onTargetChange()">
-        <option value="auto:d3" selected>⚡ Auto-Route (d3 Smart Router)</option>
-        <optgroup label="AMD Token Lab Cloud (Zero VRAM)" id="opt-tokenlab">
-          <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Vision &amp; Architecture)</option>
-          <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code &amp; Surgical Diffs)</option>
-          <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Long Context / Logs)</option>
-          <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Edge Triage)</option>
-        </optgroup>
-        <optgroup label="NVIDIA NIM / Brev Cloud" id="opt-nvidia">
-          <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
-          <option value="nv:meta/llama-3.3-70b-instruct">Llama-3.3-70B (NVIDIA NIM)</option>
-          <option value="nv:qwen/qwen2.5-7b-instruct">Qwen-2.5-7B (NVIDIA NIM)</option>
-        </optgroup>
-        <optgroup label="DigitalOcean Serverless (AMD MI300X)" id="opt-digitalocean">
-          <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
-          <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
-        </optgroup>
-        <optgroup label="Hugging Face Cloud (Zero Download / HF_TOKEN)" id="opt-hf">
-          <option value="hf:Qwen/Qwen2.5-72B-Instruct">Qwen2.5-72B-Instruct (HF Router)</option>
-          <option value="hf:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B-Instruct (HF Router)</option>
-          <option value="hf:deepseek-ai/DeepSeek-R1">DeepSeek-R1 (HF Router)</option>
-          <option value="hf:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5-Coder-32B-Instruct (HF Router)</option>
-        </optgroup>
-        <optgroup label="AMD Lemonade Server (Ryzen AI NPU / FastFlowLM)" id="opt-lemonade">
-          <option value="lemonade:Qwen3-4B-Instruct-2507-FLM">Qwen3-4B-Instruct-FLM (FastFlowLM XDNA 2)</option>
-          <option value="lemonade:Qwen2.5-7B-Instruct-Hybrid">Qwen2.5-7B-Instruct-Hybrid (Ryzen AI NPU+iGPU)</option>
-          <option value="lemonade:Llama-3.2-3B-Instruct-Hybrid">Llama-3.2-3B-Instruct-Hybrid (Fast NPU)</option>
-        </optgroup>
-        <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
-          <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
-          <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
-          <option value="flare:Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (NVIDIA Flare :8080)</option>
-          <option value="flare:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (NVIDIA Flare :8080)</option>
-        </optgroup>
-        <optgroup label="Local Models (100% Free / Ollama)" id="opt-ollama">
-          <option value="ollama:raon-1-nano">raon-1-nano (Game-Loop 1.5B / 256K)</option>
-          <option value="ollama:qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Ultra-Fast)</option>
-          <option value="ollama:qwen2.5-coder:7b">qwen2.5-coder:7b (Local Accuracy)</option>
-          <option value="ollama:deepseek-r1:7b">deepseek-r1:7b (Reasoning)</option>
-          <option value="ollama:deepseek-r1:8b">deepseek-r1:8b (Deep Thinking)</option>
-        </optgroup>
-      </select>
-    </div>
-
-    <!-- Hardware Profile -->
-    <div>
-      <div class="section-title">Hardware Profile</div>
-      <div class="card" id="hw-card">
-        <div style="font-size:11px; color:var(--muted);">ACTIVE GPU</div>
-        <div class="hw-val" id="hw-name">Detecting...</div>
-        <div style="font-size:11px; color:var(--muted); margin-top:6px;">VRAM USAGE</div>
-        <div class="hw-val" id="hw-vram">0 / 0 MB</div>
-        <div style="font-size:11px; color:var(--muted); margin-top:6px;">WORKSTATION HEALTH</div>
-        <div class="hw-val" id="hw-health" style="color:var(--green);">Checking...</div>
+    <!-- Pane 1: Persistent SQLite Chat History -->
+    <div class="rail-pane active" id="pane-sessions">
+      <div class="session-scroll" id="session-list">
+        <div style="padding:18px 10px; color:var(--muted); font-size:12px;">Loading session history...</div>
       </div>
     </div>
 
-    <!-- MemoryOS Policy Telemetry -->
-    <div>
-      <div class="section-title">MemoryOS Policy Telemetry</div>
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; font-size:12px;">
-          <span>CPU Skip Gate (d3)</span>
-          <span style="color:var(--green); font-weight:700;" id="pol-gate">0.091 ms</span>
+    <!-- Pane 2: Workspace & Copilot Bundle -->
+    <div class="rail-pane" id="pane-workspace">
+      <div class="ws-toolbar">
+        <div class="ws-header-row">
+          <span id="ws-file-count">0 files</span>
+          <span class="branch-pill" id="ws-branch">main</span>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
-          <span>Local AI VRAM Saved</span>
-          <span style="color:var(--cyan); font-weight:700;" id="pol-vram">100.0%</span>
+        <input class="ws-input" id="ws-filter-input" type="text" placeholder="Filter repo files..." oninput="renderWorkspaceFileList()" />
+        <div class="ws-btn-row">
+          <button class="btn-mini" onclick="selectCoreFiles()">Core Files</button>
+          <button class="btn-mini" onclick="exportCopilotBundle()">Copilot Bundle</button>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;">
-          <span>Active Advisor Cards</span>
-          <span style="color:var(--orange); font-weight:700;" id="pol-cards">7 Active</span>
-        </div>
+      </div>
+      <div class="ws-file-scroll" id="workspace-file-list">
+        <div style="padding:12px 6px; color:var(--muted); font-size:11.5px;">Indexing workspace...</div>
       </div>
     </div>
 
-    <!-- Workspace Context & Copilot Handoff -->
-    <div>
-      <div class="section-title">
-        <span>Workspace &amp; Copilot</span>
-        <span style="font-size:10px; color:var(--cyan);" id="ws-branch">workspace</span>
+    <!-- Compact Workstation & Policy Telemetry Dock -->
+    <div class="telemetry-dock">
+      <div class="tel-head">
+        <span class="tel-title">Workstation Health</span>
+        <span class="health-pill" id="hw-health">98 / A+</span>
       </div>
-      <div class="card" style="display:flex; flex-direction:column; gap:8px;">
-        <div style="font-size:11px; color:var(--muted);">Select project files to attach to context:</div>
-        <input type="text" id="ws-filter-input" placeholder="Filter files..." style="padding:6px 8px; font-size:11.5px;" oninput="renderWorkspaceFileList()" />
-        <div class="workspace-file-list" id="workspace-file-list">
-          <div style="color:var(--muted); padding:4px;">Scanning files...</div>
+      <div class="hw-gpu-line" id="hw-gpu">Detecting local silicon...</div>
+      <div class="hw-vram-line" id="hw-vram">0 / 0 MB</div>
+      <div class="vram-track"><div class="vram-fill" id="hw-vram-bar"></div></div>
+      <div class="tel-grid">
+        <div class="tel-cell">
+          <span class="tel-k">Gate</span>
+          <span class="tel-v" id="pol-gate">HYDRA</span>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:11px; color:var(--muted);" id="ws-file-count">0 files selected</span>
-          <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="selectCoreFiles()">Core Files</button>
+        <div class="tel-cell">
+          <span class="tel-k">VRAM Saved</span>
+          <span class="tel-v" id="pol-vram">0 GB</span>
         </div>
-        <button class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; background:#1e2942; border-color:#38bdf8;" onclick="exportCopilotBundle()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Export Copilot Bundle
+        <div class="tel-cell">
+          <span class="tel-k">Cards</span>
+          <span class="tel-v" id="pol-cards">0</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN WORKSPACE STAGE -->
+  <main class="stage">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" id="btn-toggle-rail" onclick="toggleSidebar()" title="Toggle Navigation Rail">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
         </button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Main Chat Workstation -->
-  <div class="main">
-    <div class="chat-header">
-      <canvas id="quantum-canvas"></canvas>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="badge" id="chat-mode-badge">AUTO-ROUTE (d3)</span>
-        <span style="font-size:12px; color:var(--muted);" id="chat-target-desc">Hardware-Aware Gate + Speculative Offload MLP</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <div class="theme-pill-group" title="Switch Studio Surface Theme">
-          <button class="theme-pill-btn active" data-t="quantum" onclick="setStudioTheme('quantum')">QUANTUM</button>
-          <button class="theme-pill-btn" data-t="radeon" onclick="setStudioTheme('radeon')">RADEON</button>
-          <button class="theme-pill-btn" data-t="atari" onclick="setStudioTheme('atari')">ATARI B&amp;W</button>
+        <div class="target-group">
+          <select id="target-selector" onchange="onTargetChange()">
+            <option value="auto:d3" selected>⚡ Auto-Route (d3 Smart Router)</option>
+            <optgroup label="AMD Token Lab Cloud (Zero VRAM)" id="opt-tokenlab">
+              <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Vision &amp; Architecture)</option>
+              <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code &amp; Surgical Diffs)</option>
+              <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Long Context / Logs)</option>
+              <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Edge Triage)</option>
+            </optgroup>
+            <optgroup label="NVIDIA NIM / Brev Cloud" id="opt-nvidia">
+              <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
+              <option value="nv:meta/llama-3.3-70b-instruct">Llama-3.3-70B (NVIDIA NIM)</option>
+              <option value="nv:qwen/qwen2.5-7b-instruct">Qwen-2.5-7B (NVIDIA NIM)</option>
+            </optgroup>
+            <optgroup label="DigitalOcean Serverless (AMD MI300X)" id="opt-digitalocean">
+              <option value="do:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen-2.5-Coder-32B (MI300X)</option>
+              <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
+            </optgroup>
+            <optgroup label="Hugging Face Cloud (Zero Download / HF_TOKEN)" id="opt-hf">
+              <option value="hf:Qwen/Qwen2.5-72B-Instruct">Qwen2.5-72B-Instruct (HF Router)</option>
+              <option value="hf:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B-Instruct (HF Router)</option>
+              <option value="hf:deepseek-ai/DeepSeek-R1">DeepSeek-R1 (HF Router)</option>
+              <option value="hf:Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5-Coder-32B-Instruct (HF Router)</option>
+            </optgroup>
+            <optgroup label="AMD Lemonade Server (Ryzen AI NPU / FastFlowLM)" id="opt-lemonade">
+              <option value="lemonade:Qwen3-4B-Instruct-2507-FLM">Qwen3-4B-Instruct-FLM (FastFlowLM XDNA 2)</option>
+              <option value="lemonade:Qwen2.5-7B-Instruct-Hybrid">Qwen2.5-7B-Instruct-Hybrid (Ryzen AI NPU+iGPU)</option>
+              <option value="lemonade:Llama-3.2-3B-Instruct-Hybrid">Llama-3.2-3B-Instruct-Hybrid (Fast NPU)</option>
+            </optgroup>
+            <optgroup label="DGX Spark / GB10 Local (vLLM / Flare)" id="opt-spark">
+              <option value="vllm:Qwen/Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (Local vLLM :8000)</option>
+              <option value="vllm:deepseek-ai/DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Local vLLM :8000)</option>
+              <option value="flare:Qwen3.8-Flash-Next">Qwen3.8-Flash-Next (NVIDIA Flare :8080)</option>
+              <option value="flare:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (NVIDIA Flare :8080)</option>
+            </optgroup>
+            <optgroup label="Local Models (100% Free / Ollama)" id="opt-ollama">
+              <option value="ollama:raon-1-nano">raon-1-nano (Game-Loop 1.5B / 256K)</option>
+              <option value="ollama:qwen2.5-coder:1.5b">qwen2.5-coder:1.5b (Ultra-Fast)</option>
+              <option value="ollama:qwen2.5-coder:7b">qwen2.5-coder:7b (Local Accuracy)</option>
+              <option value="ollama:deepseek-r1:7b">deepseek-r1:7b (Reasoning)</option>
+              <option value="ollama:deepseek-r1:8b">deepseek-r1:8b (Deep Thinking)</option>
+            </optgroup>
+          </select>
+
+          <button class="cmd-trigger" onclick="openCommandPalette()" title="Command Palette (Ctrl+K)">
+            <span class="hide-sm">Palette</span>
+            <span class="kbd-hint">Ctrl+K</span>
+          </button>
         </div>
-        <button class="btn-secondary" onclick="clearChat()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Clear</button>
       </div>
-    </div>
 
-    <div class="chat-log" id="chat-log">
-      <div class="msg assistant">
-        <div class="meta-tag meta-auto">MEMORYOS v1.0.1 // HARDWARE-AWARE ROUTER</div>
-        <div class="md-body">
-          <h3 style="margin-top:2px; font-size:18px; letter-spacing:-0.02em;">Jupiter Studio Workstation</h3>
-          <p style="color:var(--muted);">Hardware-aware routing across cloud accelerators (AMD Token Lab, NIM, MI300X, HF Router) and local servers (AMD Lemonade / FastFlowLM, Ollama, vLLM). Cloud offload keeps local GPU VRAM free for native apps.</p>
-          <div class="starter-chips">
-            <button class="starter-chip" onclick="useStarter('Review the selected repository files for bugs, security risks, or performance improvements.')">
-              <span>Code Audit</span>
-              Review selected workspace files
+      <div class="topbar-right">
+        <div class="theme-switch" role="group" aria-label="Studio Theme">
+          <button class="theme-btn active" id="theme-quantum" onclick="setStudioTheme('quantum')">QUANTUM</button>
+          <button class="theme-btn" id="theme-radeon" onclick="setStudioTheme('radeon')">RADEON</button>
+          <button class="theme-btn" id="theme-atari" onclick="setStudioTheme('atari')">ATARI B&amp;W</button>
+        </div>
+        <button class="btn-clear" onclick="clearChat()">New</button>
+      </div>
+    </header>
+
+    <section class="thread-wrap" id="chat-log">
+      <div class="thread-inner" id="thread-inner">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-badge">MEMORYOS PRECISION WORKSTATION</div>
+          <h1 class="empty-title">Jupiter Studio</h1>
+          <p class="empty-sub">
+            Zero-VRAM cloud-first cascade across AMD Token Lab, NVIDIA Brev, Lemonade Server, and Ollama — backed by persistent SQLite sessions and pre-send speculative routing.
+          </p>
+          <div class="starter-grid">
+            <button class="starter-card" onclick="useStarter('Audit the MemoryOS repository architecture and highlight the highest-leverage improvements.')">
+              <div class="starter-k">ARCHITECTURE</div>
+              <div class="starter-t">Audit workspace design &amp; modules</div>
             </button>
-            <button class="starter-chip" onclick="useStarter('Explain how MemoryOS keeps local VRAM at 0 MB while running 27B–31B models.')">
-              <span>Architecture</span>
-              Trace zero-VRAM offload pipeline
+            <button class="starter-card" onclick="useStarter('Inspect local hardware VRAM headroom and recommend an optimal Hydra routing policy.')">
+              <div class="starter-k">TELEMETRY</div>
+              <div class="starter-t">Hardware &amp; VRAM routing profile</div>
             </button>
-            <button class="starter-chip" onclick="setDualArena(true); useStarter('Compare Python asyncio vs multiprocessing for I/O-bound telemetry pipelines in 5 bullet points.')">
-              <span>Dual Arena Demo</span>
-              Race two models side-by-side live
+            <button class="starter-card" onclick="useStarter('Compare two frontier models on designing a deterministic agent memory compaction pass.')">
+              <div class="starter-k">SPLIT-BRAIN</div>
+              <div class="starter-t">Compare reasoning strategies</div>
             </button>
-            <button class="starter-chip" onclick="useStarter('Write focused Python unittest coverage for the attached module.')">
-              <span>Verification</span>
-              Generate targeted unit tests
+            <button class="starter-card" onclick="selectCoreFiles(); switchRailTab('workspace'); showToast('Core workspace files attached.');">
+              <div class="starter-k">CONTEXT</div>
+              <div class="starter-t">Attach core repository files</div>
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Live Pre-Send Speculative Neural Radar (runs 5.37us MLP on every keystroke) -->
-    <div class="spec-radar" id="spec-radar-bar">
-      <div class="radar-cell" style="position:relative; overflow:hidden;">
-        <div id="rad-mlp-bar" style="position:absolute; left:0; top:0; bottom:0; width:88%; background:linear-gradient(90deg, rgba(255,106,0,0.18), rgba(0,240,255,0.14)); transition:width 0.2s ease; pointer-events:none;"></div>
-        <span class="radar-k" style="position:relative; z-index:1;">Speculative MLP</span>
-        <span class="radar-v hot" id="rad-mlp" style="position:relative; z-index:1;">P(offload) 88.0% · 5.37 μs</span>
-      </div>
-      <div class="radar-cell">
-        <span class="radar-k">Predicted d3 Route</span>
-        <span class="radar-v" id="rad-route">d3 → Gemma-4-31B-IT</span>
-      </div>
-      <div class="radar-cell">
-        <span class="radar-k">Draft Payload</span>
-        <span class="radar-v" id="rad-tok">~1 token</span>
-      </div>
-      <div class="radar-cell">
-        <span class="radar-k">Local VRAM Saved</span>
-        <span class="radar-v ok" id="rad-vram">18.5 GB saved (0 MB used)</span>
-      </div>
-    </div>
-    <!-- Input Bar -->
-    <div class="input-bar-wrapper" id="input-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-      <div class="attachment-preview" id="attachment-preview" style="display:none; flex-wrap:wrap; gap:6px;"></div>
-      <div class="input-bar">
-        <input type="file" id="image-file-input" accept="image/*" style="display:none;" onchange="handleImageSelected(event)" />
-        <input type="file" id="doc-file-input" multiple style="display:none;" onchange="handleFilesSelected(event)" />
-        <button class="btn-icon" id="upload-file-btn" title="Upload Files (Code, Logs, JSON, Markdown, CSV, Text)" onclick="document.getElementById('doc-file-input').click()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-        </button>
-        <button class="btn-icon" id="upload-image-btn" title="Attach Screenshot or Image" onclick="document.getElementById('image-file-input').click()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        </button>
-        <textarea id="prompt-input" rows="2" placeholder="Ask anything or drag &amp; drop files here... (Enter to send, Shift+Enter for newline)"></textarea>
-        <div class="input-actions">
-          <button class="btn-arena" id="btn-arena" onclick="toggleDualArena()" title="Stream 2 models side-by-side in a live split-screen shootout"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg> Dual Arena</button>
-          <button class="btn" id="run-btn" onclick="sendPrompt()">Run</button>
-          <button class="btn btn-stop" id="stop-btn" style="display:none;" onclick="stopGeneration()">⏹ Stop</button>
+    <section class="composer-region">
+      <div class="composer-card" id="composer-card">
+        <div class="radar-strip">
+          <div class="radar-items">
+            <div class="radar-metric">
+              <span>MLP</span>
+              <div class="radar-bar-track"><div id="rad-mlp-bar"></div></div>
+              <b id="rad-mlp">Ready</b>
+            </div>
+            <div class="radar-metric"><span>ROUTE</span> <b id="rad-route">auto:d3</b></div>
+            <div class="radar-metric"><span>DRAFT</span> <b id="rad-tok">0 tok</b></div>
+            <div class="radar-metric"><span>VRAM</span> <b id="rad-vram">0.0 GB</b></div>
+          </div>
+          <span id="stream-status" style="color:var(--muted);">Idle</span>
+        </div>
+
+        <div class="attach-row" id="attachment-preview"></div>
+
+        <textarea
+          id="prompt-input"
+          rows="2"
+          placeholder="Ask anything, attach workspace files, or press Ctrl+K to switch silicon targets..."
+          oninput="autoGrowPrompt(this); scheduleSpeculativeRadar();"
+          onkeydown="handleComposerKey(event)"
+        ></textarea>
+
+        <div class="composer-footer">
+          <div class="footer-left">
+            <input type="file" id="upload-file-input" multiple style="display:none;" onchange="addFilesFromList(this.files); this.value='';" />
+            <input type="file" id="upload-image-input" accept="image/*" style="display:none;" onchange="addFilesFromList(this.files); this.value='';" />
+
+            <button class="tool-pill" id="upload-file-btn" onclick="document.getElementById('upload-file-input').click()">+ File</button>
+            <button class="tool-pill" id="upload-image-btn" onclick="document.getElementById('upload-image-input').click()">+ Image</button>
+            <button class="tool-pill" id="btn-arena" onclick="toggleDualArena()">⚔ Dual Arena</button>
+          </div>
+
+          <div class="footer-right">
+            <button class="btn-stop" id="btn-stop" onclick="stopGeneration()">Stop</button>
+            <button class="btn-send" id="btn-send" onclick="sendPrompt()">Send ↵</button>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
+</div>
 
-  <div class="toast" id="toast">Copied to clipboard!</div>
+<!-- COMMAND PALETTE OVERLAY -->
+<div class="cmd-backdrop" id="cmd-backdrop" onclick="if (event.target === this) closeCommandPalette();">
+  <div class="cmd-dialog">
+    <div class="cmd-search-wrap">
+      <span style="font-family:var(--font-mono); color:var(--accent); font-size:12px;">&gt;_</span>
+      <input id="cmd-search" type="text" placeholder="Jump to model target, theme, or studio action..." oninput="renderCommandPalette()" onkeydown="handlePaletteKey(event)" />
+      <span class="kbd-hint">ESC</span>
+    </div>
+    <div class="cmd-list" id="cmd-list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
 
 <script>
-let currentAbortController = null;
-let currentAttachedImage = null;
-let chatHistory = [];
-let workspaceFiles = [];
-const selectedWorkspaceSet = new Set();
+const SENSITIVE_BASENAMES = new Set([
+  ".env", ".htpasswd", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
+  "credentials.json", "secrets.json", "service_account.json", ".npmrc", ".pypirc", ".netrc"
+]);
+const SENSITIVE_EXTS = [".env", ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kdbx"];
 
-function escapeHtml(value) {
-  return String(value == null ? "" : value)
+let activeSessionId = null;
+let chatHistory = [];
+let allWorkspaceFiles = [];
+let selectedFiles = [];
+let uploadedFiles = [];
+let currentAttachedImage = null;
+let currentAbortController = null;
+let dualArenaMode = false;
+let radarTimer = null;
+let quantumPulse = 0.0;
+let currentTheme = "quantum";
+
+function escapeHtml(str) {
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -1496,194 +1599,371 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function isSafeImageDataUri(value) {
-  return (
-    typeof value === "string" &&
-    /^data:image\/(?:png|jpe?g|gif|webp|bmp|avif);base64,[A-Za-z0-9+/=\s]+$/i.test(value.trim())
-  );
+function isSafeImageDataUri(uri) {
+  if (!uri || typeof uri !== "string") return false;
+  return /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(uri.trim());
+}
+
+function isSensitiveFilename(name) {
+  const clean = String(name || "").split(/[\\/]/).pop().trim().replace(/[. ]+$/, "").toLowerCase();
+  if (!clean) return false;
+  if (clean.startsWith(".env")) return true;
+  if (SENSITIVE_BASENAMES.has(clean)) return true;
+  return SENSITIVE_EXTS.some((ext) => clean.endsWith(ext));
+}
+
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = String(msg || "");
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2600);
 }
 
 async function copyToClipboard(text) {
-  const str = String(text == null ? "" : text);
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-    try {
-      await navigator.clipboard.writeText(str);
-      return true;
-    } catch (_) {}
-  }
   try {
-    const ta = document.createElement("textarea");
-    ta.value = str;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
+    await navigator.clipboard.writeText(String(text || ""));
+    showToast("Copied to clipboard");
   } catch (_) {
-    return false;
+    showToast("Clipboard unavailable");
   }
-}
-
-// Lightweight safe Markdown renderer (collision-proof slots, dynamic fences, XSS-safe)
-function renderMarkdown(text) {
-  if (!text) return "";
-  const normalized = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  let slotPrefix = "JUPITER_SLOT_";
-  while (normalized.includes(slotPrefix)) {
-    slotPrefix += "X_";
-  }
-  const codeBlocks = [];
-
-  function stashCodeBlock(lang, rawCode) {
-    const language = escapeHtml((lang || "text").trim() || "text");
-    const safeCode = escapeHtml(String(rawCode || "").replace(/^\n+|\n+$/g, ""));
-    const token = `${slotPrefix}CODE_${codeBlocks.length}_END`;
-    codeBlocks.push(
-      `<div class="code-block-container">` +
-        `<div class="code-header">` +
-          `<span>${language}</span>` +
-          `<button type="button" class="code-copy-btn" onclick="copyCodeBlock(this)">📋 Copy</button>` +
-        `</div>` +
-        `<pre><code>${safeCode}</code></pre>` +
-      `</div>`
-    );
-    return token;
-  }
-
-  // 1) Line-by-line fenced code extractor (supports 3+ backtick / ~~~ fences & streaming unclosed fences)
-  const rawLines = normalized.split("\n");
-  const outLines = [];
-  let inFence = false;
-  let fenceChar = "";
-  let fenceLen = 0;
-  let fenceLang = "";
-  let fenceBuf = [];
-
-  for (let i = 0; i < rawLines.length; i++) {
-    const line = rawLines[i];
-    if (!inFence) {
-      const openM = line.match(/^\s*(`{3,}|~{3,})([^\n]*)$/);
-      if (openM) {
-        inFence = true;
-        fenceChar = openM[1][0];
-        fenceLen = openM[1].length;
-        fenceLang = (openM[2] || "").trim().split(/\s+/)[0] || "text";
-        fenceBuf = [];
-        continue;
-      }
-      outLines.push(line);
-    } else {
-      const closeM = line.match(/^\s*(`{3,}|~{3,})\s*$/);
-      if (closeM && closeM[1][0] === fenceChar && closeM[1].length >= fenceLen) {
-        outLines.push("");
-        outLines.push(stashCodeBlock(fenceLang, fenceBuf.join("\n")));
-        outLines.push("");
-        inFence = false;
-        fenceChar = "";
-        fenceLen = 0;
-        fenceLang = "";
-        fenceBuf = [];
-      } else {
-        fenceBuf.push(line);
-      }
-    }
-  }
-  if (inFence) {
-    outLines.push("");
-    outLines.push(stashCodeBlock(fenceLang, fenceBuf.join("\n")));
-    outLines.push("");
-  }
-
-  // 2) Escape remaining raw HTML
-  let html = escapeHtml(outLines.join("\n"));
-
-  // 3) Extract inline code before bold/italic transforms so `a*b*c` stays intact
-  const inlineCodes = [];
-  html = html.replace(/`([^`\n]+)`/g, (_, code) => {
-    const token = `${slotPrefix}INLINE_${inlineCodes.length}_END`;
-    inlineCodes.push(`<code>${code}</code>`);
-    return token;
-  });
-
-  // 4) Headings & Unordered/Ordered Lists
-  html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-  html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-  html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
-  html = html.replace(/^\s*[-*]\s+(.*$)/gim, "<uli>$1</uli>");
-  html = html.replace(/(?:<uli>[^\n]*<\/uli>\n?)+/g, (block) => `<ul>${block.replace(/\n/g, "").replace(/<\/?uli>/g, (m) => m.replace("uli", "li"))}</ul>`);
-  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, "<oli>$1</oli>");
-  html = html.replace(/(?:<oli>[^\n]*<\/oli>\n?)+/g, (block) => `<ol>${block.replace(/\n/g, "").replace(/<\/?oli>/g, (m) => m.replace("oli", "li"))}</ol>`);
-
-  // 5) Bold & Italic (guards against math like `2 * 3 * 4`)
-  html = html.replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, "<b>$1</b>");
-  html = html.replace(/(^|[^\w*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*(?!\w)/g, "$1<i>$2</i>");
-
-  // 6) Paragraphs
-  const paragraphs = html.split(/\n{2,}/);
-  html = paragraphs.map((p) => {
-    const trimmed = p.trim();
-    if (!trimmed) return "";
-    if (trimmed.startsWith(`${slotPrefix}CODE_`) && trimmed.endsWith("_END")) {
-      return trimmed;
-    }
-    if (trimmed.startsWith("<ul") || trimmed.startsWith("<ol")) {
-      return trimmed;
-    }
-    if (trimmed.startsWith("<h")) {
-      const nlIdx = trimmed.indexOf("\n");
-      if (nlIdx === -1) return trimmed;
-      const heading = trimmed.slice(0, nlIdx);
-      const rest = trimmed.slice(nlIdx + 1).trim();
-      return rest ? `${heading}<p>${rest.replace(/\n/g, "<br/>")}</p>` : heading;
-    }
-    return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
-  }).join("");
-
-  // 7) Single-pass restoration (prevents nested/colliding placeholder substitution)
-  const inlineRe = new RegExp(`${slotPrefix}INLINE_(\\d+)_END`, "g");
-  html = html.replace(inlineRe, (_, idx) => inlineCodes[Number(idx)] ?? "");
-  const codeRe = new RegExp(`${slotPrefix}CODE_(\\d+)_END`, "g");
-  html = html.replace(codeRe, (_, idx) => codeBlocks[Number(idx)] ?? "");
-  return html;
 }
 
 function copyCodeBlock(btn) {
-  const container = btn && btn.closest ? btn.closest(".code-block-container") : null;
-  const codeEl = container ? container.querySelector("pre code") : null;
-  const code = codeEl ? codeEl.textContent : "";
-  copyToClipboard(code).then((ok) => {
-    if (!ok) {
-      showToast("Could not copy to clipboard");
-      return;
+  const pre = btn ? btn.closest("pre") : null;
+  const code = pre ? pre.querySelector("code") : null;
+  if (code) copyToClipboard(code.innerText || code.textContent || "");
+}
+window.copyCodeBlock = copyCodeBlock;
+
+function renderMarkdown(md) {
+  let src = String(md || "").replace(/\r\n/g, "\n");
+  const codeBlocks = [];
+  src = src.replace(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g, (_, lang, body) => {
+    const idx = codeBlocks.length;
+    const safeLang = escapeHtml(lang || "code");
+    const safeBody = escapeHtml(body.replace(/\n$/, ""));
+    codeBlocks.push(
+      `<pre><div class="code-bar"><span>${safeLang}</span><button class="code-copy" onclick="copyCodeBlock(this)">Copy</button></div><code>${safeBody}</code></pre>`
+    );
+    return `@@CODEBLOCK_${idx}@@`;
+  });
+
+  const lines = src.split("\n");
+  const out = [];
+  let inList = false;
+
+  const formatInline = (text) => {
+    let s = escapeHtml(text);
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">$1</a>');
+    return s;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const cbMatch = /^@@CODEBLOCK_(\d+)@@$/.exec(trimmed);
+    if (cbMatch) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(codeBlocks[Number(cbMatch[1])] || "");
+      continue;
     }
-    const orig = btn.innerText;
-    btn.innerText = "✓ Copied";
-    setTimeout(() => { btn.innerText = orig; }, 2000);
+    if (/^[-*] /.test(trimmed)) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${formatInline(trimmed.slice(2))}</li>`);
+      continue;
+    }
+    if (inList) { out.push("</ul>"); inList = false; }
+    if (/^### /.test(trimmed)) { out.push(`<h3>${formatInline(trimmed.slice(4))}</h3>`); continue; }
+    if (/^## /.test(trimmed)) { out.push(`<h2>${formatInline(trimmed.slice(3))}</h2>`); continue; }
+    if (/^# /.test(trimmed)) { out.push(`<h1>${formatInline(trimmed.slice(2))}</h1>`); continue; }
+    if (/^> /.test(trimmed)) { out.push(`<blockquote>${formatInline(trimmed.slice(2))}</blockquote>`); continue; }
+    if (!trimmed) { continue; }
+    out.push(`<p>${formatInline(line)}</p>`);
+  }
+  if (inList) out.push("</ul>");
+
+  return out.join("").replace(/@@CODEBLOCK_(\d+)@@/g, (_, idx) => codeBlocks[Number(idx)] || "");
+}
+
+/* ── THEME & SUBTLE MATRIX CANVAS ───────────────────────── */
+function setStudioTheme(themeName) {
+  const valid = ["quantum", "radeon", "atari"].includes(themeName) ? themeName : "quantum";
+  currentTheme = valid;
+  document.documentElement.setAttribute("data-theme", valid);
+  localStorage.setItem("jupiter_studio_theme", valid);
+  ["quantum", "radeon", "atari"].forEach((t) => {
+    const b = document.getElementById("theme-" + t);
+    if (b) b.classList.toggle("active", t === valid);
   });
 }
 
-let toastTimeout = null;
-function showToast(msg) {
-  const toast = document.getElementById("toast");
-  if (!toast) return;
-  toast.innerText = String(msg || "");
-  toast.classList.add("show");
-  if (toastTimeout) clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => { toast.classList.remove("show"); }, 3000);
+function initQuantumCanvas() {
+  const canvas = document.getElementById("quantum-canvas");
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext("2d");
+  const resize = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+  resize();
+  window.addEventListener("resize", resize);
+
+  let phase = 0;
+  function frame() {
+    phase += 0.014;
+    quantumPulse = Math.max(0, quantumPulse * 0.94);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const step = 34;
+    const baseRgb = currentTheme === "radeon"
+      ? "239, 68, 68"
+      : currentTheme === "atari"
+        ? "255, 255, 255"
+        : "56, 189, 248";
+
+    for (let x = 18; x < canvas.width; x += step) {
+      for (let y = 18; y < canvas.height; y += step) {
+        const wave = Math.sin(x * 0.012 + phase) * Math.cos(y * 0.012 - phase * 0.7);
+        const alpha = 0.035 + Math.max(0, wave) * (0.045 + quantumPulse * 0.09);
+        ctx.fillStyle = `rgba(${baseRgb}, ${alpha.toFixed(3)})`;
+        ctx.fillRect(x, y, 1.5, 1.5);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
-let latestProviderModels = null;
-let latestCloudStatus = null;
+/* ── SIDEBAR & TABS ─────────────────────────────────────── */
+function toggleSidebar() {
+  const sb = document.getElementById("sidebar");
+  if (sb) sb.classList.toggle("collapsed");
+}
+
+function switchRailTab(tab) {
+  const isSessions = tab !== "workspace";
+  document.getElementById("tab-sessions")?.classList.toggle("active", isSessions);
+  document.getElementById("tab-workspace")?.classList.toggle("active", !isSessions);
+  document.getElementById("pane-sessions")?.classList.toggle("active", isSessions);
+  document.getElementById("pane-workspace")?.classList.toggle("active", !isSessions);
+}
+
+/* ── PERSISTENT SQLITE SESSIONS ─────────────────────────── */
+function formatRelativeIso(iso) {
+  if (!iso) return "";
+  try {
+    const dt = new Date(iso);
+    const diffMin = Math.round((Date.now() - dt.getTime()) / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return dt.toLocaleDateString();
+  } catch (_) {
+    return "";
+  }
+}
+
+async function loadSessions() {
+  const listEl = document.getElementById("session-list");
+  if (!listEl) return;
+  try {
+    const res = await fetch("/api/sessions");
+    const data = await res.json();
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    if (!sessions.length) {
+      listEl.innerHTML = `<div style="padding:18px 10px; color:var(--muted); font-size:12px;">No saved sessions yet. Send a prompt to begin a persistent thread.</div>`;
+      return;
+    }
+    listEl.innerHTML = sessions.map((s) => {
+      const isAct = s.id === activeSessionId;
+      const count = Number(s.message_count || 0);
+      return `
+        <div class="session-item ${isAct ? "active" : ""}" onclick="openSession('${escapeHtml(s.id)}')">
+          <div class="session-main">
+            <div class="session-title">${escapeHtml(s.title || "Studio Session")}</div>
+            <div class="session-meta">
+              <span>${count} msg</span>
+              <span>·</span>
+              <span>${escapeHtml(formatRelativeIso(s.updated_at || s.created_at))}</span>
+            </div>
+          </div>
+          <button class="session-del" title="Delete session" onclick="event.stopPropagation(); deleteSession('${escapeHtml(s.id)}')">&times;</button>
+        </div>
+      `;
+    }).join("");
+  } catch (_) {
+    listEl.innerHTML = `<div style="padding:14px 10px; color:var(--muted); font-size:12px;">Session history offline</div>`;
+  }
+}
+
+function clearThreadDom() {
+  const inner = document.getElementById("thread-inner");
+  if (!inner) return;
+  inner.innerHTML = `
+    <div class="empty-state" id="empty-state">
+      <div class="empty-badge">MEMORYOS PRECISION WORKSTATION</div>
+      <h1 class="empty-title">Jupiter Studio</h1>
+      <p class="empty-sub">
+        Zero-VRAM cloud-first cascade across AMD Token Lab, NVIDIA Brev, Lemonade Server, and Ollama — backed by persistent SQLite sessions and pre-send speculative routing.
+      </p>
+      <div class="starter-grid">
+        <button class="starter-card" onclick="useStarter('Audit the MemoryOS repository architecture and highlight the highest-leverage improvements.')">
+          <div class="starter-k">ARCHITECTURE</div>
+          <div class="starter-t">Audit workspace design &amp; modules</div>
+        </button>
+        <button class="starter-card" onclick="useStarter('Inspect local hardware VRAM headroom and recommend an optimal Hydra routing policy.')">
+          <div class="starter-k">TELEMETRY</div>
+          <div class="starter-t">Hardware &amp; VRAM routing profile</div>
+        </button>
+        <button class="starter-card" onclick="useStarter('Compare two frontier models on designing a deterministic agent memory compaction pass.')">
+          <div class="starter-k">SPLIT-BRAIN</div>
+          <div class="starter-t">Compare reasoning strategies</div>
+        </button>
+        <button class="starter-card" onclick="selectCoreFiles(); switchRailTab('workspace'); showToast('Core workspace files attached.');">
+          <div class="starter-k">CONTEXT</div>
+          <div class="starter-t">Attach core repository files</div>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function dismissEmptyState() {
+  const empty = document.getElementById("empty-state");
+  if (empty) empty.remove();
+}
+
+function appendUserMessageEl(text, extraHtml = "") {
+  dismissEmptyState();
+  const inner = document.getElementById("thread-inner");
+  const uMsg = document.createElement("div");
+  uMsg.className = "msg user";
+  uMsg.innerHTML = `<div>${escapeHtml(text).replace(/\n/g, "<br/>")}</div>${extraHtml}`;
+  inner.appendChild(uMsg);
+  scrollThreadBottom();
+  return uMsg;
+}
+
+function appendAssistantMessageEl(metaLabel, metaClass = "meta-cloud") {
+  dismissEmptyState();
+  const inner = document.getElementById("thread-inner");
+  const aMsg = document.createElement("div");
+  aMsg.className = "msg assistant";
+  aMsg.innerHTML = `
+    <div class="msg-head">
+      <span class="meta-tag ${metaClass}" data-role="meta">${escapeHtml(metaLabel)}</span>
+      <button class="msg-copy-btn" data-role="copy" style="display:none;">Copy</button>
+    </div>
+    <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
+      <summary>Reasoning Trace</summary>
+      <div class="reasoning-content" data-role="reasoning-content"></div>
+    </details>
+    <div class="md-body" data-role="content" style="color:var(--muted);">Thinking...</div>
+  `;
+  inner.appendChild(aMsg);
+  scrollThreadBottom();
+  return aMsg;
+}
+
+function scrollThreadBottom() {
+  const wrap = document.getElementById("chat-log");
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function openSession(sid) {
+  if (!sid) return;
+  try {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}`);
+    if (!res.ok) throw new Error("Failed to load session");
+    const data = await res.json();
+    activeSessionId = sid;
+    chatHistory = [];
+    const inner = document.getElementById("thread-inner");
+    inner.innerHTML = "";
+    const msgs = Array.isArray(data.messages) ? data.messages : [];
+    if (!msgs.length) {
+      clearThreadDom();
+    } else {
+      for (const m of msgs) {
+        if (m.role === "user") {
+          appendUserMessageEl(m.content || "");
+          chatHistory.push({ role: "user", content: m.content || "" });
+        } else {
+          const aMsg = appendAssistantMessageEl(m.meta_label || "Restored Reply", "meta-cloud");
+          const rBox = aMsg.querySelector('[data-role="reasoning-box"]');
+          const rBody = aMsg.querySelector('[data-role="reasoning-content"]');
+          const cEl = aMsg.querySelector('[data-role="content"]');
+          const copyBtn = aMsg.querySelector('[data-role="copy"]');
+          if (m.reasoning && rBox && rBody) {
+            rBox.style.display = "block";
+            rBody.textContent = m.reasoning;
+          }
+          cEl.style.color = "";
+          cEl.innerHTML = renderMarkdown(m.content || "");
+          if (copyBtn) {
+            copyBtn.style.display = "inline-block";
+            copyBtn.onclick = () => copyToClipboard(m.content || "");
+          }
+          chatHistory.push({ role: "assistant", content: m.content || "" });
+        }
+      }
+    }
+    if (data.session && data.session.target) {
+      const sel = document.getElementById("target-selector");
+      if (sel && Array.from(sel.options).some((o) => o.value === data.session.target)) {
+        sel.value = data.session.target;
+        onTargetChange();
+      }
+    }
+    loadSessions();
+  } catch (err) {
+    showToast(err.message || "Could not load session");
+  }
+}
+
+async function newSession() {
+  stopGeneration();
+  activeSessionId = null;
+  chatHistory = [];
+  clearThreadDom();
+  loadSessions();
+  document.getElementById("prompt-input")?.focus();
+}
+
+function clearChat() {
+  newSession();
+}
+
+async function deleteSession(sid) {
+  try {
+    await fetch(`/api/sessions/${encodeURIComponent(sid)}`, { method: "DELETE" });
+    if (activeSessionId === sid) {
+      activeSessionId = null;
+      chatHistory = [];
+      clearThreadDom();
+    }
+    loadSessions();
+    showToast("Session removed");
+  } catch (_) {
+    showToast("Delete failed");
+  }
+}
+
+/* ── MODELS, TELEMETRY & WORKSPACE ──────────────────────── */
+function getFileRelPath(entry) {
+  if (typeof entry === "string") return entry;
+  return entry && typeof entry === "object" ? String(entry.rel_path || "") : "";
+}
 
 async function loadModels() {
   try {
     const res = await fetch("/api/models");
     if (!res.ok) return;
     const data = await res.json();
-    latestProviderModels = data;
     const p = data.providers || {};
 
     const optHF = document.getElementById("opt-hf");
@@ -1695,7 +1975,7 @@ async function loadModels() {
       const lModels = Array.isArray(data.lemonade_installed) ? data.lemonade_installed : [];
       optLemonade.label = p.lemonade.ready
         ? `AMD Lemonade Server (Ryzen AI ● ${lModels.length} Ready)`
-        : `AMD Lemonade Server (Ryzen AI ○ Offline)`;
+        : "AMD Lemonade Server (Ryzen AI ○ Offline)";
       if (lModels.length > 0) {
         const existing = new Set(Array.from(optLemonade.querySelectorAll("option")).map((o) => o.value));
         lModels.forEach((mId) => {
@@ -1716,14 +1996,24 @@ async function loadModels() {
     }
     const optOllama = document.getElementById("opt-ollama");
     if (optOllama && p.ollama) {
-      const count = Array.isArray(data.ollama_installed) ? data.ollama_installed.length : 0;
+      const oModels = Array.isArray(data.ollama_installed) ? data.ollama_installed : [];
       optOllama.label = p.ollama.ready
-        ? `Local Models (Ollama ● ${count} Installed)`
-        : `Local Models (Ollama ○ Offline)`;
+        ? `Local Models (Ollama ● ${oModels.length} Installed)`
+        : "Local Models (Ollama ○ Offline)";
+      if (oModels.length > 0) {
+        const existing = new Set(Array.from(optOllama.querySelectorAll("option")).map((o) => o.value));
+        oModels.forEach((mId) => {
+          const val = `ollama:${mId}`;
+          if (!existing.has(val)) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = `${mId} (Ollama Installed)`;
+            optOllama.appendChild(opt);
+          }
+        });
+      }
     }
-  } catch (e) {
-    console.error("Models probe error:", e);
-  }
+  } catch (_) {}
 }
 
 async function loadStatus() {
@@ -1731,55 +2021,58 @@ async function loadStatus() {
     const res = await fetch("/api/status");
     if (!res.ok) return;
     const data = await res.json();
-    latestCloudStatus = data.cloud || null;
-    const gpu = data.gpu || {};
-
-    // Hardware
-    document.getElementById("hw-name").innerText = gpu.device_name || "CPU Mode";
-    const memSuffix = gpu.is_unified_memory ? " Unified" : "";
-    const usedMb = gpu.used_vram_mb ?? 0;
-    const totalMb = gpu.total_vram_mb ?? 0;
-    const utilPct = gpu.utilization_pct ?? 0;
-    document.getElementById("hw-vram").innerText = `${usedMb} / ${totalMb} MB${memSuffix} (${utilPct}% Load)`;
-
+    const gpuEl = document.getElementById("hw-gpu");
+    const hwVramEl = document.getElementById("hw-vram");
     const healthEl = document.getElementById("hw-health");
+    const barEl = document.getElementById("hw-vram-bar");
+    const gateEl = document.getElementById("pol-gate");
+    const vramEl = document.getElementById("pol-vram");
+    const cardsEl = document.getElementById("pol-cards");
+
+    const gpu = data.gpu || {};
+    const usedMb = Number(gpu.used_vram_mb ?? 0);
+    const totalMb = Number(gpu.total_vram_mb ?? 0);
+    const utilPct = Number(gpu.utilization_pct ?? 0);
+    const suffix = gpu.is_unified_memory ? " Unified" : "";
+    if (gpuEl) {
+      gpuEl.textContent = gpu.device_name || "CPU Mode";
+    }
+    if (hwVramEl) {
+      hwVramEl.textContent = `${usedMb} / ${totalMb} MB${suffix} (${utilPct}% Load)`;
+    }
+    if (barEl) {
+      const pct = totalMb > 0 ? Math.min(100, Math.round((usedMb / totalMb) * 100)) : 4;
+      barEl.style.width = `${pct}%`;
+    }
     if (healthEl && data.health) {
-      const score = data.health.score ?? 100;
+      const score = Number(data.health.score ?? 100);
       const grade = data.health.grade || "A";
-      const status = data.health.status || "healthy";
-      healthEl.innerText = `${score}/100 (${grade}) · ${status.toUpperCase()}`;
+      healthEl.textContent = `${score} / ${grade}`;
       healthEl.style.color = score >= 80 ? "var(--green)" : (score >= 60 ? "var(--orange)" : "var(--red)");
     }
-
-    // Policy
     if (data.policy) {
-      document.getElementById("pol-gate").innerText = `${data.policy.cpu_gate_ms ?? 0.091} ms`;
-      document.getElementById("pol-vram").innerText = `${data.policy.local_vram_saved_pct ?? 100}%`;
-      document.getElementById("pol-cards").innerText = `${data.policy.active_cards ?? 0} Active`;
+      if (gateEl) gateEl.textContent = `${data.policy.cpu_gate_ms ?? 0.091} ms`;
+      if (vramEl) vramEl.textContent = `${data.policy.local_vram_saved_pct ?? 100}%`;
+      if (cardsEl) cardsEl.textContent = `${data.policy.active_cards ?? 0} Active`;
     }
-
-    // Provider Badges on Dropdown
-    const tlConf = data.cloud?.amd_tokenlab?.configured;
-    const nvConf = data.cloud?.nvidia_brev?.configured;
-    const doConf = data.cloud?.digitalocean_mi300x?.configured;
-    const hfConf = data.cloud?.huggingface?.configured;
 
     const optTL = document.getElementById("opt-tokenlab");
-    if (optTL) optTL.label = `AMD Token Lab Cloud ${tlConf ? "● Ready" : "○ (Not Configured)"}`;
-
-    const optNV = document.getElementById("opt-nvidia");
-    if (optNV) optNV.label = `NVIDIA NIM / Brev Cloud ${nvConf ? "● Ready" : "○ (Set Key in .env)"}`;
-
-    const optDO = document.getElementById("opt-digitalocean");
-    if (optDO) optDO.label = `DigitalOcean Serverless ${doConf ? "● Ready" : "○ (Set Key in .env)"}`;
-
-    const optHF = document.getElementById("opt-hf");
-    if (optHF && typeof hfConf === "boolean") {
-      optHF.label = `Hugging Face Cloud ${hfConf ? "● Ready" : "○ (Set HF_TOKEN in .env)"}`;
+    if (optTL && data.cloud?.amd_tokenlab) {
+      optTL.label = `AMD Token Lab Cloud ${data.cloud.amd_tokenlab.configured ? "● Ready" : "○ (Set Key in .env)"}`;
     }
-  } catch (e) {
-    console.error("Status load error:", e);
-  }
+    const optNV = document.getElementById("opt-nvidia");
+    if (optNV && data.cloud?.nvidia_brev) {
+      optNV.label = `NVIDIA NIM / Brev Cloud ${data.cloud.nvidia_brev.configured ? "● Ready" : "○ (Set Key in .env)"}`;
+    }
+    const optDO = document.getElementById("opt-digitalocean");
+    if (optDO && data.cloud?.digitalocean_mi300x) {
+      optDO.label = `DigitalOcean Serverless ${data.cloud.digitalocean_mi300x.configured ? "● Ready" : "○ (Set Key in .env)"}`;
+    }
+    const optHF = document.getElementById("opt-hf");
+    if (optHF && data.cloud?.huggingface) {
+      optHF.label = `Hugging Face Cloud ${data.cloud.huggingface.configured ? "● Ready" : "○ (Set HF_TOKEN in .env)"}`;
+    }
+  } catch (_) {}
 }
 
 async function loadWorkspaceFiles() {
@@ -1787,699 +2080,151 @@ async function loadWorkspaceFiles() {
     const res = await fetch("/api/workspace/files");
     if (!res.ok) return;
     const data = await res.json();
-    workspaceFiles = Array.isArray(data.files) ? data.files : [];
-    const availablePaths = new Set(workspaceFiles.map((f) => String(f.rel_path || "")));
-    let pruned = false;
-    for (const selPath of Array.from(selectedWorkspaceSet)) {
-      if (!availablePaths.has(selPath)) {
-        selectedWorkspaceSet.delete(selPath);
-        pruned = true;
-      }
-    }
-    const branchEl = document.getElementById("ws-branch");
-    if (branchEl) {
-      branchEl.innerText = data.git_branch || "workspace";
-    }
+    const rawFiles = Array.isArray(data.files) ? data.files : [];
+    allWorkspaceFiles = rawFiles.map(getFileRelPath).filter(Boolean);
+    const availableSet = new Set(allWorkspaceFiles);
+    selectedFiles = selectedFiles.filter((p) => availableSet.has(p));
+    const brEl = document.getElementById("ws-branch");
+    const cntEl = document.getElementById("ws-file-count");
+    if (brEl) brEl.textContent = data.git_branch || "workspace";
+    if (cntEl) cntEl.textContent = `${allWorkspaceFiles.length} files`;
     renderWorkspaceFileList();
-    if (pruned) updateSelectedFilesCount();
-  } catch (e) {
-    console.error("Failed to load workspace files:", e);
-  }
-}
-
-function onWorkspaceCheckboxChange(cb) {
-  if (cb.checked) {
-    selectedWorkspaceSet.add(cb.value);
-  } else {
-    selectedWorkspaceSet.delete(cb.value);
-  }
-  updateSelectedFilesCount();
+  } catch (_) {}
 }
 
 function renderWorkspaceFileList() {
-  const container = document.getElementById("workspace-file-list");
-  if (!container) return;
-  const filterInput = document.getElementById("ws-filter-input");
-  const filterTerm = filterInput ? filterInput.value.trim().toLowerCase() : "";
-  const visible = filterTerm
-    ? workspaceFiles.filter((f) => String(f.rel_path || "").toLowerCase().includes(filterTerm))
-    : workspaceFiles;
-
-  if (!visible.length) {
-    container.innerHTML = `<div style="color:var(--muted); padding:4px;">${workspaceFiles.length ? "No matching files" : "No files found"}</div>`;
+  const listEl = document.getElementById("workspace-file-list");
+  if (!listEl) return;
+  const q = (document.getElementById("ws-filter-input")?.value || "").trim().toLowerCase();
+  const filtered = allWorkspaceFiles.filter((f) => !q || f.toLowerCase().includes(q)).slice(0, 120);
+  if (!filtered.length) {
+    listEl.innerHTML = `<div style="padding:10px 6px; color:var(--muted); font-size:11.5px;">No matching files</div>`;
     return;
   }
-  container.innerHTML = visible.map((f) => {
-    const relPath = String(f.rel_path || "");
-    const safePath = escapeHtml(relPath);
-    const checkedAttr = selectedWorkspaceSet.has(relPath) ? " checked" : "";
-    return `<label class="file-item">
-      <input type="checkbox" class="ws-file-cb" value="${safePath}"${checkedAttr} onchange="onWorkspaceCheckboxChange(this)" />
-      <span title="${safePath}">${safePath}</span>
-    </label>`;
+  listEl.innerHTML = filtered.map((relPath) => {
+    const checked = selectedFiles.includes(relPath) ? "checked" : "";
+    return `
+      <label class="ws-file-row">
+        <input type="checkbox" class="ws-file-cb" ${checked} onchange="toggleWorkspaceFile('${escapeHtml(relPath)}', this.checked)" />
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(relPath)}</span>
+      </label>
+    `;
   }).join("");
 }
 
-function updateSelectedFilesCount() {
-  const countEl = document.getElementById("ws-file-count");
-  if (countEl) {
-    const n = selectedWorkspaceSet.size;
-    countEl.innerText = `${n} ${n === 1 ? "file" : "files"} selected`;
-  }
-  updateSpeculativeRadar();
+function toggleWorkspaceFile(path, on) {
+  if (on && !selectedFiles.includes(path)) selectedFiles.push(path);
+  if (!on) selectedFiles = selectedFiles.filter((p) => p !== path);
+  renderAttachmentPreview();
 }
 
 function selectCoreFiles() {
-  const coreTargets = ["apps/jupiter_studio.py", "src/memoryos/router.py", "src/memoryos/workspace_pack.py", "README.md"];
-  const available = new Set(workspaceFiles.map((f) => f.rel_path));
-  let matched = 0;
-  for (const target of coreTargets) {
-    if (available.has(target)) {
-      selectedWorkspaceSet.add(target);
-      matched++;
-    }
-  }
+  const preferred = ["apps/jupiter_studio.py", "apps/jupiter_studio_ui.py", "README.md", "memoryos.py"];
+  const picked = allWorkspaceFiles.filter((f) => preferred.some((p) => f.endsWith(p))).slice(0, 5);
+  selectedFiles = Array.from(new Set([...selectedFiles, ...picked]));
   renderWorkspaceFileList();
-  updateSelectedFilesCount();
-  showToast(matched ? `Selected ${matched} core project files` : "No core files found in current workspace");
-}
-
-function getSelectedFiles() {
-  return Array.from(selectedWorkspaceSet);
+  renderAttachmentPreview();
 }
 
 async function exportCopilotBundle() {
-  const files = getSelectedFiles();
-  const lastUserMsg = chatHistory.filter((m) => m.role === "user").slice(-1)[0]?.content || "";
-  const lastAssMsg = chatHistory.filter((m) => m.role === "assistant").slice(-1)[0]?.content || "";
-
   try {
     const res = await fetch("/api/workspace/copilot-bundle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        goal: lastUserMsg || "Build and optimize features for MemoryOS / Jupiter Studio",
-        files: files.length ? files : undefined,
-        advice: lastAssMsg,
+        goal: document.getElementById("prompt-input")?.value || "",
+        files: selectedFiles,
+        advice: "",
       }),
     });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
     const data = await res.json();
     if (data.bundle) {
-      const copied = await copyToClipboard(data.bundle);
-      showToast(copied ? "📋 Copied complete Context Bundle for Copilot to clipboard!" : "Bundle generated, but clipboard access was blocked.");
+      await copyToClipboard(data.bundle);
+      showToast("Copilot context bundle copied");
     }
-  } catch (e) {
-    showToast("Failed to export Copilot bundle: " + e.message);
+  } catch (_) {
+    showToast("Export failed");
   }
 }
 
-let currentAttachedImageName = "";
-let uploadedFiles = [];
-const MAX_UPLOADED_FILES = 15;
-const ALLOWED_RASTER_IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/gif",
-  "image/webp",
-  "image/bmp",
-  "image/avif",
-]);
-
-const BLOCKED_SECRET_NAMES = new Set([
-  ".env",
-  ".env.local",
-  ".env.development",
-  ".env.production",
-  ".env.staging",
-  ".env.test",
-  "credentials.json",
-  "secrets.json",
-  "token.json",
-  "id_rsa",
-  "id_ed25519",
-  "id_ecdsa",
-  "id_dsa",
-  ".npmrc",
-  ".netrc",
-  ".pypirc",
-  ".htpasswd",
-]);
-const BLOCKED_SECRET_EXTS = [".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kdbx"];
-
-function isSensitiveFilename(name) {
-  const raw = String(name || "");
-  if (raw.includes("\u0000")) return true;
-  const parts = raw.replace(/\\/g, "/").split("/").map((p) => p.trim().replace(/[. ]+$/g, "").toLowerCase()).filter(Boolean);
-  if (parts.includes(".git")) return true;
-  const base = parts.length ? parts[parts.length - 1] : "";
-  if (!base) return false;
-  return (
-    BLOCKED_SECRET_NAMES.has(base) ||
-    base.endsWith(".env") ||
-    (base.startsWith(".env.") && base !== ".env.example") ||
-    BLOCKED_SECRET_EXTS.some((ext) => base.endsWith(ext))
-  );
-}
-
-function renderAttachmentPreview() {
-  const preview = document.getElementById("attachment-preview");
-  const chips = [];
-  if (currentAttachedImage) {
-    const safeImgName = escapeHtml(currentAttachedImageName || "Image");
-    chips.push(`
-      <div class="attachment-chip">
-        <span>🖼️ ${safeImgName}</span>
-        <span class="remove-btn" onclick="removeAttachedImage()">✕</span>
-      </div>
-    `);
-  }
-  uploadedFiles.forEach((f, idx) => {
-    const kb = Math.max(1, Math.round((f.size || f.content.length) / 1024));
-    const safeName = escapeHtml(f.name);
-    chips.push(`
-      <div class="attachment-chip">
-        <span>📄 ${safeName} (${kb} KB)</span>
-        <span class="remove-btn" onclick="removeUploadedFile(${idx})">✕</span>
-      </div>
-    `);
-  });
-  if (chips.length) {
-    preview.style.display = "flex";
-    preview.innerHTML = chips.join("");
-  } else {
-    preview.style.display = "none";
-    preview.innerHTML = "";
-  }
-  updateSpeculativeRadar();
-}
-
-function attachRasterImageFile(file) {
-  if (!file) return;
-  const mime = String(file.type || "").toLowerCase();
-  if (!ALLOWED_RASTER_IMAGE_TYPES.has(mime)) {
-    showToast(`⚠️ Skipped ${file.name}: only PNG, JPG, GIF, WebP, BMP, or AVIF images are supported`);
-    return;
-  }
-  if (file.size > 8 * 1024 * 1024) {
-    showToast(`⚠️ Skipped ${file.name}: image exceeds 8 MB limit`);
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const result = evt.target && evt.target.result;
-    if (!isSafeImageDataUri(result)) {
-      showToast(`⚠️ Rejected ${file.name}: invalid raster image data`);
-      return;
-    }
-    currentAttachedImage = result;
-    currentAttachedImageName = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
-    renderAttachmentPreview();
-  };
-  reader.onerror = function() {
-    showToast(`⚠️ Could not read image ${file.name}`);
-  };
-  reader.readAsDataURL(file);
-}
-
-function handleImageSelected(e) {
-  const file = e.target.files && e.target.files[0];
-  if (file) attachRasterImageFile(file);
-  e.target.value = "";
-}
-
+/* ── FILE & IMAGE ATTACHMENTS ───────────────────────────── */
 function addFilesFromList(fileList) {
-  const files = Array.from(fileList || []);
-  for (const file of files) {
-    if (file.type && file.type.startsWith("image/")) {
-      attachRasterImageFile(file);
-      continue;
-    }
+  if (!fileList || !fileList.length) return;
+  for (const file of fileList) {
     if (isSensitiveFilename(file.name)) {
-      showToast(`🔒 Blocked ${file.name}: secret files are never sent to cloud models`);
-      continue;
-    }
-    if (uploadedFiles.length >= MAX_UPLOADED_FILES) {
-      showToast(`⚠️ Upload limit reached (max ${MAX_UPLOADED_FILES} files per turn)`);
-      break;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      showToast(`⚠️ Skipped ${file.name}: exceeds 2 MB upload limit`);
+      showToast(`Blocked secret file: ${file.name}`);
       continue;
     }
     const reader = new FileReader();
-    reader.onload = function(evt) {
-      const content = String(evt.target && evt.target.result || "");
-      if (content.slice(0, 8192).includes("\u0000")) {
-        showToast(`⚠️ Skipped ${file.name}: binary file cannot be attached as text`);
-        return;
-      }
-      if (uploadedFiles.length >= MAX_UPLOADED_FILES) {
-        showToast(`⚠️ Upload limit reached (max ${MAX_UPLOADED_FILES} files per turn)`);
-        return;
-      }
-      uploadedFiles.push({ name: file.name, size: file.size, content: content });
-      renderAttachmentPreview();
-      showToast(`📎 Uploaded ${file.name}`);
-    };
-    reader.onerror = function() {
-      showToast(`⚠️ Could not read ${file.name}`);
-    };
-    reader.readAsText(file);
+    if ((file.type || "").startsWith("image/")) {
+      reader.onload = () => {
+        if (isSafeImageDataUri(reader.result)) {
+          currentAttachedImage = reader.result;
+          renderAttachmentPreview();
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      reader.onload = () => {
+        uploadedFiles.push({ name: file.name, content: String(reader.result || "").slice(0, 120000) });
+        renderAttachmentPreview();
+      };
+      reader.readAsText(file);
+    }
   }
-}
-
-function handleFilesSelected(e) {
-  addFilesFromList(e.target.files);
-  e.target.value = "";
-}
-
-function handleDragOver(e) {
-  e.preventDefault();
-  const zone = document.getElementById("input-drop-zone");
-  if (zone) zone.style.borderColor = "var(--cyan)";
-}
-
-function handleDragLeave(e) {
-  const zone = document.getElementById("input-drop-zone");
-  if (zone) zone.style.borderColor = "";
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  handleDragLeave(e);
-  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-    addFilesFromList(e.dataTransfer.files);
-  }
-}
-
-function removeUploadedFile(idx) {
-  uploadedFiles.splice(idx, 1);
-  renderAttachmentPreview();
-}
-
-function removeAttachedImage() {
-  currentAttachedImage = null;
-  currentAttachedImageName = "";
-  document.getElementById("image-file-input").value = "";
-  renderAttachmentPreview();
 }
 
 function clearAllAttachments() {
-  currentAttachedImage = null;
-  currentAttachedImageName = "";
   uploadedFiles = [];
-  document.getElementById("image-file-input").value = "";
-  document.getElementById("doc-file-input").value = "";
+  selectedFiles = [];
+  currentAttachedImage = null;
+  renderWorkspaceFileList();
   renderAttachmentPreview();
 }
 
+function renderAttachmentPreview() {
+  const box = document.getElementById("attachment-preview");
+  if (!box) return;
+  const chips = [];
+  if (currentAttachedImage) {
+    chips.push(`<span class="attach-chip">Image attached <button onclick="currentAttachedImage=null; renderAttachmentPreview();">&times;</button></span>`);
+  }
+  uploadedFiles.forEach((f, idx) => {
+    chips.push(`<span class="attach-chip">${escapeHtml(f.name)} <button onclick="uploadedFiles.splice(${idx},1); renderAttachmentPreview();">&times;</button></span>`);
+  });
+  selectedFiles.forEach((p, idx) => {
+    chips.push(`<span class="attach-chip">${escapeHtml(p)} <button onclick="selectedFiles.splice(${idx},1); renderWorkspaceFileList(); renderAttachmentPreview();">&times;</button></span>`);
+  });
+  box.innerHTML = chips.join("");
+  box.classList.toggle("visible", chips.length > 0);
+}
+
+/* ── SPECULATIVE RADAR & COMMAND PALETTE ────────────────── */
 function onTargetChange() {
   const sel = document.getElementById("target-selector");
-  const desc = document.getElementById("chat-target-desc");
-  const badge = document.getElementById("chat-mode-badge");
-
-  if (sel.value.startsWith("auto:")) {
-    badge.innerText = "AUTO-ROUTE (d3)";
-    badge.className = "badge";
-    desc.innerText = "d3 Smart Router dynamically selects optimal tier";
-  } else if (sel.value.startsWith("cloud:")) {
-    badge.innerText = "AMD TOKEN LAB";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("cloud:", "") + " (AMD Instinct Cloud)";
-  } else if (sel.value.startsWith("nv:")) {
-    badge.innerText = "NVIDIA NIM";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("nv:", "") + " (NVIDIA NIM / Brev)";
-  } else if (sel.value.startsWith("do:")) {
-    badge.innerText = "DIGITALOCEAN";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("do:", "") + " (AMD MI300X)";
-  } else if (sel.value.startsWith("hf:")) {
-    badge.innerText = "HUGGING FACE";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("hf:", "") + " (Zero-Download Serverless Router)";
-  } else if (sel.value.startsWith("lemonade:")) {
-    badge.innerText = "LEMONADE NPU";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("lemonade:", "") + " (AMD Lemonade / FastFlowLM)";
-  } else if (sel.value.startsWith("vllm:")) {
-    badge.innerText = "LOCAL vLLM";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("vllm:", "") + " (DGX Spark / Local vLLM)";
-  } else if (sel.value.startsWith("flare:")) {
-    badge.innerText = "NVIDIA FLARE";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("flare:", "") + " (DGX Spark / NVIDIA Flare)";
-  } else {
-    badge.innerText = "LOCAL OLLAMA";
-    badge.className = "badge";
-    desc.innerText = sel.value.replace("ollama:", "") + " (Local Host)";
-  }
+  const rt = document.getElementById("rad-route");
+  if (sel && rt) rt.textContent = sel.value;
   updateSpeculativeRadar();
 }
 
-function clearChat() {
-  stopGeneration();
-  chatHistory = [];
-  const log = document.getElementById("chat-log");
-  log.innerHTML = `
-    <div class="msg assistant">
-      <div class="meta-tag meta-auto">NEW CHAT STARTED</div>
-      <div class="md-body"><p>Conversation cleared. MemoryOS ready for your next prompt.</p></div>
-    </div>
-  `;
+function scheduleSpeculativeRadar() {
+  clearTimeout(radarTimer);
+  radarTimer = setTimeout(updateSpeculativeRadar, 180);
 }
 
-let isGenerating = false;
-let responseTimer = null;
-
-function stopGeneration() {
-  if (currentAbortController) {
-    currentAbortController.abort();
-    currentAbortController = null;
-  }
-  if (responseTimer) {
-    clearInterval(responseTimer);
-    responseTimer = null;
-  }
-  setRunningState(false);
-}
-
-function setRunningState(running) {
-  isGenerating = running;
-  document.getElementById("run-btn").style.display = running ? "none" : "";
-  document.getElementById("stop-btn").style.display = running ? "" : "none";
-}
-
-function parseSseBlock(block) {
-  const evLines = block.split("\n");
-  let evType = "delta";
-  const dataLines = [];
-  for (const el of evLines) {
-    if (el.startsWith("event:")) {
-      evType = el.slice(6).trim();
-    } else if (el.startsWith("data:")) {
-      dataLines.push(el.slice(5).trim());
-    }
-  }
-  if (!dataLines.length) return null;
-  try {
-    return { evType, parsed: JSON.parse(dataLines.join("\n")) };
-  } catch (_) {
-    return null;
-  }
-}
-
-async function sendPrompt() {
-  if (isGenerating) return;
-  const input = document.getElementById("prompt-input");
-  let text = input.value.trim();
-  if (!text && !currentAttachedImage && !uploadedFiles.length) return;
-  if (!text) {
-    text = uploadedFiles.length ? "Analyze the uploaded file(s)." : "Analyze the attached image.";
-  }
-
-  const target = document.getElementById("target-selector").value;
-  const chatLog = document.getElementById("chat-log");
-  const selectedFiles = getSelectedFiles();
-  const filesToUpload = uploadedFiles.slice();
-  const attachedImg = currentAttachedImage;
-
-  // Append user message (all fields strictly escaped)
-  const uMsg = document.createElement("div");
-  uMsg.className = "msg user";
-  let userHtml = escapeHtml(text).replace(/\n/g, "<br/>");
-  if (isSafeImageDataUri(attachedImg)) {
-    userHtml += `<br/><img src="${escapeHtml(attachedImg)}" alt="Attached screenshot" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
-  }
-  if (filesToUpload.length) {
-    const names = filesToUpload.map((f) => escapeHtml(f.name));
-    userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${names.join(", ")}</div>`;
-  }
-  if (selectedFiles.length) {
-    const safeSel = selectedFiles.map((p) => escapeHtml(p));
-    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${safeSel.join(", ")}</div>`;
-  }
-  uMsg.innerHTML = userHtml;
-  chatLog.appendChild(uMsg);
-
-  input.value = "";
-  chatLog.scrollTop = chatLog.scrollHeight;
-
-  // Add Assistant Response Container (<details> makes <summary> collapsible)
-  const aMsg = document.createElement("div");
-  aMsg.className = "msg assistant";
-  const tagClass = target.startsWith("auto:") ? "meta-auto" : (target.startsWith("ollama:") ? "meta-local" : "meta-cloud");
-  aMsg.innerHTML = `
-    <div class="meta-tag ${tagClass}" data-role="meta">CONNECTING...</div>
-    <details class="reasoning-box" data-role="reasoning-box" style="display:none;" open>
-      <summary>Thinking Process...</summary>
-      <div class="reasoning-content" data-role="reasoning-content"></div>
-    </details>
-    <div class="md-body" data-role="content">Generating response...</div>
-  `;
-  chatLog.appendChild(aMsg);
-  chatLog.scrollTop = chatLog.scrollHeight;
-
-  const metaEl = aMsg.querySelector('[data-role="meta"]');
-  const reasoningBox = aMsg.querySelector('[data-role="reasoning-box"]');
-  const reasoningContent = aMsg.querySelector('[data-role="reasoning-content"]');
-  const contentEl = aMsg.querySelector('[data-role="content"]');
-
-  setRunningState(true);
-  currentAbortController = new AbortController();
-
-  let elapsedSec = 0;
-  if (responseTimer) clearInterval(responseTimer);
-  responseTimer = setInterval(() => {
-    elapsedSec++;
-    if (contentEl && contentEl.innerText.startsWith("Generating response")) {
-      contentEl.innerText = `Generating response... (${elapsedSec}s)`;
-    }
-  }, 1000);
-
-  let accumulatedContent = "";
-  let accumulatedReasoning = "";
-  let hadError = false;
-
-  const payload = {
-    prompt: text,
-    target: target,
-    history: chatHistory.slice(-8),
-    image_base64: attachedImg,
-    workspace_files: selectedFiles,
-    uploaded_files: filesToUpload,
-  };
-
-  clearAllAttachments();
-
-  try {
-    const response = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: currentAbortController.signal,
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText || "Request failed"}`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-    let streamFinished = false;
-
-    const processChunk = (block) => {
-      if (!block.trim()) return;
-      const evt = parseSseBlock(block);
-      if (!evt) return;
-      const { evType, parsed } = evt;
-
-      if (evType === "start") {
-        metaEl.innerText = `${parsed.model_used || "STREAMING"} [${parsed.provider || "Active"}]`;
-        if (contentEl.innerText.startsWith("Generating response")) {
-          contentEl.innerHTML = "";
-        }
-      } else if (evType === "reasoning") {
-        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-        accumulatedReasoning += parsed.delta || "";
-        reasoningBox.style.display = "block";
-        reasoningContent.innerText = accumulatedReasoning;
-      } else if (evType === "delta") {
-        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-        if (contentEl.innerText.startsWith("Generating response")) {
-          contentEl.innerHTML = "";
-        }
-        accumulatedContent += parsed.delta || "";
-        contentEl.innerHTML = renderMarkdown(accumulatedContent);
-      } else if (evType === "done") {
-        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-        metaEl.innerText = `${parsed.model_used || target} (${parsed.latency_ms || 0} ms)`;
-        contentEl.innerHTML = renderMarkdown(accumulatedContent || parsed.fallback_content || "(No response text)");
-        streamFinished = true;
-      } else if (evType === "error") {
-        if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-        hadError = true;
-        metaEl.className = "meta-tag meta-error";
-        metaEl.innerText = "ERROR";
-        contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${escapeHtml(parsed.error || "Unknown error")}</div>`;
-        streamFinished = true;
-      }
-    };
-
-    while (!streamFinished) {
-      const { done, value } = await reader.read();
-      if (done) {
-        buffer = (buffer + decoder.decode()).replace(/\r\n/g, "\n");
-        break;
-      }
-
-      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
-      const lines = buffer.split("\n\n");
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        processChunk(line);
-        if (streamFinished) break;
-      }
-      chatLog.scrollTop = chatLog.scrollHeight;
-    }
-
-    if (!streamFinished && buffer.trim()) {
-      for (const tail of buffer.split("\n\n")) {
-        processChunk(tail);
-        if (streamFinished) break;
-      }
-    }
-    try { await reader.cancel(); } catch (_) {}
-
-    // Only persist successful turns to multi-turn history
-    if (!hadError && accumulatedContent) {
-      chatHistory.push({ role: "user", content: text });
-      chatHistory.push({ role: "assistant", content: accumulatedContent });
-    }
-
-  } catch (err) {
-    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-    if (err && err.name === "AbortError") {
-      metaEl.innerText += " (Stopped)";
-    } else {
-      metaEl.className = "meta-tag meta-error";
-      metaEl.innerText = "CALL FAILED";
-      contentEl.innerHTML = `<div style="color:var(--red); font-family:monospace;">${escapeHtml(err ? err.message : "Unknown error")}</div>`;
-    }
-  } finally {
-    if (responseTimer) { clearInterval(responseTimer); responseTimer = null; }
-    setRunningState(false);
-    currentAbortController = null;
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-}
-
-// Init on load
-loadStatus();
-loadModels();
-loadWorkspaceFiles();
-setInterval(loadStatus, 5000);
-setInterval(loadModels, 30000);
-
-/* ── 1. THEME SWITCHER (QUANTUM / RADEON / ATARI B&W) ────────────────── */
-function setStudioTheme(theme) {
-  if (theme === "daylight") theme = "atari";
-  if (!["quantum", "radeon", "atari"].includes(theme)) theme = "quantum";
-  document.documentElement.setAttribute("data-studio-theme", theme);
-  document.querySelectorAll(".theme-pill-btn").forEach((b) => {
-    b.classList.toggle("active", b.getAttribute("data-t") === theme);
-  });
-  try { localStorage.setItem("jupiter.studio.theme", theme); } catch (_) {}
-}
-try {
-  const savedTheme = localStorage.getItem("jupiter.studio.theme");
-  if (savedTheme) setStudioTheme(savedTheme);
-} catch (_) {}
-
-/* ── 2. QUANTUM LATTICE & PARTICLE CANVAS (DRIVEN BY ZEN 3 GATE & MLP) ─ */
-let quantumPulse = 0.15;
-(function initQuantumCanvas() {
-  const c = document.getElementById("quantum-canvas");
-  if (!c) return;
-  const ctx = c.getContext("2d");
-  const nodes = Array.from({ length: 28 }, (_, i) => ({
-    x: Math.random(),
-    y: Math.random(),
-    vx: (Math.random() - 0.5) * 0.0018,
-    vy: (Math.random() - 0.5) * 0.006,
-    r: 1.5 + (i % 3) * 0.7,
-  }));
-  function resize() {
-    const r = c.getBoundingClientRect();
-    c.width = Math.max(300, Math.floor(r.width));
-    c.height = Math.max(48, Math.floor(r.height));
-  }
-  resize();
-  window.addEventListener("resize", resize);
-  function tick() {
-    const w = c.width, h = c.height;
-    ctx.clearRect(0, 0, w, h);
-    const speed = isGenerating ? 3.2 : (1.0 + quantumPulse * 2.0);
-    quantumPulse = Math.max(0.05, quantumPulse * 0.95);
-    const theme = document.documentElement.getAttribute("data-studio-theme") || "quantum";
-    const colA = theme === "radeon" ? "237, 28, 36" : (theme === "atari" ? "0, 0, 0" : "255, 106, 0");
-    const colB = theme === "radeon" ? "255, 176, 0" : (theme === "atari" ? "0, 0, 0" : "0, 240, 255");
-
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      n.x += n.vx * speed;
-      n.y += n.vy * speed;
-      if (n.x < 0 || n.x > 1) n.vx *= -1;
-      if (n.y < 0 || n.y > 1) n.vy *= -1;
-      const px = n.x * w, py = n.y * h;
-      ctx.fillStyle = `rgba(${i % 2 === 0 ? colA : colB}, 0.75)`;
-      ctx.beginPath();
-      ctx.arc(px, py, n.r, 0, Math.PI * 2);
-      ctx.fill();
-      for (let j = i + 1; j < nodes.length; j++) {
-        const m = nodes[j];
-        const dx = (n.x - m.x) * w, dy = (n.y - m.y) * h;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 110) {
-          ctx.strokeStyle = `rgba(${colB}, ${(1 - dist / 110) * 0.25})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(px, py);
-          ctx.lineTo(m.x * w, m.y * h);
-          ctx.stroke();
-        }
-      }
-    }
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-})();
-
-/* ── 3. LIVE PRE-SEND SPECULATIVE NEURAL RADAR (/api/speculate) ──────── */
-let specTimer = null;
 async function updateSpeculativeRadar() {
-  const input = document.getElementById("prompt-input");
-  if (!input) return;
-  const text = input.value || "";
-  const sel = document.getElementById("target-selector");
-  const targetVal = sel ? sel.value : "auto:d3";
-  quantumPulse = Math.min(1.0, quantumPulse + 0.25);
+  const text = document.getElementById("prompt-input")?.value || "";
+  const target = document.getElementById("target-selector")?.value || "auto:d3";
+  quantumPulse = Math.min(1.0, quantumPulse + 0.18);
   const extraChars = uploadedFiles.reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
-  const fileCount = uploadedFiles.length + selectedWorkspaceSet.size;
+  const fileCount = uploadedFiles.length + selectedFiles.length;
   try {
     const res = await fetch("/api/speculate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: text,
-        target: targetVal,
+        target: target,
         has_image: Boolean(currentAttachedImage),
         file_count: fileCount,
         extra_chars: extraChars,
@@ -2489,167 +2234,334 @@ async function updateSpeculativeRadar() {
     const d = await res.json();
     const rawProb = d.p_offload ?? 0.88;
     const pct = (Number(rawProb) * 100).toFixed(1);
-    const latStr = Number(d.mlp_latency_us) >= 1000 ? `${(Number(d.mlp_latency_us) / 1000).toFixed(2)} ms` : `${Number(d.mlp_latency_us).toFixed(1)} μs`;
-    document.getElementById("rad-mlp").innerText = `${pct}% · ${latStr}`;
-    const barEl = document.getElementById("rad-mlp-bar");
-    if (barEl) barEl.style.width = `${Math.max(4, Math.min(100, Number(pct)))}%`;
-    const routeLabel = targetVal === "auto:d3" ? `d3 → ${d.predicted_model}` : targetVal;
-    document.getElementById("rad-route").innerText = routeLabel;
-    document.getElementById("rad-tok").innerText = `~${Number(d.est_tokens || 1).toLocaleString()} tokens`;
-    document.getElementById("rad-vram").innerText = d.is_local
-      ? "Local Execution (Host RAM/VRAM/NPU)"
-      : `${d.vram_saved_gb} GB saved (0 MB used)`;
+    const latNum = Number(d.mlp_latency_us || 0);
+    const latStr = latNum >= 1000 ? `${(latNum / 1000).toFixed(2)} ms` : `${latNum.toFixed(1)} μs`;
+    const bar = document.getElementById("rad-mlp-bar");
+    const mlpEl = document.getElementById("rad-mlp");
+    const rtEl = document.getElementById("rad-route");
+    const tokEl = document.getElementById("rad-tok");
+    const vrEl = document.getElementById("rad-vram");
+    if (bar) bar.style.width = `${Math.max(6, Math.min(100, Number(pct)))}%`;
+    if (mlpEl) mlpEl.textContent = `${pct}% · ${latStr}`;
+    if (rtEl) rtEl.textContent = target === "auto:d3" ? `d3 → ${d.predicted_model}` : target;
+    if (tokEl) tokEl.textContent = `~${Number(d.est_tokens || 1).toLocaleString()} tok`;
+    if (vrEl) vrEl.textContent = d.is_local ? "Local Exec" : `${d.vram_saved_gb ?? 0} GB saved`;
   } catch (_) {}
 }
-document.getElementById("prompt-input").addEventListener("input", () => {
-  clearTimeout(specTimer);
-  specTimer = setTimeout(updateSpeculativeRadar, 90);
-});
-document.getElementById("prompt-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendPrompt();
+
+function openCommandPalette() {
+  const back = document.getElementById("cmd-backdrop");
+  const inp = document.getElementById("cmd-search");
+  if (!back || !inp) return;
+  back.classList.add("open");
+  inp.value = "";
+  renderCommandPalette();
+  setTimeout(() => inp.focus(), 20);
+}
+
+function closeCommandPalette() {
+  document.getElementById("cmd-backdrop")?.classList.remove("open");
+}
+
+function getPaletteEntries() {
+  const sel = document.getElementById("target-selector");
+  const entries = [];
+  if (sel) {
+    Array.from(sel.options).forEach((opt) => {
+      const grp = opt.parentElement && opt.parentElement.tagName === "OPTGROUP" ? opt.parentElement.label : "Auto";
+      entries.push({ label: opt.textContent, group: grp, action: () => { sel.value = opt.value; onTargetChange(); } });
+    });
+  }
+  entries.push({ label: "New Persistent Session", group: "Action", action: () => newSession() });
+  entries.push({ label: "Toggle Dual Arena Mode", group: "Action", action: () => toggleDualArena() });
+  entries.push({ label: "Theme: QUANTUM", group: "Theme", action: () => setStudioTheme("quantum") });
+  entries.push({ label: "Theme: RADEON", group: "Theme", action: () => setStudioTheme("radeon") });
+  entries.push({ label: "Theme: ATARI B&W", group: "Theme", action: () => setStudioTheme("atari") });
+  return entries;
+}
+
+function renderCommandPalette() {
+  const list = document.getElementById("cmd-list");
+  const q = (document.getElementById("cmd-search")?.value || "").trim().toLowerCase();
+  if (!list) return;
+  const items = getPaletteEntries().filter((e) => !q || e.label.toLowerCase().includes(q) || e.group.toLowerCase().includes(q));
+  list.innerHTML = "";
+  items.slice(0, 30).forEach((item, idx) => {
+    const row = document.createElement("div");
+    row.className = "cmd-item" + (idx === 0 ? " selected" : "");
+    row.innerHTML = `<span>${escapeHtml(item.label)}</span><span class="cmd-group">${escapeHtml(item.group)}</span>`;
+    row.onclick = () => { item.action(); closeCommandPalette(); };
+    list.appendChild(row);
+  });
+}
+
+function handlePaletteKey(ev) {
+  if (ev.key === "Escape") { closeCommandPalette(); return; }
+  if (ev.key === "Enter") {
+    ev.preventDefault();
+    const first = document.querySelector("#cmd-list .cmd-item");
+    if (first) first.click();
+  }
+}
+
+document.addEventListener("keydown", (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+    ev.preventDefault();
+    const back = document.getElementById("cmd-backdrop");
+    if (back && back.classList.contains("open")) closeCommandPalette();
+    else openCommandPalette();
   }
 });
-setTimeout(updateSpeculativeRadar, 400);
 
-/* ── 4. DUAL-MODEL SPLIT ARENA SHOOTOUT ──────────────────────────────── */
-let dualArenaEnabled = false;
-const ARENA_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>';
+/* ── COMPOSER & SSE STREAMING ───────────────────────────── */
+function autoGrowPrompt(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 190) + "px";
+}
 
-function setDualArena(enabled) {
-  dualArenaEnabled = Boolean(enabled);
-  const btn = document.getElementById("btn-arena");
-  if (!btn) return;
-  btn.classList.toggle("active", dualArenaEnabled);
-  btn.innerHTML = dualArenaEnabled ? `${ARENA_ICON_SVG} Arena: ON (2x Live)` : `${ARENA_ICON_SVG} Dual Arena`;
+function handleComposerKey(ev) {
+  if (ev.key === "Enter" && !ev.shiftKey) {
+    ev.preventDefault();
+    sendPrompt();
+  }
+}
+
+function useStarter(text) {
+  const inp = document.getElementById("prompt-input");
+  if (!inp) return;
+  inp.value = text;
+  autoGrowPrompt(inp);
+  scheduleSpeculativeRadar();
+  inp.focus();
 }
 
 function toggleDualArena() {
-  setDualArena(!dualArenaEnabled);
+  dualArenaMode = !dualArenaMode;
+  const btn = document.getElementById("btn-arena");
+  if (btn) btn.classList.toggle("arena-active", dualArenaMode);
+  showToast(dualArenaMode ? "Dual Arena armed" : "Single-stream mode");
 }
 
-function useStarter(txt) {
-  const el = document.getElementById("prompt-input");
-  el.value = txt;
-  updateSpeculativeRadar();
-  sendPrompt();
+function setRunningState(running) {
+  const sendBtn = document.getElementById("btn-send");
+  const stopBtn = document.getElementById("btn-stop");
+  const st = document.getElementById("stream-status");
+  if (sendBtn) sendBtn.disabled = running;
+  if (stopBtn) stopBtn.style.display = running ? "inline-flex" : "none";
+  if (st) st.textContent = running ? "Streaming..." : "Idle";
 }
 
-function pickArenaChallenger(primaryTarget) {
-  if (primaryTarget.startsWith("nv:")) {
-    return primaryTarget === "nv:qwen/qwen2.5-coder-32b-instruct"
-      ? "nv:meta/llama-3.3-70b-instruct"
-      : "nv:qwen/qwen2.5-coder-32b-instruct";
+function stopGeneration() {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
   }
-  if (primaryTarget.startsWith("do:")) {
-    return primaryTarget === "do:Qwen/Qwen2.5-Coder-32B-Instruct"
-      ? "do:meta-llama/Llama-3.3-70B-Instruct"
-      : "do:Qwen/Qwen2.5-Coder-32B-Instruct";
-  }
-  if (primaryTarget.startsWith("hf:")) {
-    return primaryTarget === "hf:Qwen/Qwen2.5-72B-Instruct"
-      ? "hf:meta-llama/Llama-3.3-70B-Instruct"
-      : "hf:Qwen/Qwen2.5-72B-Instruct";
-  }
-  if (primaryTarget.startsWith("lemonade:")) {
-    return primaryTarget === "lemonade:Qwen3-4B-Instruct-2507-FLM"
-      ? "cloud:Qwen3.8-27B"
-      : "lemonade:Qwen3-4B-Instruct-2507-FLM";
-  }
-  if (primaryTarget.startsWith("vllm:")) {
-    return primaryTarget === "vllm:Qwen/Qwen3.8-Flash-Next"
-      ? "vllm:deepseek-ai/DeepSeek-V4.1-Flash"
-      : "vllm:Qwen/Qwen3.8-Flash-Next";
-  }
-  if (primaryTarget.startsWith("flare:")) {
-    return primaryTarget === "flare:Qwen3.8-Flash-Next"
-      ? "flare:DeepSeek-V4.1-Flash"
-      : "flare:Qwen3.8-Flash-Next";
-  }
-  if (primaryTarget.startsWith("ollama:")) {
-    return primaryTarget === "ollama:qwen2.5-coder:7b"
-      ? "ollama:deepseek-r1:7b"
-      : "ollama:qwen2.5-coder:7b";
-  }
-  return primaryTarget === "cloud:Qwen3.8-27B" ? "cloud:Gemma-4-31B-IT" : "cloud:Qwen3.8-27B";
+  setRunningState(false);
 }
 
-const _origSendPrompt = sendPrompt;
-sendPrompt = async function() {
-  if (!dualArenaEnabled) {
-    return _origSendPrompt();
+function parseSseBlock(block) {
+  const lines = String(block || "").split("\n");
+  let evType = "message";
+  const dataLines = [];
+  for (const line of lines) {
+    if (line.startsWith("event:")) evType = line.slice(6).trim();
+    else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
   }
-  if (isGenerating) return;
+  if (!dataLines.length) return null;
+  try {
+    return { evType, parsed: JSON.parse(dataLines.join("\n")) };
+  } catch (_) {
+    return null;
+  }
+}
+
+function pickArenaChallenger(primary) {
+  const sel = document.getElementById("target-selector");
+  if (!sel) return primary;
+  const opts = Array.from(sel.options).map((o) => o.value).filter((v) => v && v !== primary && v !== "auto:d3");
+  return opts[0] || primary;
+}
+
+async function sendPromptSingle() {
   const input = document.getElementById("prompt-input");
-  let text = input.value.trim();
-  if (!text && !currentAttachedImage && !uploadedFiles.length) return;
-  if (!text) {
-    text = uploadedFiles.length ? "Analyze the uploaded file(s)." : "Analyze the attached image.";
-  }
+  const text = (input?.value || "").trim();
+  if (!text && !currentAttachedImage && !uploadedFiles.length && !selectedFiles.length) return;
 
-  const primaryTarget = document.getElementById("target-selector").value;
-  const challengerTarget = pickArenaChallenger(primaryTarget);
-  const selectedFiles = getSelectedFiles();
+  const target = document.getElementById("target-selector")?.value || "auto:d3";
   const filesToUpload = uploadedFiles.slice();
+  const wsToSend = selectedFiles.slice();
   const imgData = currentAttachedImage;
 
-  const chatLog = document.getElementById("chat-log");
-  const uMsg = document.createElement("div");
-  uMsg.className = "msg user";
-  let userHtml = `<div class="meta-tag" style="background:rgba(255,255,255,0.12);">⚔️ DUAL ARENA PROMPT</div><div>${escapeHtml(text).replace(/\n/g, "<br/>")}</div>`;
+  let extraHtml = "";
   if (isSafeImageDataUri(imgData)) {
-    userHtml += `<br/><img src="${imgData}" alt="Attached screenshot" style="max-width:200px; max-height:140px; border-radius:6px; margin-top:8px; border:1px solid #334155;" />`;
+    extraHtml += `<br/><img src="${imgData}" alt="Attached" style="max-width:220px; max-height:140px; border-radius:8px; margin-top:8px; border:1px solid var(--border);" />`;
   }
   if (filesToUpload.length) {
-    userHtml += `<div style="font-size:11px; color:var(--orange); margin-top:6px;">📄 Uploaded: ${filesToUpload.map((f) => escapeHtml(f.name)).join(", ")}</div>`;
+    extraHtml += `<div style="font-size:11px; color:var(--amber); margin-top:6px;">Uploaded: ${filesToUpload.map((f) => escapeHtml(f.name)).join(", ")}</div>`;
   }
-  if (selectedFiles.length) {
-    userHtml += `<div style="font-size:11px; color:var(--cyan); margin-top:6px;">📎 Attached: ${selectedFiles.map((p) => escapeHtml(p)).join(", ")}</div>`;
+  if (wsToSend.length) {
+    extraHtml += `<div style="font-size:11px; color:var(--accent); margin-top:6px;">Workspace: ${wsToSend.map((p) => escapeHtml(p)).join(", ")}</div>`;
   }
-  uMsg.innerHTML = userHtml;
-  chatLog.appendChild(uMsg);
-  input.value = "";
+
+  appendUserMessageEl(text || "(Attached context)", extraHtml);
+  if (input) { input.value = ""; input.style.height = "auto"; }
   clearAllAttachments();
 
+  const aMsg = appendAssistantMessageEl(`${target} · connecting...`, "meta-cloud");
+  const metaEl = aMsg.querySelector('[data-role="meta"]');
+  const rBox = aMsg.querySelector('[data-role="reasoning-box"]');
+  const rBody = aMsg.querySelector('[data-role="reasoning-content"]');
+  const contentEl = aMsg.querySelector('[data-role="content"]');
+  const copyBtn = aMsg.querySelector('[data-role="copy"]');
+
+  setRunningState(true);
+  currentAbortController = new AbortController();
+  let acc = "";
+  let accReasoning = "";
+  let modelLabel = target;
+  const t0 = performance.now();
+
+  try {
+    const res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: currentAbortController.signal,
+      body: JSON.stringify({
+        prompt: text,
+        target,
+        session_id: activeSessionId,
+        history: chatHistory.slice(-8),
+        image_base64: imgData,
+        workspace_files: wsToSend,
+        uploaded_files: filesToUpload,
+      }),
+    });
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder("utf-8");
+    let buf = "";
+    let doneFlag = false;
+
+    const handlePart = (part) => {
+      if (!part.trim()) return;
+      const evt = parseSseBlock(part);
+      if (!evt) return;
+      const { evType: ev, parsed: p } = evt;
+      if (ev === "start") {
+        modelLabel = p.model_used || target;
+        metaEl.textContent = `${modelLabel} [${p.provider || "LIVE"}]`;
+        metaEl.className = `meta-tag ${p.is_local ? "meta-local" : "meta-cloud"}`;
+      } else if (ev === "reasoning") {
+        accReasoning += p.delta || "";
+        if (rBox && rBody) {
+          rBox.style.display = "block";
+          rBody.textContent = accReasoning;
+        }
+      } else if (ev === "delta") {
+        quantumPulse = 0.85;
+        acc += p.delta || "";
+        contentEl.style.color = "";
+        contentEl.innerHTML = renderMarkdown(acc);
+      } else if (ev === "done") {
+        const ms = Math.round(p.latency_ms || (performance.now() - t0));
+        metaEl.textContent = `${p.model_used || modelLabel} · ${ms} ms`;
+        contentEl.style.color = "";
+        contentEl.innerHTML = renderMarkdown(acc || "(No response text)");
+        if (copyBtn) {
+          copyBtn.style.display = "inline-block";
+          copyBtn.onclick = () => copyToClipboard(acc);
+        }
+        chatHistory.push({ role: "user", content: text });
+        chatHistory.push({ role: "assistant", content: acc });
+        if (p.session_id) {
+          activeSessionId = p.session_id;
+          loadSessions();
+        }
+        doneFlag = true;
+      } else if (ev === "error") {
+        metaEl.className = "meta-tag meta-error";
+        metaEl.textContent = "ERROR";
+        contentEl.innerHTML = `<span style="color:var(--red); font-family:var(--font-mono);">${escapeHtml(p.error || "Unknown error")}</span>`;
+        doneFlag = true;
+      }
+    };
+
+    while (!doneFlag) {
+      const { done, value } = await reader.read();
+      if (done) { buf += dec.decode(); break; }
+      buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+      for (const part of parts) {
+        handlePart(part);
+        if (doneFlag) break;
+      }
+      scrollThreadBottom();
+    }
+    if (!doneFlag && buf.trim()) handlePart(buf);
+    try { await reader.cancel(); } catch (_) {}
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      metaEl.textContent += " (Stopped)";
+    } else {
+      metaEl.className = "meta-tag meta-error";
+      metaEl.textContent = "CALL FAILED";
+      contentEl.innerHTML = `<span style="color:var(--red); font-family:var(--font-mono);">${escapeHtml(e ? e.message : "Unknown error")}</span>`;
+    }
+  } finally {
+    setRunningState(false);
+    currentAbortController = null;
+  }
+}
+
+async function sendPromptArena() {
+  const input = document.getElementById("prompt-input");
+  const text = (input?.value || "").trim();
+  if (!text && !currentAttachedImage && !uploadedFiles.length && !selectedFiles.length) return;
+
+  const primaryTarget = document.getElementById("target-selector")?.value || "auto:d3";
+  const challengerTarget = pickArenaChallenger(primaryTarget);
+  const filesToUpload = uploadedFiles.slice();
+  const wsToSend = selectedFiles.slice();
+  const imgData = currentAttachedImage;
+
+  appendUserMessageEl(`[DUAL ARENA] ${text}`);
+  if (input) { input.value = ""; input.style.height = "auto"; }
+  clearAllAttachments();
+
+  dismissEmptyState();
+  const inner = document.getElementById("thread-inner");
   const aMsg = document.createElement("div");
   aMsg.className = "msg assistant";
-  aMsg.style.width = "96%";
   aMsg.innerHTML = `
-    <div style="font-family:monospace; font-size:11px; color:var(--cyan); margin-bottom:8px;">
-      ⚔️ LIVE SPLIT-BRAIN ARENA SHOOTOUT // ZERO LOCAL VRAM
-    </div>
+    <div class="meta-tag meta-auto" style="margin-bottom:6px;">⚔ DUAL ARENA SPLIT STREAM</div>
     <div class="arena-grid">
       <div class="arena-col" data-side="left">
         <span class="meta-tag meta-auto" data-role="meta">${escapeHtml(primaryTarget)} [Streaming...]</span>
-        <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
-          <summary>Thinking Process...</summary>
-          <div class="reasoning-content" data-role="reasoning-content"></div>
-        </details>
-        <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for primary stream...</div>
+        <details class="reasoning-box" data-role="reasoning-box" style="display:none;"><summary>Reasoning Trace</summary><div class="reasoning-content" data-role="reasoning-content"></div></details>
+        <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for stream...</div>
         <button class="arena-keep-btn" data-role="keep" style="display:none;">✓ Keep Left Reply</button>
       </div>
       <div class="arena-col" data-side="right">
         <span class="meta-tag meta-cloud" data-role="meta">${escapeHtml(challengerTarget)} [Streaming...]</span>
-        <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
-          <summary>Thinking Process...</summary>
-          <div class="reasoning-content" data-role="reasoning-content"></div>
-        </details>
-        <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for challenger stream...</div>
+        <details class="reasoning-box" data-role="reasoning-box" style="display:none;"><summary>Reasoning Trace</summary><div class="reasoning-content" data-role="reasoning-content"></div></details>
+        <div class="md-body" data-role="content" style="color:var(--muted);">Waiting for challenger...</div>
         <button class="arena-keep-btn" data-role="keep" style="display:none;">✓ Keep Right Reply</button>
       </div>
     </div>
   `;
-  chatLog.appendChild(aMsg);
-  chatLog.scrollTop = chatLog.scrollHeight;
+  inner.appendChild(aMsg);
+  scrollThreadBottom();
 
   setRunningState(true);
   currentAbortController = new AbortController();
 
   async function runColumn(colEl, targetModel) {
     const metaEl = colEl.querySelector('[data-role="meta"]');
-    const reasoningBox = colEl.querySelector('[data-role="reasoning-box"]');
-    const reasoningContent = colEl.querySelector('[data-role="reasoning-content"]');
+    const rBox = colEl.querySelector('[data-role="reasoning-box"]');
+    const rBody = colEl.querySelector('[data-role="reasoning-content"]');
     const contentEl = colEl.querySelector('[data-role="content"]');
     const keepBtn = colEl.querySelector('[data-role="keep"]');
     let acc = "";
@@ -2663,18 +2575,18 @@ sendPrompt = async function() {
         body: JSON.stringify({
           prompt: text,
           target: targetModel,
+          session_id: activeSessionId,
           history: chatHistory.slice(-6),
           image_base64: imgData,
-          workspace_files: selectedFiles,
+          workspace_files: wsToSend,
           uploaded_files: filesToUpload,
         }),
       });
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText || "Request failed"}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       const reader = res.body.getReader();
       const dec = new TextDecoder("utf-8");
-      let buf = "", doneFlag = false;
+      let buf = "";
+      let doneFlag = false;
 
       const handlePart = (part) => {
         if (!part.trim()) return;
@@ -2682,22 +2594,19 @@ sendPrompt = async function() {
         if (!evt) return;
         const { evType: ev, parsed: p } = evt;
         if (ev === "start") {
-          metaEl.innerText = `${p.model_used || targetModel} [${p.provider || "LIVE"}]`;
+          metaEl.textContent = `${p.model_used || targetModel} [${p.provider || "LIVE"}]`;
         } else if (ev === "reasoning") {
           accReasoning += p.delta || "";
-          if (reasoningBox && reasoningContent) {
-            reasoningBox.style.display = "block";
-            reasoningContent.innerText = accReasoning;
-          }
+          if (rBox && rBody) { rBox.style.display = "block"; rBody.textContent = accReasoning; }
         } else if (ev === "delta") {
-          quantumPulse = 0.9;
+          quantumPulse = 0.85;
           acc += p.delta || "";
           contentEl.style.color = "";
           contentEl.innerHTML = renderMarkdown(acc);
         } else if (ev === "done") {
           const ms = Math.round(p.latency_ms || (performance.now() - t0));
           const winnerLabel = p.model_used || targetModel;
-          metaEl.innerText = `${winnerLabel} (${ms} ms)`;
+          metaEl.textContent = `${winnerLabel} (${ms} ms)`;
           contentEl.style.color = "";
           contentEl.innerHTML = renderMarkdown(acc || "(No response text)");
           keepBtn.style.display = "inline-block";
@@ -2709,18 +2618,15 @@ sendPrompt = async function() {
           doneFlag = true;
         } else if (ev === "error") {
           metaEl.className = "meta-tag meta-error";
-          metaEl.innerText = "ERROR";
-          contentEl.innerHTML = `<span style="color:var(--red); font-family:monospace;">${escapeHtml(p.error || "Unknown error")}</span>`;
+          metaEl.textContent = "ERROR";
+          contentEl.innerHTML = `<span style="color:var(--red); font-family:var(--font-mono);">${escapeHtml(p.error || "Unknown error")}</span>`;
           doneFlag = true;
         }
       };
 
       while (!doneFlag) {
         const { done, value } = await reader.read();
-        if (done) {
-          buf += dec.decode();
-          break;
-        }
+        if (done) { buf += dec.decode(); break; }
         buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
         const parts = buf.split("\n\n");
         buf = parts.pop();
@@ -2728,19 +2634,16 @@ sendPrompt = async function() {
           handlePart(part);
           if (doneFlag) break;
         }
-        chatLog.scrollTop = chatLog.scrollHeight;
+        scrollThreadBottom();
       }
-      if (!doneFlag && buf.trim()) {
-        handlePart(buf);
-      }
+      if (!doneFlag && buf.trim()) handlePart(buf);
       try { await reader.cancel(); } catch (_) {}
     } catch (e) {
-      if (e && e.name === "AbortError") {
-        metaEl.innerText += " (Stopped)";
-      } else {
+      if (e && e.name === "AbortError") metaEl.textContent += " (Stopped)";
+      else {
         metaEl.className = "meta-tag meta-error";
-        metaEl.innerText = "CALL FAILED";
-        contentEl.innerHTML = `<span style="color:var(--red); font-family:monospace;">${escapeHtml(e ? e.message : "Unknown error")}</span>`;
+        metaEl.textContent = "CALL FAILED";
+        contentEl.innerHTML = `<span style="color:var(--red); font-family:var(--font-mono);">${escapeHtml(e ? e.message : "Unknown error")}</span>`;
       }
     }
   }
@@ -2753,11 +2656,40 @@ sendPrompt = async function() {
   } finally {
     setRunningState(false);
     currentAbortController = null;
+    loadSessions();
   }
-};
+}
 
+async function sendPrompt() {
+  if (dualArenaMode) return sendPromptArena();
+  return sendPromptSingle();
+}
+
+/* Drag and Drop on Composer */
+(function initDragDrop() {
+  const card = document.getElementById("composer-card");
+  if (!card) return;
+  card.addEventListener("dragover", (e) => { e.preventDefault(); card.classList.add("drag-over"); });
+  card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
+  card.addEventListener("drop", (e) => {
+    e.preventDefault();
+    card.classList.remove("drag-over");
+    if (e.dataTransfer && e.dataTransfer.files) addFilesFromList(e.dataTransfer.files);
+  });
+})();
+
+window.addEventListener("DOMContentLoaded", () => {
+  const savedTheme = localStorage.getItem("jupiter_studio_theme") || "quantum";
+  setStudioTheme(savedTheme);
+  initQuantumCanvas();
+  loadModels();
+  loadStatus();
+  loadWorkspaceFiles();
+  loadSessions();
+  updateSpeculativeRadar();
+  setInterval(loadStatus, 15000);
+});
 </script>
 </body>
 </html>
 """
-

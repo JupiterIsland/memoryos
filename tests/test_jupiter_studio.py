@@ -476,7 +476,12 @@ class TestJupiterStudioLiveHTTP(unittest.TestCase):
                 yield b'data: {"choices":[{"delta":{"content":"world"},"finish_reason":"stop"}]}\n'
                 yield b"data: [DONE]\n"
 
-        with patch.dict(os.environ, {"TOKENLAB_API_KEY": "tl-real-test-key"}), patch(
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "apps.jupiter_studio._get_studio_db_path", return_value=Path(tmpdir) / "sse_test.sqlite"
+        ), patch.dict(os.environ, {"TOKENLAB_API_KEY": "tl-real-test-key"}), patch(
             "apps.jupiter_studio.urllib.request.urlopen", return_value=FakeUpstreamSSE()
         ):
             status, hdrs, raw = self._raw_request(
@@ -596,6 +601,111 @@ class TestJupiterStudioLiveHTTP(unittest.TestCase):
         self.assertIn("function escapeHtml(", js)
         self.assertIn("function copyCodeBlock(", js)
         self.assertIn('class="ws-file-cb"', js)
+        self.assertIn("function loadSessions(", js)
+        self.assertIn("function openCommandPalette(", js)
+
+    def test_persistent_sqlite_sessions_crud_and_chat_persistence(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_db = Path(tmpdir) / "test_studio_sessions.sqlite"
+            with patch("apps.jupiter_studio._get_studio_db_path", return_value=test_db):
+                # 1. Create a session explicitly via POST /api/sessions
+                status, _, raw = self._raw_request(
+                    "POST",
+                    "/api/sessions",
+                    body=json.dumps({"title": "Architecture Review", "target": "cloud:Qwen3.8-27B"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 200)
+                created = json.loads(raw)["session"]
+                sid = created["id"]
+                self.assertEqual(created["title"], "Architecture Review")
+                self.assertEqual(created["target"], "cloud:Qwen3.8-27B")
+
+                # 2. List sessions via GET /api/sessions
+                status, _, raw = self._raw_request("GET", "/api/sessions")
+                self.assertEqual(status, 200)
+                sessions = json.loads(raw)["sessions"]
+                self.assertEqual(len(sessions), 1)
+                self.assertEqual(sessions[0]["id"], sid)
+                self.assertEqual(sessions[0]["message_count"], 0)
+
+                # 3. Persist turn via POST /api/chat (sync) bound to session_id
+                with patch(
+                    "apps.jupiter_studio.JupiterStudioHandler._call_cloud_direct",
+                    return_value=("Deterministic answer", ""),
+                ), patch.dict(os.environ, {"TOKENLAB_API_KEY": "tl-real-test-key"}):
+                    status, _, raw = self._raw_request(
+                        "POST",
+                        "/api/chat",
+                        body=json.dumps({
+                            "prompt": "Verify sync persistence",
+                            "target": "cloud:Qwen3.8-27B",
+                            "session_id": sid,
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                    )
+                self.assertEqual(status, 200)
+                sync_payload = json.loads(raw)
+                self.assertEqual(sync_payload["session_id"], sid)
+                self.assertEqual(sync_payload["content"], "Deterministic answer")
+
+                # 4. Stream SSE turn bound to the same session_id
+                class FakeUpstreamSSE:
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, *args):
+                        return False
+
+                    def __iter__(self):
+                        yield b'data: {"choices":[{"delta":{"reasoning_content":"trace line"}}]}\n'
+                        yield b'data: {"choices":[{"delta":{"content":"Streamed reply"},"finish_reason":"stop"}]}\n'
+                        yield b"data: [DONE]\n"
+
+                with patch.dict(os.environ, {"TOKENLAB_API_KEY": "tl-real-test-key"}), patch(
+                    "apps.jupiter_studio.urllib.request.urlopen", return_value=FakeUpstreamSSE()
+                ):
+                    status, _, raw = self._raw_request(
+                        "POST",
+                        "/api/chat/stream",
+                        body=json.dumps({
+                            "prompt": "Verify stream persistence",
+                            "target": "cloud:Qwen3.8-27B",
+                            "session_id": sid,
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                    )
+                self.assertEqual(status, 200)
+                sse_text = raw.decode("utf-8")
+                self.assertIn(f'"session_id": "{sid}"', sse_text)
+
+                # 5. Inspect GET /api/sessions/<sid> for all 4 persisted messages
+                status, _, raw = self._raw_request("GET", f"/api/sessions/{sid}")
+                self.assertEqual(status, 200)
+                detail = json.loads(raw)
+                msgs = detail["messages"]
+                self.assertEqual(len(msgs), 4)
+                self.assertEqual([m["role"] for m in msgs], ["user", "assistant", "user", "assistant"])
+                self.assertEqual(msgs[1]["content"], "Deterministic answer")
+                self.assertEqual(msgs[3]["content"], "Streamed reply")
+                self.assertEqual(msgs[3]["reasoning"], "trace line")
+
+                # 6. Invalid session IDs return 400 and missing returns 404
+                status, _, _ = self._raw_request("GET", "/api/sessions/bad..id")
+                self.assertEqual(status, 400)
+                status, _, _ = self._raw_request("GET", "/api/sessions/does_not_exist")
+                self.assertEqual(status, 404)
+
+                # 7. DELETE /api/sessions/<sid> removes session and messages
+                status, _, raw = self._raw_request("DELETE", f"/api/sessions/{sid}")
+                self.assertEqual(status, 200)
+                self.assertTrue(json.loads(raw)["deleted"])
+                status, _, _ = self._raw_request("GET", f"/api/sessions/{sid}")
+                self.assertEqual(status, 404)
 
 
 if __name__ == "__main__":

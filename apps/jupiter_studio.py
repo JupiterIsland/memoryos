@@ -125,6 +125,7 @@ MAX_REQUEST_BODY_BYTES = 16 * 1024 * 1024  # 16 MB request cap
 MAX_IMAGE_DATA_CHARS = 12 * 1024 * 1024  # 12 MB data-URI cap
 MAX_HISTORY_ITEMS = 20
 _LOCAL_ORIGIN_HOSTS = {"127.0.0.1", "localhost", "::1"}
+_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _SAFE_IMAGE_DATA_URI_RE = re.compile(
     r"^data:image/(?:png|jpe?g|gif|webp|bmp|avif);base64,[A-Za-z0-9+/=\s]+$",
     re.IGNORECASE,
@@ -544,6 +545,202 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _get_studio_db_path() -> Path:
+    return REPO_ROOT / "QuietAdvisorDB.sqlite"
+
+
+def _connect_studio_sessions_db(db_path: Optional[Path] = None) -> Any:
+    import sqlite3
+    target_db = Path(db_path) if db_path else _get_studio_db_path()
+    target_db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(target_db, timeout=2.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS studio_sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            target TEXT NOT NULL DEFAULT 'auto:d3',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS studio_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL REFERENCES studio_sessions(id) ON DELETE CASCADE,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            reasoning TEXT DEFAULT '',
+            meta_label TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_studio_messages_session ON studio_messages(session_id, id)"
+    )
+    conn.commit()
+    return conn
+
+
+def _list_studio_sessions(limit: int = 40, db_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    try:
+        conn = _connect_studio_sessions_db(db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT s.id, s.title, s.target, s.created_at, s.updated_at,
+                       COUNT(m.id) AS message_count
+                FROM studio_sessions s
+                LEFT JOIN studio_messages m ON m.session_id = s.id
+                GROUP BY s.id
+                ORDER BY s.updated_at DESC
+                LIMIT ?
+                """,
+                (max(1, min(100, int(limit))),),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+    except Exception:
+        return []
+
+
+def _get_studio_session_detail(session_id: str, db_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    if not _SESSION_ID_RE.match(session_id or ""):
+        return None
+    try:
+        conn = _connect_studio_sessions_db(db_path)
+        try:
+            sess = conn.execute(
+                "SELECT id, title, target, created_at, updated_at FROM studio_sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+            if not sess:
+                return None
+            msgs = conn.execute(
+                """
+                SELECT id, role, content, reasoning, meta_label, created_at
+                FROM studio_messages
+                WHERE session_id = ?
+                ORDER BY id ASC
+                """,
+                (session_id,),
+            ).fetchall()
+            return {"session": dict(sess), "messages": [dict(m) for m in msgs]}
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
+def _upsert_studio_session(
+    session_id: Optional[str] = None,
+    title: Optional[str] = None,
+    target: Optional[str] = None,
+    db_path: Optional[Path] = None,
+) -> Dict[str, Any]:
+    import uuid
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    sid = str(session_id or "").strip()
+    if not sid or not _SESSION_ID_RE.match(sid):
+        sid = f"sess-{uuid.uuid4().hex[:12]}"
+    clean_title = " ".join(str(title or "New Studio Session").split())[:72] or "New Studio Session"
+    clean_target = str(target or "auto:d3").strip()[:120] or "auto:d3"
+
+    conn = _connect_studio_sessions_db(db_path)
+    try:
+        existing = conn.execute("SELECT id, title FROM studio_sessions WHERE id = ?", (sid,)).fetchone()
+        if existing:
+            if title:
+                conn.execute(
+                    "UPDATE studio_sessions SET title = ?, target = ?, updated_at = ? WHERE id = ?",
+                    (clean_title, clean_target, now, sid),
+                )
+            else:
+                conn.execute(
+                    "UPDATE studio_sessions SET target = ?, updated_at = ? WHERE id = ?",
+                    (clean_target, now, sid),
+                )
+        else:
+            conn.execute(
+                "INSERT INTO studio_sessions (id, title, target, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (sid, clean_title, clean_target, now, now),
+            )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, title, target, created_at, updated_at FROM studio_sessions WHERE id = ?",
+            (sid,),
+        ).fetchone()
+        return dict(row) if row else {"id": sid, "title": clean_title, "target": clean_target}
+    finally:
+        conn.close()
+
+
+def _append_studio_turn(
+    session_id: Optional[str],
+    target: str,
+    user_text: str,
+    assistant_text: str,
+    reasoning: str = "",
+    meta_label: str = "",
+    db_path: Optional[Path] = None,
+) -> str:
+    """Ensure session exists and append both user prompt and assistant response atomically."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    first_title = " ".join((user_text or "Studio Session").split())[:52] or "Studio Session"
+    sess = _upsert_studio_session(session_id=session_id, title=None if session_id else first_title, target=target, db_path=db_path)
+    sid = str(sess["id"])
+    try:
+        conn = _connect_studio_sessions_db(db_path)
+        try:
+            # If this session had a default placeholder title, promote first user prompt as title
+            row = conn.execute("SELECT title FROM studio_sessions WHERE id = ?", (sid,)).fetchone()
+            if row and row["title"] in ("New Studio Session", "Studio Session") and first_title:
+                conn.execute("UPDATE studio_sessions SET title = ?, updated_at = ? WHERE id = ?", (first_title, now, sid))
+            else:
+                conn.execute("UPDATE studio_sessions SET updated_at = ? WHERE id = ?", (now, sid))
+            conn.execute(
+                "INSERT INTO studio_messages (session_id, role, content, reasoning, meta_label, created_at) VALUES (?, 'user', ?, '', '', ?)",
+                (sid, str(user_text or ""), now),
+            )
+            if assistant_text:
+                conn.execute(
+                    "INSERT INTO studio_messages (session_id, role, content, reasoning, meta_label, created_at) VALUES (?, 'assistant', ?, ?, ?, ?)",
+                    (sid, str(assistant_text), str(reasoning or ""), str(meta_label or ""), now),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    return sid
+
+
+def _delete_studio_session(session_id: str, db_path: Optional[Path] = None) -> bool:
+    if not _SESSION_ID_RE.match(session_id or ""):
+        return False
+    try:
+        conn = _connect_studio_sessions_db(db_path)
+        try:
+            cur = conn.execute("DELETE FROM studio_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+
 def _record_studio_inference(
     model_id: str,
     is_local_exec: bool,
@@ -852,9 +1049,23 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.NO_CONTENT)
         self._send_security_headers()
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
+    def do_DELETE(self) -> None:
+        if not self._enforce_origin():
+            return
+        route = self._request_path()
+        if route.startswith("/api/sessions/"):
+            sid = route[len("/api/sessions/"):].strip("/")
+            if not _SESSION_ID_RE.match(sid):
+                self._send_json({"error": "Invalid session id"}, status=400)
+                return
+            deleted = _delete_studio_session(sid)
+            self._send_json({"deleted": deleted, "id": sid}, status=200 if deleted else 404)
+            return
+        self._send_json({"error": "Not found"}, status=404)
 
     def do_GET(self) -> None:
         try:
@@ -897,7 +1108,23 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             if route == "/api/health":
-                self._send_json({"status": "ok", "version": "1.0.1"})
+                self._send_json({"status": "ok", "version": "1.1.0"})
+                return
+
+            if route == "/api/sessions":
+                self._send_json({"sessions": _list_studio_sessions()})
+                return
+
+            if route.startswith("/api/sessions/"):
+                sid = route[len("/api/sessions/"):].strip("/")
+                if not _SESSION_ID_RE.match(sid):
+                    self._send_json({"error": "Invalid session id"}, status=400)
+                    return
+                detail = _get_studio_session_detail(sid)
+                if not detail:
+                    self._send_json({"error": "Session not found"}, status=404)
+                    return
+                self._send_json(detail)
                 return
 
             if route == "/api/status":
@@ -963,6 +1190,15 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
             if route == "/api/speculate":
                 self._send_json(_run_live_speculation(body))
+                return
+
+            if route == "/api/sessions":
+                sess = _upsert_studio_session(
+                    session_id=body.get("id"),
+                    title=body.get("title"),
+                    target=body.get("target"),
+                )
+                self._send_json({"session": sess})
                 return
 
             if route == "/api/chat":
@@ -1076,6 +1312,8 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
     def _handle_chat_stream(self, body: Dict[str, Any]) -> None:
         prompt = str(body.get("prompt") or "")
         target = str(body.get("target") or "auto:d3")
+        raw_sid = str(body.get("session_id") or "").strip()
+        session_id = raw_sid if _SESSION_ID_RE.match(raw_sid) else None
         history = _sanitize_history(body.get("history"))
         raw_image = body.get("image_base64")
         workspace_files = body.get("workspace_files") if isinstance(body.get("workspace_files"), list) else []
@@ -1091,9 +1329,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         self.close_connection = True
 
         client_alive = True
+        captured_chunks: List[str] = []
+        captured_reasoning: List[str] = []
+        active_provider_label = ""
 
         def _send(event_type: str, data: Dict[str, Any]) -> bool:
-            nonlocal client_alive
+            nonlocal client_alive, active_provider_label
+            if event_type == "delta" and isinstance(data, dict) and data.get("delta"):
+                captured_chunks.append(str(data["delta"]))
+            elif event_type == "reasoning" and isinstance(data, dict) and data.get("delta"):
+                captured_reasoning.append(str(data["delta"]))
+            elif event_type == "start" and isinstance(data, dict) and data.get("provider"):
+                active_provider_label = str(data["provider"])
             if not client_alive:
                 return False
             try:
@@ -1115,6 +1362,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             model_name, provider_key, is_ollama = self._resolve_target(target, effective_prompt, bool(image_base64))
+            active_provider_label = provider_key
             is_local_exec = _is_local_execution_provider(provider_key, is_ollama)
             _record_target_activity(target, did_offload=(not is_local_exec))
             if not _send("start", {"model_used": model_name, "provider": provider_key, "is_local": is_local_exec}):
@@ -1140,7 +1388,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             if client_alive:
                 latency = round((time.perf_counter() - t0) * 1000, 2)
                 _record_studio_inference(active_model, is_local_exec, len(effective_prompt), latency, success=True)
-                _send("done", {"latency_ms": latency, "model_used": active_model})
+                full_reply = "".join(captured_chunks)
+                full_reason = "".join(captured_reasoning)
+                meta_lbl = f"{active_model} [{active_provider_label}] · {latency} ms"
+                persisted_sid = _append_studio_turn(
+                    session_id=session_id,
+                    target=target,
+                    user_text=prompt or "(attached context)",
+                    assistant_text=full_reply,
+                    reasoning=full_reason,
+                    meta_label=meta_lbl,
+                )
+                _send("done", {"latency_ms": latency, "model_used": active_model, "session_id": persisted_sid})
         except Exception as exc:
             _record_studio_inference(target, False, len(prompt), round((time.perf_counter() - t0) * 1000, 2), success=False)
             _send("error", {"error": str(exc)})
@@ -1148,6 +1407,8 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
     def _handle_chat_sync(self, body: Dict[str, Any]) -> None:
         prompt = str(body.get("prompt") or "")
         target = str(body.get("target") or "auto:d3")
+        raw_session_id = str(body.get("session_id") or "").strip()
+        session_id = raw_session_id if _SESSION_ID_RE.match(raw_session_id) else None
         history = _sanitize_history(body.get("history"))
         raw_image = body.get("image_base64")
         workspace_files = body.get("workspace_files") if isinstance(body.get("workspace_files"), list) else []
@@ -1192,12 +1453,23 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         latency = round((time.perf_counter() - t0) * 1000, 2)
         _record_studio_inference(model_name, is_local_exec, len(effective_prompt), latency, success=not bool(err))
+        persisted_sid = session_id
+        if not err and content:
+            meta_lbl = f"{model_name} [{provider_key}] · {latency} ms"
+            persisted_sid = _append_studio_turn(
+                session_id=session_id,
+                target=target,
+                user_text=prompt or "(attached context)",
+                assistant_text=content,
+                meta_label=meta_lbl,
+            )
         self._send_json({
             "model_used": f"{provider_key}: {model_name}",
             "content": content or f"[{err}]",
             "error": err or None,
             "latency_ms": latency,
             "is_local": is_local_exec,
+            "session_id": persisted_sid,
         })
 
     def _resolve_target(self, target: str, prompt: str, has_image: bool) -> Tuple[str, str, bool]:
