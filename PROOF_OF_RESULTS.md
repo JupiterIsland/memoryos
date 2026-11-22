@@ -72,3 +72,26 @@ All four stages of the local-to-remote hybrid architecture were verified against
 4. **Closed-Loop Policy Enforcement (`POST /api/acknowledge-card`)**:
    - Clicking **`[Acknowledge & Apply]`** persisted `vram_thrashing_penalty = 1.5` and `force_remote_offload = true` in `quiet_advisor_user_preferences`.
    - Subsequent requests with `prefer_local = True` returned `local_execution_blocked = True`, `user_preference_penalty = 1.5`, and forced remote execution onto `Gemma-4-31B-IT` (`gpu_id = "tokenlab-remote"`).
+
+---
+
+## 4. v1.1.0 Update — Energy Waste Reduction, VRAM Reclamation & "Never-Forget" EWC Continual Learning (`2026-11-22`)
+
+Added `src/memoryos/memory_keeper.py` and continual online training methods on `SpeculativeOffloadModel` (`src/memoryos/speculative_offload.py`) so gamers and developers can actively reclaim locked local VRAM, persist knowledge across sessions/models, and train the offload router without catastrophic forgetting.
+
+### Measured Benchmark & Hardware Results
+
+| Benchmark / Capability | Measured Result | Verification Source |
+| :--- | :--- | :--- |
+| **Catastrophic Forgetting Test — Naive SGD Baseline** | **Task A drops `100% -> 0%`** after shifted Task B (`ewc_lambda=0.0`, no replay) | `tests/test_memory_keeper.py::test_ewc_plus_replay_prevents_catastrophic_forgetting` |
+| **Catastrophic Forgetting Test — MemoryOS EWC + Replay** | **Task A `100% -> 100%` retained** & **Task B `100%` learned** (`ewc_lambda=8.0` + replay) | `tests/test_memory_keeper.py::test_ewc_plus_replay_prevents_catastrophic_forgetting` |
+| **`SpeculativeOffloadModel` 4→8→1 Forward Latency** | **`6.12 μs` mean per call** (1,000-call microbenchmark — `<0.1%` of a `6.94 ms` 144 Hz frame budget) | Local benchmark run (`src/memoryos/speculative_offload.py`) |
+| **Live Host GPU Idle/Offload Power Snapshot** | **`19.14 W`** at **`57.4 °C`** (`1,246 / 8,192 MB` VRAM used by desktop compositor) | `MultiGPUDetector.get_active_profile()` (`nvidia-smi`, RTX 3070 Laptop GPU) |
+| **Safe Local Model Unload (`reclaim_memory`)** | Unloads localhost Ollama `/api/ps` weights via `keep_alive=0` (rejects non-local hosts; `4,000 MB` mock unload verified + `244.63 ms` host GC cycle) | `tests/test_memory_keeper.py::test_reclaim_memory_unloads_local_ollama_only_and_blocks_remote_hosts` |
+| **Transparent Energy Avoidance Formula (`EnergyLedger`)** | **`0.15 Wh` saved per avoided inference** (`150.0 Wh` per `1,000` skipped/offloaded calls at `45 W` conservative GPU delta × `12 s`) | `src/memoryos/memory_keeper.py` (`DEFAULT_INFERENCE_POWER_DELTA_W`, `DEFAULT_SKIPPED_CALL_DURATION_S`) |
+| **Full Stdlib CI Test Suite** | **`70 / 70` tests passing** (`python3 -B -W error::DeprecationWarning`) | `.github/workflows/ci.yml` + `tests/test_memory_keeper.py` |
+
+### Why This Matters for Environmental Waste, Gamers, and Developers
+* **Stop Burning Watts on Redundant Inference:** Polling loops and static screen frames never hit a 27B/31B GPU model when the sub-millisecond CPU delta gate (`~0.091 ms`) + `6.12 μs` speculative MLP skip unchanged frames before touching network or GPU compute.
+* **Reclaim Locked Memory Instantly:** Instead of force-killing user software or leaving idle local GGUF weights sitting in an 8 GB gaming GPU, `Free VRAM` (`POST /api/memory/reclaim` / `python3 -m memoryos.memory_keeper reclaim`) queries localhost runners and frees resident models cleanly before launching a game or build.
+* **Zero-Forget Workspace Memory:** Installed rules, hardware limits, and routing preferences persist in `QuietAdvisorDB.sqlite` (`continual_memory_facts`) and EWC Fisher checkpoints (`speculative_offload_continual.json`), injected automatically into Studio prompts across model swaps and session resets.

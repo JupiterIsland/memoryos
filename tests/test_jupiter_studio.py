@@ -707,6 +707,166 @@ class TestJupiterStudioLiveHTTP(unittest.TestCase):
                 status, _, _ = self._raw_request("GET", f"/api/sessions/{sid}")
                 self.assertEqual(status, 404)
 
+    def test_memory_vault_reclaim_and_ewc_endpoints(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_db = Path(tmpdir) / "vault_http.sqlite"
+            test_weights = Path(tmpdir) / "continual.json"
+            with patch("apps.jupiter_studio._get_studio_db_path", return_value=test_db), patch(
+                "src.memoryos.memory_keeper.CONTINUAL_WEIGHTS_PATH", test_weights
+            ):
+                # 1. Reject empty memory install
+                status, _, _ = self._raw_request(
+                    "POST",
+                    "/api/memory/remember",
+                    body=json.dumps({"topic": "gpu", "content": "  "}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 400)
+
+                # 2. Install persistent memory fact
+                status, _, raw = self._raw_request(
+                    "POST",
+                    "/api/memory/remember",
+                    body=json.dumps({
+                        "topic": "gaming",
+                        "content": "Keep RTX 3070 8GB VRAM free for Cyberpunk 1440p.",
+                        "tags": "gpu,vram",
+                    }).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 200)
+                fid = json.loads(raw)["fact"]["id"]
+
+                # 3. Verify installed fact appears in GET /api/memory/vault
+                status, _, raw = self._raw_request("GET", "/api/memory/vault")
+                self.assertEqual(status, 200)
+                vault_payload = json.loads(raw)
+                self.assertEqual(vault_payload["summary"]["facts_count"], 1)
+                self.assertEqual(vault_payload["facts"][0]["id"], fid)
+
+                # 4. Trigger memory reclaim cleanly
+                with patch(
+                    "src.memoryos.memory_keeper.reclaim_memory",
+                    return_value={"ok": True, "vram_freed_mb": 2048, "ram_freed_mb": 512, "unloaded_models": ["qwen2.5:7b"]},
+                ):
+                    status, _, raw = self._raw_request(
+                        "POST",
+                        "/api/memory/reclaim",
+                        body=b"{}",
+                        headers={"Content-Type": "application/json"},
+                    )
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(raw)["vram_freed_mb"], 2048)
+
+                # 5. Train continual EWC model via /api/memory/train with episode samples
+                status, _, raw = self._raw_request(
+                    "POST",
+                    "/api/memory/train",
+                    body=json.dumps({
+                        "epochs": 20,
+                        "samples": [
+                            {"features": {"mse_delta_norm": 0.9, "context_utilization": 0.2, "secs_since_offload": 0.8, "model_switch_rate": 0.1}, "label": 1.0},
+                            {"features": {"mse_delta_norm": 0.05, "context_utilization": 0.1, "secs_since_offload": 0.1, "model_switch_rate": 0.05}, "label": 0.0},
+                        ],
+                    }).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 200)
+                train_out = json.loads(raw)
+                self.assertTrue(train_out["trained"])
+                self.assertGreaterEqual(train_out["episodes_total"], 2)
+
+                # 5b. Live Anti-Forgetting Self-Test inside Studio (/api/memory/audit)
+                status, _, raw = self._raw_request(
+                    "POST",
+                    "/api/memory/audit",
+                    body=b"{}",
+                    headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 200)
+                audit_out = json.loads(raw)
+                self.assertTrue(audit_out["passed"])
+                self.assertLess(audit_out["naive_task_a_after"], 0.75)
+                self.assertGreaterEqual(audit_out["ewc_task_a_after"], 0.90)
+                self.assertGreaterEqual(audit_out["ewc_task_b_after"], 0.90)
+
+                # 6. Validate fact delete error handling (400 bad id, 200 valid delete, 404 after delete)
+                status, _, _ = self._raw_request("DELETE", "/api/memory/fact/not_an_int")
+                self.assertEqual(status, 400)
+                status, _, raw = self._raw_request("DELETE", f"/api/memory/fact/{fid}")
+                self.assertEqual(status, 200)
+                self.assertTrue(json.loads(raw)["deleted"])
+                status, _, _ = self._raw_request("DELETE", f"/api/memory/fact/{fid}")
+                self.assertEqual(status, 404)
+
+    def test_lemonade_health_schema_normalization_and_workload_cloud_routing(self) -> None:
+        from apps.jupiter_studio import (
+            _extract_lemonade_models,
+            _is_private_or_wsl_ip,
+            _normalize_lemonade_base,
+            _probe_lemonade_endpoint,
+            _probe_model_availability,
+        )
+
+        # Public DNS IPs like 8.8.8.8/1.1.1.1 are skipped, private WSL2 gateway IPs accepted
+        self.assertFalse(_is_private_or_wsl_ip("8.8.8.8"))
+        self.assertFalse(_is_private_or_wsl_ip("1.1.1.1"))
+        self.assertTrue(_is_private_or_wsl_ip("172.31.16.1"))
+        self.assertEqual(_normalize_lemonade_base("http://127.0.0.1:13305"), "http://127.0.0.1:13305/api/v1")
+        self.assertEqual(_normalize_lemonade_base("http://127.0.0.1:13305/api/v1/"), "http://127.0.0.1:13305/api/v1")
+
+        # Real Lemonade v2026.47.1 /health + /models schema extraction
+        sample_health = {
+            "status": "ok",
+            "model_loaded": "Qwen3.5-4B-GGUF",
+            "all_models_loaded": [{"model_name": "Qwen3.5-4B-GGUF", "status": "ready"}],
+        }
+        sample_models = {
+            "data": [{"id": "Bonsai-4B-gguf"}, {"id": "Qwen3.5-4B-GGUF"}],
+            "object": "list",
+        }
+        self.assertEqual(_extract_lemonade_models(sample_health), ["Qwen3.5-4B-GGUF"])
+        self.assertEqual(_extract_lemonade_models(sample_models), ["Bonsai-4B-gguf", "Qwen3.5-4B-GGUF"])
+
+        with patch("apps.jupiter_studio._http_ok", side_effect=lambda u, t=0.8: sample_models if "/models" in u else sample_health):
+            ok, mods = _probe_lemonade_endpoint("http://127.0.0.1:13305")
+        self.assertTrue(ok)
+        self.assertEqual(mods, ["Bonsai-4B-gguf", "Qwen3.5-4B-GGUF"])
+
+        # Workload routing: Fast coding -> Groq, Architecture -> DeepSeek-V4.1-Flash, Design docs -> Gemma-4-31B-IT, Cheap bg -> MiniCPM5-2B
+        with patch.dict(
+            os.environ,
+            {
+                "TOKENLAB_API_KEY": "tl-real-test",
+                "GROQ_API_KEY": "gsk_real_test",
+                "OPENROUTER_API_KEY": "sk-or-real-test",
+                "CEREBRAS_API_KEY": "csk-real-test",
+            },
+        ):
+            from apps.jupiter_studio import JupiterStudioHandler
+            h = JupiterStudioHandler.__new__(JupiterStudioHandler)
+
+            m_code, p_code, _ = h._resolve_target("auto:d3", "Write a fast Python refactor diff for this function", False)
+            self.assertEqual(p_code, "Groq Cloud")
+
+            m_arch, p_arch, _ = h._resolve_target("auto:d3", "Perform a system design and architecture review", False)
+            self.assertEqual((m_arch, p_arch), ("DeepSeek-V4.1-Flash", "AMD Token Lab"))
+
+            m_doc, p_doc, _ = h._resolve_target("auto:d3", "Analyze this large design document specification", False)
+            self.assertEqual((m_doc, p_doc), ("Gemma-4-31B-IT", "AMD Token Lab"))
+
+            m_bg, p_bg, _ = h._resolve_target("auto:d3", "Summarize this title tag", False)
+            self.assertEqual((m_bg, p_bg), ("MiniCPM5-2B", "AMD Token Lab"))
+
+            avail = _probe_model_availability()
+            self.assertTrue(avail["providers"]["groq"]["ready"])
+            self.assertTrue(avail["providers"]["openrouter"]["ready"])
+            self.assertTrue(avail["providers"]["cerebras"]["ready"])
+
 
 if __name__ == "__main__":
     unittest.main()

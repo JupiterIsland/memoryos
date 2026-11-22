@@ -88,11 +88,17 @@ _bootstrap_standalone_env()
 
 from src.memoryos.gpu_backends import MultiGPUDetector
 from src.memoryos.router import (
+    CEREBRAS_MODEL_MAP,
     DO_MODEL_MAP,
+    GROQ_MODEL_MAP,
     MODEL_PROFILES,
     NVIDIA_MODEL_MAP,
+    OPENROUTER_MODEL_MAP,
+    _get_cerebras_credentials,
     _get_do_credentials,
+    _get_groq_credentials,
     _get_nvidia_credentials,
+    _get_openrouter_credentials,
     _get_tokenlab_credentials,
     _is_configured_key,
     _local_d3_fallback,
@@ -263,43 +269,127 @@ def _get_nvidia_flare_credentials() -> Tuple[str, str]:
     return api_key, base_url
 
 
-_LEMONADE_CACHE: Dict[str, Any] = {"url": None, "checked": 0.0}
+_LEMONADE_CACHE: Dict[str, Any] = {"url": None, "checked": 0.0, "alive": False}
 _LEMONADE_CACHE_LOCK = threading.Lock()
 
 
-def _get_lemonade_credentials() -> Tuple[str, str]:
-    """Return (api_key, base_url) for a local AMD Lemonade Server (Ryzen AI XDNA 2 / FastFlowLM) endpoint."""
-    env_url = os.getenv("LEMONADE_BASE_URL", "").strip().rstrip("/")
-    api_key = os.getenv("LEMONADE_API_KEY", "EMPTY").strip()
-    if env_url:
-        return api_key, env_url
+def _is_private_or_wsl_ip(addr: str) -> bool:
+    try:
+        ip_obj = ipaddress.ip_address(addr.strip("[]"))
+        return ip_obj.is_private and not ip_obj.is_loopback
+    except ValueError:
+        return False
 
-    now = time.time()
-    with _LEMONADE_CACHE_LOCK:
-        if _LEMONADE_CACHE["checked"] and now - _LEMONADE_CACHE["checked"] < 10 and _LEMONADE_CACHE["url"]:
-            return api_key, _LEMONADE_CACHE["url"]
 
-    candidates = ["http://127.0.0.1:13305/api/v1"]
+def _discover_wsl_host_ips() -> List[str]:
+    """Return likely Windows host IPs when running inside WSL2 (filtering out public DNS servers like 8.8.8.8)."""
+    ips: List[str] = []
+    # Prefer default route gateway (Windows vEthernet adapter inside WSL2 NAT)
+    try:
+        import subprocess
+        out = subprocess.check_output(["ip", "route"], text=True, timeout=0.6)
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and parts[0] == "default" and parts[1] == "via":
+                gw = parts[2].strip()
+                if _is_private_or_wsl_ip(gw):
+                    ips.append(gw)
+    except Exception:
+        pass
     try:
         for line in Path("/etc/resolv.conf").read_text(encoding="utf-8", errors="replace").splitlines():
             if line.startswith("nameserver"):
                 parts = line.split()
                 if len(parts) >= 2:
                     addr = parts[1].strip()
-                    if ":" in addr and not addr.startswith("["):
-                        addr = f"[{addr}]"
-                    candidates.append(f"http://{addr}:13305/api/v1")
+                    if _is_private_or_wsl_ip(addr):
+                        ips.append(addr)
     except Exception:
         pass
+    return list(dict.fromkeys(ips))
+
+
+def _normalize_lemonade_base(raw_url: str) -> str:
+    clean = str(raw_url or "").strip().rstrip("/")
+    if not clean:
+        return "http://127.0.0.1:13305/api/v1"
+    parsed = urllib.parse.urlparse(clean)
+    if parsed.path in ("", "/"):
+        return f"{clean}/api/v1"
+    return clean
+
+
+def _extract_lemonade_models(payload: Optional[Dict[str, Any]]) -> List[str]:
+    if not isinstance(payload, dict):
+        return []
+    found: List[str] = []
+    # OpenAI /api/v1/models schema: {"data": [{"id": "...", "model_name": "..."}]}
+    for item in payload.get("data", []) if isinstance(payload.get("data"), list) else []:
+        if isinstance(item, dict):
+            mid = str(item.get("id") or item.get("model_name") or item.get("checkpoint") or "").strip()
+            if mid and mid not in found:
+                found.append(mid)
+    # Native Lemonade /api/v1/health schema: {"status": "ok", "model_loaded": "...", "all_models_loaded": [{"model_name": "..."}]}
+    loaded_top = str(payload.get("model_loaded") or "").strip()
+    if loaded_top and loaded_top not in found:
+        found.append(loaded_top)
+    for item in payload.get("all_models_loaded", []) if isinstance(payload.get("all_models_loaded"), list) else []:
+        if isinstance(item, dict):
+            mname = str(item.get("model_name") or item.get("id") or "").strip()
+            if mname and mname not in found:
+                found.append(mname)
+    return found
+
+
+def _probe_lemonade_endpoint(base_url: str, timeout: float = 0.8) -> Tuple[bool, List[str]]:
+    """Probe Lemonade via /models and native /health (handles schema & path variations cleanly)."""
+    norm = _normalize_lemonade_base(base_url)
+    root = norm[:-7] if norm.endswith("/api/v1") else (norm[:-3] if norm.endswith("/v1") else norm)
+    models: List[str] = []
+    alive = False
+
+    for url in dict.fromkeys([f"{norm}/models", f"{norm}/health", f"{root}/api/v1/health"]):
+        resp = _http_ok(url, timeout)
+        if isinstance(resp, dict):
+            if "data" in resp or resp.get("status") == "ok" or "all_models_loaded" in resp or "model_loaded" in resp:
+                alive = True
+                for mid in _extract_lemonade_models(resp):
+                    if mid not in models:
+                        models.append(mid)
+                if models:
+                    break
+    return alive, models
+
+
+def _get_lemonade_credentials() -> Tuple[str, str]:
+    """Return (api_key, base_url) for a local AMD Lemonade Server (Ryzen AI XDNA 2 / FastFlowLM) endpoint."""
+    env_url = os.getenv("LEMONADE_BASE_URL", "").strip()
+    api_key = os.getenv("LEMONADE_API_KEY", "EMPTY").strip()
+    if env_url:
+        return api_key, _normalize_lemonade_base(env_url)
+
+    now = time.time()
+    with _LEMONADE_CACHE_LOCK:
+        ttl = 10.0 if _LEMONADE_CACHE.get("alive") else 2.0
+        if _LEMONADE_CACHE["checked"] and now - _LEMONADE_CACHE["checked"] < ttl and _LEMONADE_CACHE["url"]:
+            return api_key, _LEMONADE_CACHE["url"]
+
+    candidates = ["http://127.0.0.1:13305/api/v1"]
+    for addr in _discover_wsl_host_ips():
+        fmt = f"[{addr}]" if ":" in addr and not addr.startswith("[") else addr
+        candidates.append(f"http://{fmt}:13305/api/v1")
 
     found = candidates[0]
+    is_alive = False
     for cand in dict.fromkeys(candidates):
-        if _http_ok(f"{cand}/models", 0.6) is not None:
+        ok, _ = _probe_lemonade_endpoint(cand, 0.6)
+        if ok:
             found = cand
+            is_alive = True
             break
 
     with _LEMONADE_CACHE_LOCK:
-        _LEMONADE_CACHE.update(url=found, checked=time.time())
+        _LEMONADE_CACHE.update(url=found, checked=time.time(), alive=is_alive)
     return api_key, found
 
 
@@ -333,17 +423,9 @@ def _resolve_ollama_host() -> Optional[str]:
         if now - _OLLAMA_CACHE["checked"] < 10 and _OLLAMA_CACHE["checked"]:
             return _OLLAMA_CACHE["host"]
     candidates = [os.getenv("OLLAMA_HOST", OLLAMA_HOST).rstrip("/"), "http://127.0.0.1:11434"]
-    try:
-        for line in Path("/etc/resolv.conf").read_text(encoding="utf-8", errors="replace").splitlines():
-            if line.startswith("nameserver"):
-                parts = line.split()
-                if len(parts) >= 2:
-                    addr = parts[1].strip()
-                    if ":" in addr and not addr.startswith("["):
-                        addr = f"[{addr}]"
-                    candidates.append(f"http://{addr}:11434")
-    except Exception:
-        pass
+    for addr in _discover_wsl_host_ips():
+        fmt = f"[{addr}]" if ":" in addr and not addr.startswith("[") else addr
+        candidates.append(f"http://{fmt}:11434")
     found = None
     for cand in dict.fromkeys(candidates):
         if _http_ok(f"{cand}/api/tags") is not None:
@@ -365,15 +447,26 @@ def _probe_model_availability() -> Dict[str, Any]:
     _, vllm_url = _get_local_vllm_credentials()
     _, flare_url = _get_nvidia_flare_credentials()
     _, lemonade_url = _get_lemonade_credentials()
-    lemonade_resp = _http_ok(f"{lemonade_url}/models", 0.8)
-    lemonade_installed: List[str] = []
-    if isinstance(lemonade_resp, dict):
-        lemonade_installed = [
-            str(m.get("id", ""))
-            for m in lemonade_resp.get("data", [])
-            if isinstance(m, dict) and m.get("id")
-        ]
+    lemonade_ok, lemonade_installed = _probe_lemonade_endpoint(lemonade_url, 0.8)
     hf_ready = bool(cloud.get("huggingface", {}).get("configured"))
+    groq_ready = bool(cloud.get("groq", {}).get("configured"))
+    openrouter_ready = bool(cloud.get("openrouter", {}).get("configured"))
+    cerebras_ready = bool(cloud.get("cerebras", {}).get("configured"))
+
+    lemonade_reason = ""
+    if not lemonade_ok:
+        is_wsl = False
+        try:
+            is_wsl = "microsoft" in Path("/proc/version").read_text(encoding="utf-8", errors="replace").lower()
+        except Exception:
+            pass
+        if is_wsl:
+            lemonade_reason = (
+                f"No TCP response at {lemonade_url} (WSL2 NAT cannot reach Windows 127.0.0.1:13305 unless "
+                "networkingMode=mirrored, --host 0.0.0.0, or running Studio natively on Windows)"
+            )
+        else:
+            lemonade_reason = f"No Lemonade Server at {lemonade_url}"
 
     def state(ok: bool, reason: str) -> Dict[str, Any]:
         return {"ready": ok, "reason": "" if ok else reason}
@@ -381,10 +474,13 @@ def _probe_model_availability() -> Dict[str, Any]:
     return {
         "providers": {
             "cloud": state(cloud["amd_tokenlab"]["configured"], "Set TOKENLAB_API_KEY in .env"),
+            "groq": state(groq_ready, "Set GROQ_API_KEY in .env"),
+            "openrouter": state(openrouter_ready, "Set OPENROUTER_API_KEY in .env"),
+            "cerebras": state(cerebras_ready, "Set CEREBRAS_API_KEY in .env"),
             "nv": state(cloud["nvidia_brev"]["configured"], "Set NVIDIA_API_KEY in .env"),
             "do": state(cloud["digitalocean_mi300x"]["configured"], "Set DO_MODEL_ACCESS_KEY in .env"),
             "hf": state(hf_ready, "Set HF_TOKEN in .env"),
-            "lemonade": state(lemonade_resp is not None, f"No Lemonade Server at {lemonade_url}"),
+            "lemonade": state(lemonade_ok, lemonade_reason),
             "vllm": state(_http_ok(f"{vllm_url}/models", 0.8) is not None, f"No vLLM server at {vllm_url}"),
             "flare": state(_http_ok(f"{flare_url}/models", 0.8) is not None, f"No Flare server at {flare_url}"),
             "ollama": state(bool(host), "Ollama not running - start the Ollama app"),
@@ -480,10 +576,13 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
             with _SPEC_MODEL_LOCK:
                 if _SPEC_MODEL is None:
                     try:
-                        from src.memoryos.speculative_offload import SpeculativeOffloadModel
+                        from src.memoryos.memory_keeper import CONTINUAL_WEIGHTS_PATH
+                        from src.memoryos.speculative_offload import DEFAULT_WEIGHTS_PATH, SpeculativeOffloadModel
                     except ImportError:
-                        from memoryos.speculative_offload import SpeculativeOffloadModel
-                    _SPEC_MODEL = SpeculativeOffloadModel.load()
+                        from memoryos.memory_keeper import CONTINUAL_WEIGHTS_PATH
+                        from memoryos.speculative_offload import DEFAULT_WEIGHTS_PATH, SpeculativeOffloadModel
+                    w_path = CONTINUAL_WEIGHTS_PATH if CONTINUAL_WEIGHTS_PATH.is_file() else DEFAULT_WEIGHTS_PATH
+                    _SPEC_MODEL = SpeculativeOffloadModel.load(w_path)
                 model = _SPEC_MODEL
 
         # Map prompt complexity, context load, and real session counters into normalized MLP features
@@ -547,6 +646,14 @@ def _run_live_speculation(body: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_studio_db_path() -> Path:
     return REPO_ROOT / "QuietAdvisorDB.sqlite"
+
+
+def _get_memory_vault():
+    try:
+        from src.memoryos.memory_keeper import MemoryVault
+    except ImportError:
+        from memoryos.memory_keeper import MemoryVault
+    return MemoryVault(db_path=_get_studio_db_path())
 
 
 def _connect_studio_sessions_db(db_path: Optional[Path] = None) -> Any:
@@ -1065,6 +1172,14 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             deleted = _delete_studio_session(sid)
             self._send_json({"deleted": deleted, "id": sid}, status=200 if deleted else 404)
             return
+        if route.startswith("/api/memory/fact/"):
+            raw_fid = route[len("/api/memory/fact/"):].strip("/")
+            if not raw_fid.isdigit():
+                self._send_json({"error": "Invalid memory fact id"}, status=400)
+                return
+            deleted = _get_memory_vault().forget(int(raw_fid))
+            self._send_json({"deleted": deleted, "id": int(raw_fid)}, status=200 if deleted else 404)
+            return
         self._send_json({"error": "Not found"}, status=404)
 
     def do_GET(self) -> None:
@@ -1108,7 +1223,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             if route == "/api/health":
-                self._send_json({"status": "ok", "version": "1.1.0"})
+                self._send_json({"status": "ok", "version": "2.0.0"})
                 return
 
             if route == "/api/sessions":
@@ -1143,6 +1258,14 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 files = scan_workspace_files(REPO_ROOT, max_files=150)
                 branch = get_git_branch(REPO_ROOT)
                 self._send_json({"files": files, "repo_root": str(REPO_ROOT), "git_branch": branch})
+                return
+
+            if route == "/api/memory/vault":
+                vault = _get_memory_vault()
+                self._send_json({
+                    "facts": vault.list_facts(limit=60),
+                    "summary": vault.get_summary(),
+                })
                 return
 
             self._send_json({"error": "Not found"}, status=404)
@@ -1199,6 +1322,60 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                     target=body.get("target"),
                 )
                 self._send_json({"session": sess})
+                return
+
+            if route == "/api/memory/remember":
+                topic = str(body.get("topic") or "general")
+                content = str(body.get("content") or "").strip()
+                tags = str(body.get("tags") or "")
+                importance = body.get("importance", 1.0)
+                if not content:
+                    self._send_json({"error": "Memory content cannot be empty"}, status=400)
+                    return
+                fact = _get_memory_vault().remember(topic=topic, content=content, tags=tags, importance=float(importance))
+                self._send_json({"fact": fact})
+                return
+
+            if route == "/api/memory/reclaim":
+                try:
+                    from src.memoryos.memory_keeper import reclaim_memory
+                except ImportError:
+                    from memoryos.memory_keeper import reclaim_memory
+                report = reclaim_memory(ollama_host=_resolve_ollama_host() or "http://127.0.0.1:11434")
+                _get_memory_vault().record_energy_event(
+                    event_type="vram_reclaim",
+                    vram_reclaimed_mb=report.get("vram_freed_mb", 0),
+                    details=f"unloaded={report.get('unloaded_models', [])}",
+                )
+                self._send_json(report)
+                return
+
+            if route == "/api/memory/train":
+                global _SPEC_MODEL
+                raw_samples = body.get("samples")
+                new_episodes = None
+                if isinstance(raw_samples, list) and raw_samples:
+                    new_episodes = []
+                    for item in raw_samples:
+                        if isinstance(item, dict) and isinstance(item.get("features"), dict):
+                            new_episodes.append((item["features"], float(item.get("label", 1.0))))
+                res = _get_memory_vault().train_continual_model(
+                    new_episodes=new_episodes,
+                    epochs=_safe_nonneg_int(body.get("epochs"), 60) or 60,
+                    seed_defaults=bool(body.get("seed_defaults", True)),
+                )
+                if res.get("trained"):
+                    with _SPEC_MODEL_LOCK:
+                        _SPEC_MODEL = None
+                self._send_json(res)
+                return
+
+            if route == "/api/memory/audit":
+                try:
+                    from src.memoryos.memory_keeper import run_anti_forgetting_audit
+                except ImportError:
+                    from memoryos.memory_keeper import run_anti_forgetting_audit
+                self._send_json(run_anti_forgetting_audit())
                 return
 
             if route == "/api/chat":
@@ -1295,6 +1472,18 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         workspace_files: Any,
     ) -> str:
         effective_prompt = str(prompt or "")
+        try:
+            vault = _get_memory_vault()
+            recalled = vault.recall(effective_prompt, limit=3) if effective_prompt.strip() else []
+            if recalled:
+                mem_lines = [f"- [{m['topic']}] {m['content']}" for m in recalled if m.get("content")]
+                if mem_lines:
+                    effective_prompt = (
+                        f"{effective_prompt}\n\n---\n### Persistent Workspace Memory Vault:\n"
+                        + "\n".join(mem_lines)
+                    )
+        except Exception:
+            pass
         if isinstance(uploaded_files, list) and uploaded_files:
             formatted_uploads = self._format_uploaded_files(uploaded_files)
             if formatted_uploads:
@@ -1472,19 +1661,65 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             "session_id": persisted_sid,
         })
 
+    @staticmethod
+    def _classify_workload(prompt: str, has_image: bool) -> str:
+        """Map prompt intent cleanly to: fast_code | architecture | large_design | cheap_bg | balanced."""
+        low = str(prompt or "").lower()
+        n_chars = len(low)
+        if has_image or n_chars >= 6000 or any(k in low for k in ("design doc", "design document", "specification", "rfc", "prd", "large document", "screenshot", "diagram")):
+            return "large_design"
+        if any(k in low for k in ("architecture", "system design", "audit", "tradeoff", "distributed", "refactor plan", "threat model")):
+            return "architecture"
+        if any(k in low for k in ("def ", "class ", "function", "refactor", "debug", "bug", "pytest", "unittest", "typescript", "python", "script", "code", "patch", "sql", "diff")):
+            return "fast_code"
+        if n_chars < 140 and any(k in low for k in ("summarize", "summary", "tag", "classify", "title", "format", "triage", "short", "clean", "convert")):
+            return "cheap_bg"
+        return "balanced"
+
     def _resolve_target(self, target: str, prompt: str, has_image: bool) -> Tuple[str, str, bool]:
         target_str = str(target or "auto:d3").strip()
         if target_str == "auto:d3":
+            status = get_cloud_provider_status()
+            workload = self._classify_workload(prompt, has_image)
+
+            if workload == "fast_code":
+                if status.get("groq", {}).get("configured"):
+                    return GROQ_MODEL_MAP["Qwen3.8-27B"], "Groq Cloud", False
+                if status.get("cerebras", {}).get("configured"):
+                    return CEREBRAS_MODEL_MAP["Qwen3.8-27B"], "Cerebras Cloud", False
+
+            if workload == "architecture":
+                if status["amd_tokenlab"]["configured"]:
+                    return "DeepSeek-V4.1-Flash", "AMD Token Lab", False
+                if status.get("openrouter", {}).get("configured"):
+                    return OPENROUTER_MODEL_MAP["DeepSeek-V4.1-Flash"], "OpenRouter", False
+
+            if workload == "large_design":
+                if status["amd_tokenlab"]["configured"]:
+                    return "Gemma-4-31B-IT", "AMD Token Lab", False
+                if status.get("openrouter", {}).get("configured"):
+                    return OPENROUTER_MODEL_MAP["Gemma-4-31B-IT"], "OpenRouter", False
+
+            if workload == "cheap_bg":
+                if status["amd_tokenlab"]["configured"]:
+                    return "MiniCPM5-2B", "AMD Token Lab", False
+                if status.get("groq", {}).get("configured"):
+                    return GROQ_MODEL_MAP["MiniCPM5-2B"], "Groq Cloud", False
+                if status.get("cerebras", {}).get("configured"):
+                    return CEREBRAS_MODEL_MAP["MiniCPM5-2B"], "Cerebras Cloud", False
+
             total_chars = len(prompt)
             decision = select_model_with_d3(prompt_text=prompt, has_image=has_image, context_chars=total_chars)
             selected_model = decision.get("selected_model", "Gemma-4-31B-IT")
-            # Never downgrade interactive studio chat to the 2B triage model unless explicitly chosen
-            if selected_model == "MiniCPM5-2B":
-                selected_model = "Gemma-4-31B-IT" if has_image else "Qwen3.8-27B"
             # Cascade across configured cloud accelerators -> live local Lemonade -> Local Ollama
-            status = get_cloud_provider_status()
             if status["amd_tokenlab"]["configured"]:
                 return selected_model, "AMD Token Lab", False
+            if status.get("groq", {}).get("configured"):
+                return GROQ_MODEL_MAP.get(selected_model, "llama-3.3-70b-versatile"), "Groq Cloud", False
+            if status.get("openrouter", {}).get("configured"):
+                return OPENROUTER_MODEL_MAP.get(selected_model, "deepseek/deepseek-chat"), "OpenRouter", False
+            if status.get("cerebras", {}).get("configured"):
+                return CEREBRAS_MODEL_MAP.get(selected_model, "llama-3.3-70b"), "Cerebras Cloud", False
             if status["nvidia_brev"]["configured"]:
                 nv_model = NVIDIA_MODEL_MAP.get(selected_model, "meta/llama-3.3-70b-instruct")
                 return nv_model, "NVIDIA NIM", False
@@ -1495,11 +1730,9 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 hf_model = "Qwen/Qwen2.5-VL-72B-Instruct" if has_image else "Qwen/Qwen2.5-Coder-32B-Instruct"
                 return hf_model, "Hugging Face Router", False
             _, lemon_url = _get_lemonade_credentials()
-            lemon_resp = _http_ok(f"{lemon_url}/models", 0.5)
-            if isinstance(lemon_resp, dict):
-                lemon_models = [str(m.get("id", "")) for m in lemon_resp.get("data", []) if isinstance(m, dict) and m.get("id")]
-                if lemon_models:
-                    return lemon_models[0], "Lemonade Server (Ryzen AI)", False
+            lemon_ok, lemon_models = _probe_lemonade_endpoint(lemon_url, 0.5)
+            if lemon_ok and lemon_models:
+                return lemon_models[0], "Lemonade Server (Ryzen AI)", False
             return "qwen2.5-coder:7b", "Local Ollama", True
 
         if target_str.startswith("ollama:"):
@@ -1507,6 +1740,15 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         if target_str.startswith("cloud:"):
             return target_str.split(":", 1)[1], "AMD Token Lab", False
+
+        if target_str.startswith("groq:"):
+            return target_str.split(":", 1)[1], "Groq Cloud", False
+
+        if target_str.startswith("openrouter:"):
+            return target_str.split(":", 1)[1], "OpenRouter", False
+
+        if target_str.startswith("cerebras:"):
+            return target_str.split(":", 1)[1], "Cerebras Cloud", False
 
         if target_str.startswith("nv:"):
             return target_str.split(":", 1)[1], "NVIDIA NIM", False
@@ -1540,6 +1782,15 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
         if "Flare" in provider_key:
             api_key, base_url = _get_nvidia_flare_credentials()
             return api_key, base_url, True
+        if "Groq" in provider_key:
+            api_key, base_url = _get_groq_credentials()
+            return api_key, base_url, False
+        if "OpenRouter" in provider_key:
+            api_key, base_url = _get_openrouter_credentials()
+            return api_key, base_url, False
+        if "Cerebras" in provider_key:
+            api_key, base_url = _get_cerebras_credentials()
+            return api_key, base_url, False
         if "NVIDIA" in provider_key:
             api_key, base_url = _get_nvidia_credentials()
             return api_key, base_url, False
@@ -1558,6 +1809,12 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             api_key,
             "tl-your-tokenlab-key-here",
             "your-token-lab-api-key-here",
+            "gsk_your-groq-key-here",
+            "your-groq-api-key-here",
+            "sk-or-your-openrouter-key-here",
+            "your-openrouter-api-key-here",
+            "csk-your-cerebras-key-here",
+            "your-cerebras-api-key-here",
             "nvapi-your-nvidia-api-key-here",
             "your-nvidia-api-key-here",
             "do-ai-your-model-access-key-here",
@@ -1666,16 +1923,20 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             hydra_targets: List[Tuple[str, str, bool]] = []
             if "AMD Token Lab" not in provider_key and cloud_stat["amd_tokenlab"]["configured"]:
                 hydra_targets.append(("AMD Token Lab", "Qwen3.8-27B", False))
+            if "Groq" not in provider_key and cloud_stat.get("groq", {}).get("configured"):
+                hydra_targets.append(("Groq Cloud", GROQ_MODEL_MAP.get(model_name, "llama-3.3-70b-versatile"), False))
+            if "OpenRouter" not in provider_key and cloud_stat.get("openrouter", {}).get("configured"):
+                hydra_targets.append(("OpenRouter", OPENROUTER_MODEL_MAP.get(model_name, "deepseek/deepseek-chat"), False))
+            if "Cerebras" not in provider_key and cloud_stat.get("cerebras", {}).get("configured"):
+                hydra_targets.append(("Cerebras Cloud", CEREBRAS_MODEL_MAP.get(model_name, "llama-3.3-70b"), False))
             if "NVIDIA" not in provider_key and cloud_stat["nvidia_brev"]["configured"]:
                 hydra_targets.append(("NVIDIA NIM", NVIDIA_MODEL_MAP.get(model_name, "meta/llama-3.3-70b-instruct"), False))
             if "DigitalOcean" not in provider_key and cloud_stat["digitalocean_mi300x"]["configured"]:
                 hydra_targets.append(("DigitalOcean MI300X", DO_MODEL_MAP.get(model_name, "meta-llama/Llama-3.3-70B-Instruct"), False))
             _, lemon_url = _get_lemonade_credentials()
-            lemon_resp = _http_ok(f"{lemon_url}/models", 0.5)
-            if isinstance(lemon_resp, dict):
-                lemon_models = [str(m.get("id", "")) for m in lemon_resp.get("data", []) if isinstance(m, dict) and m.get("id")]
-                if lemon_models:
-                    hydra_targets.append(("Lemonade Server (Ryzen AI)", lemon_models[0], True))
+            lemon_ok, lemon_models = _probe_lemonade_endpoint(lemon_url, 0.5)
+            if lemon_ok and lemon_models:
+                hydra_targets.append(("Lemonade Server (Ryzen AI)", lemon_models[0], True))
             for h_prov, h_model, h_local in hydra_targets:
                 h_key, h_base, _ = self._resolve_cloud_credentials(h_prov)
                 h_headers = {"Content-Type": "application/json", "Accept": "text/event-stream", "User-Agent": "JupiterStudio/1.0.1"}

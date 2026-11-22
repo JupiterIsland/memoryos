@@ -13,9 +13,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ($Verbose) {
+    $VerbosePreference = "Continue"
+}
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  AMD Token Lab Dual-Brain Aider Agent (MemoryOS v1.0)" -ForegroundColor Cyan
+Write-Host "  AMD Token Lab Dual-Brain Aider Agent (MemoryOS v1.1)" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Locate .env and repo root
@@ -31,14 +34,16 @@ if (-not $envPath) {
 }
 
 $repoRoot = Split-Path -Parent $envPath
-Set-Location $repoRoot
+Push-Location $repoRoot
+try {
 
 Write-Host "`nReading $envPath..." -ForegroundColor White
 $env_dict = @{}
 Get-Content $envPath | ForEach-Object {
-    if ($_ -match '^\s*([^=]+)\s*=\s*(.*)$' -and $_ -notmatch '^\s*#') {
-        $k = $matches[1].Trim()
-        $v = $matches[2].Trim().Trim('"').Trim("'")
+    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$' -and $_ -notmatch '^\s*#') {
+        $k = $matches[1]
+        $v = $matches[2] -replace '\s+#.*$', ''
+        $v = $v.Trim().Trim('"').Trim("'")
         $env_dict[$k] = $v
     }
 }
@@ -55,6 +60,10 @@ $apiBase = if ($env_dict["TOKENLAB_BASE_URL"]) {
 
 if (-not $apiKey) {
     Write-Error "ERROR: TOKENLAB_API_KEY not set in $envPath"
+    exit 1
+}
+if ($apiBase -notmatch '^https?://') {
+    Write-Error "ERROR: TOKENLAB_BASE_URL must start with http:// or https:// (got '$apiBase')"
     exit 1
 }
 
@@ -128,6 +137,9 @@ $coreFiles = if ($Files) {
         "src/memoryos/server.py"
     ) | Where-Object { Test-Path (Join-Path $repoRoot $_) }
 }
+if (-not $coreFiles -or $coreFiles.Count -eq 0) {
+    Write-Warning "No target files resolved; launching Aider with an empty file set."
+}
 
 # 8. Launch Aider in Dual-Brain Architect Mode with fast surgical diff editing (--editor-edit-format editor-diff)
 $settingsArgs = @()
@@ -152,4 +164,7 @@ if ($SingleModel) {
     } else {
         aider --architect --model "openai/$Model" --editor-model "openai/$EditorModel" --editor-edit-format editor-diff --weak-model "openai/$WeakModel" @settingsArgs --no-show-model-warnings @coreFiles
     }
+}
+} finally {
+    Pop-Location
 }

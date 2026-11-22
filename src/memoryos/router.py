@@ -161,6 +161,49 @@ def _get_nvidia_credentials() -> tuple[str, str]:
     return key, base_url
 
 
+GROQ_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
+    "Qwen3.8-27B": os.getenv("GROQ_CODE_MODEL", "llama-3.3-70b-versatile"),
+    "DeepSeek-V4.1-Flash": os.getenv("GROQ_LONG_CONTEXT_MODEL", "qwen/qwen3-32b"),
+    "MiniCPM5-2B": os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant"),
+}
+
+OPENROUTER_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("OPENROUTER_VISION_MODEL", "google/gemma-3-27b-it"),
+    "Qwen3.8-27B": os.getenv("OPENROUTER_CODE_MODEL", "qwen/qwen-2.5-coder-32b-instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("OPENROUTER_LONG_CONTEXT_MODEL", "deepseek/deepseek-chat"),
+    "MiniCPM5-2B": os.getenv("OPENROUTER_FAST_MODEL", "meta-llama/llama-3.1-8b-instruct"),
+}
+
+CEREBRAS_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("CEREBRAS_VISION_MODEL", "llama-3.3-70b"),
+    "Qwen3.8-27B": os.getenv("CEREBRAS_CODE_MODEL", "qwen-3-32b"),
+    "DeepSeek-V4.1-Flash": os.getenv("CEREBRAS_LONG_CONTEXT_MODEL", "qwen-3-32b"),
+    "MiniCPM5-2B": os.getenv("CEREBRAS_FAST_MODEL", "llama3.1-8b"),
+}
+
+
+def _get_groq_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for Groq ultra-fast LPU inference."""
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_openrouter_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for OpenRouter OpenAI-compatible gateway."""
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_cerebras_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for Cerebras wafer-scale cloud inference."""
+    key = os.getenv("CEREBRAS_API_KEY", "").strip()
+    base_url = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1").strip().rstrip("/")
+    return key, base_url
+
+
 def _http_post_json(
     url: str,
     headers: Dict[str, str],
@@ -238,13 +281,16 @@ def get_policy_telemetry() -> Dict[str, Any]:
 
 
 def get_cloud_provider_status() -> Dict[str, Any]:
-    """Return configuration & readiness status for AMD Token Lab, NVIDIA NIM/Brev, DigitalOcean MI300X, and Hugging Face."""
+    """Return configuration & readiness status for all configured cloud inference providers."""
     tl_key, tl_base = _get_tokenlab_credentials()
     nv_key, nv_base = _get_nvidia_credentials()
     do_key, do_base = _get_do_credentials()
     do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
     hf_key = (os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
     hf_base = os.getenv("HF_BASE_URL", "https://router.huggingface.co/v1").strip().rstrip("/")
+    groq_key, groq_base = _get_groq_credentials()
+    or_key, or_base = _get_openrouter_credentials()
+    cer_key, cer_base = _get_cerebras_credentials()
     transport = "openai_sdk+urllib_fallback" if OpenAI is not None else "urllib_stdlib"
     return {
         "amd_tokenlab": {
@@ -256,6 +302,33 @@ def get_cloud_provider_status() -> Dict[str, Any]:
             "systemone_url": f"{tl_base}/systemone",
             "transport": transport,
             "hardware": "AMD Instinct Cloud (Token Lab)",
+        },
+        "groq": {
+            "configured": _is_configured_key(
+                groq_key, "gsk_your-groq-key-here", "your-groq-api-key-here"
+            ),
+            "base_url": groq_base,
+            "transport": transport,
+            "hardware": "Groq LPU Inference Cloud",
+            "model_map": GROQ_MODEL_MAP,
+        },
+        "openrouter": {
+            "configured": _is_configured_key(
+                or_key, "sk-or-your-openrouter-key-here", "your-openrouter-api-key-here"
+            ),
+            "base_url": or_base,
+            "transport": transport,
+            "hardware": "OpenRouter Multi-Model Gateway",
+            "model_map": OPENROUTER_MODEL_MAP,
+        },
+        "cerebras": {
+            "configured": _is_configured_key(
+                cer_key, "csk-your-cerebras-key-here", "your-cerebras-api-key-here"
+            ),
+            "base_url": cer_base,
+            "transport": transport,
+            "hardware": "Cerebras Wafer-Scale Cloud",
+            "model_map": CEREBRAS_MODEL_MAP,
         },
         "nvidia_brev": {
             "configured": _is_configured_key(

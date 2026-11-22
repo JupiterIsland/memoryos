@@ -29,6 +29,8 @@ hiddenimports = [
     "src.memoryos.router",
     "src.memoryos.workspace_pack",
     "src.memoryos.speculative_offload",
+    "src.memoryos.memory_keeper",
+    "memoryos.memory_keeper",
     "src.memoryos.amd_zen_studio",
 ]
 

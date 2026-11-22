@@ -8,6 +8,7 @@ routing decisions (offload_now / skip / digest) in <100 microseconds.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sys
@@ -16,6 +17,13 @@ from typing import Any, Dict, List, Sequence, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WEIGHTS_PATH = REPO_ROOT / "memory" / "models" / "speculative_offload_v1.json"
+MAX_FISHER_VALUE = 25.0
+
+
+def _checkpoint_digest(payload: Dict[str, Any]) -> str:
+    canonical_keys = {k: v for k, v in payload.items() if k != "checksum_sha256"}
+    blob = json.dumps(canonical_keys, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
 
 EXPECTED_FEATURE_NAMES = (
     "mse_delta_norm",
@@ -142,7 +150,15 @@ class SpeculativeOffloadModel:
         tau_hi = _ensure_finite_float(thresholds.get("tau_hi", 0.65), "tau_hi")
         tau_lo = _ensure_finite_float(thresholds.get("tau_lo", 0.35), "tau_lo")
 
-        return cls(
+        expected_digest = data.get("checksum_sha256")
+        if expected_digest is not None:
+            actual_digest = _checkpoint_digest(data)
+            if str(expected_digest) != actual_digest:
+                raise ValueError(
+                    f"Checkpoint integrity mismatch in {path}: expected sha256={expected_digest}, got {actual_digest}"
+                )
+
+        model = cls(
             w1=w1,
             b1=b1,
             w2=w2,
@@ -153,6 +169,10 @@ class SpeculativeOffloadModel:
             model_name=data.get("model_name", "SpeculativeOffloadNet-v1"),
             version=data.get("version", "1.0.0"),
         )
+        ewc = data.get("ewc_state")
+        if isinstance(ewc, dict):
+            model.load_ewc_state(ewc)
+        return model
 
     def _prepare_vector(self, features: Union[Dict[str, float], Sequence[float]]) -> List[float]:
         if isinstance(features, dict):
@@ -202,3 +222,277 @@ class SpeculativeOffloadModel:
         if p <= th_lo:
             return "skip"
         return "digest"
+
+    def is_ood(self, features: Union[Dict[str, float], Sequence[float]]) -> bool:
+        """Detect out-of-distribution normalized features outside [-0.05, 1.25]."""
+        x = self._prepare_vector(features)
+        return any(val < -0.05 or val > 1.25 for val in x)
+
+    def decide_with_confidence(
+        self,
+        features: Union[Dict[str, float], Sequence[float]],
+        tau_hi: Union[float, None] = None,
+        tau_lo: Union[float, None] = None,
+    ) -> Dict[str, Any]:
+        """Safe policy envelope: abstains to 'digest' on out-of-distribution inputs and reports confidence."""
+        ood = self.is_ood(features)
+        p = self.predict_proba(features)
+        if ood:
+            return {
+                "action": "digest",
+                "p_offload": round(p, 4),
+                "confidence": 0.0,
+                "ood_detected": True,
+                "abstained": True,
+            }
+        action = self.decide(features, tau_hi=tau_hi, tau_lo=tau_lo)
+        confidence = round(abs(p - 0.5) * 2.0, 4)
+        return {
+            "action": action,
+            "p_offload": round(p, 4),
+            "confidence": confidence,
+            "ood_detected": False,
+            "abstained": False,
+        }
+
+    def _forward_cache(self, x: Sequence[float]) -> tuple[List[float], List[float], float]:
+        """Return hidden pre-activations, ReLU activations, and output probability."""
+        z1 = [
+            sum(self.w1[j][i] * x[i] for i in range(self.in_dim)) + self.b1[j]
+            for j in range(self.hidden_dim)
+        ]
+        h = [_relu(v) for v in z1]
+        logit = sum(self.w2[j] * h[j] for j in range(self.hidden_dim)) + self.b2
+        return z1, h, _sigmoid(logit)
+
+    def load_ewc_state(self, state: Dict[str, Any]) -> None:
+        """Restore persisted Fisher importance matrix and anchor parameters."""
+        try:
+            fw1 = state["fisher_w1"]
+            fb1 = state["fisher_b1"]
+            fw2 = state["fisher_w2"]
+            fb2 = state["fisher_b2"]
+            aw1 = state["anchor_w1"]
+            ab1 = state["anchor_b1"]
+            aw2 = state["anchor_w2"]
+            ab2 = state["anchor_b2"]
+            if (
+                len(fw1) == self.hidden_dim
+                and len(aw1) == self.hidden_dim
+                and len(fb1) == self.hidden_dim
+                and len(fw2) == self.hidden_dim
+            ):
+                self._ewc_fisher = {
+                    "w1": [[_ensure_finite_float(v) for v in row] for row in fw1],
+                    "b1": [_ensure_finite_float(v) for v in fb1],
+                    "w2": [_ensure_finite_float(v) for v in fw2],
+                    "b2": _ensure_finite_float(fb2),
+                }
+                self._ewc_anchor = {
+                    "w1": [[_ensure_finite_float(v) for v in row] for row in aw1],
+                    "b1": [_ensure_finite_float(v) for v in ab1],
+                    "w2": [_ensure_finite_float(v) for v in aw2],
+                    "b2": _ensure_finite_float(ab2),
+                }
+        except (KeyError, TypeError, ValueError):
+            pass
+
+    def export_ewc_state(self) -> Union[Dict[str, Any], None]:
+        fisher = getattr(self, "_ewc_fisher", None)
+        anchor = getattr(self, "_ewc_anchor", None)
+        if not fisher or not anchor:
+            return None
+        return {
+            "fisher_w1": fisher["w1"],
+            "fisher_b1": fisher["b1"],
+            "fisher_w2": fisher["w2"],
+            "fisher_b2": fisher["b2"],
+            "anchor_w1": anchor["w1"],
+            "anchor_b1": anchor["b1"],
+            "anchor_w2": anchor["w2"],
+            "anchor_b2": anchor["b2"],
+        }
+
+    def save(self, weights_path: Union[str, Path]) -> Path:
+        """Persist current MLP weights and any EWC Fisher consolidation anchor to JSON."""
+        path = Path(weights_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload: Dict[str, Any] = {
+            "model_name": self.model_name,
+            "version": self.version,
+            "feature_names": list(self.feature_names),
+            "hidden_activation": "relu",
+            "output_activation": "sigmoid",
+            "thresholds": {"tau_hi": self.tau_hi, "tau_lo": self.tau_lo},
+            "w1": self.w1,
+            "b1": self.b1,
+            "w2": self.w2,
+            "b2": self.b2,
+        }
+        ewc_state = self.export_ewc_state()
+        if ewc_state is not None:
+            payload["ewc_state"] = ewc_state
+        payload["schema_version"] = 2
+        payload["checksum_sha256"] = _checkpoint_digest(payload)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp_path.replace(path)
+        return path
+
+    def evaluate(
+        self,
+        samples: Sequence[tuple[Union[Dict[str, float], Sequence[float]], float]],
+    ) -> Dict[str, float]:
+        """Evaluate binary accuracy and mean cross-entropy / Brier loss on labeled episodes."""
+        if not samples:
+            return {"count": 0.0, "accuracy": 0.0, "brier_loss": 0.0}
+        correct = 0
+        sq_err = 0.0
+        for feats, raw_y in samples:
+            y = 1.0 if float(raw_y) >= 0.5 else 0.0
+            p = self.predict_proba(feats)
+            if (p >= 0.5) == (y >= 0.5):
+                correct += 1
+            sq_err += (p - y) ** 2
+        n = float(len(samples))
+        return {
+            "count": n,
+            "accuracy": round(correct / n, 4),
+            "brier_loss": round(sq_err / n, 6),
+        }
+
+    def compute_fisher_diagonal(
+        self,
+        samples: Sequence[tuple[Union[Dict[str, float], Sequence[float]], float]],
+    ) -> Dict[str, Any]:
+        """Estimate diagonal Fisher information around current parameters to protect learned tasks."""
+        fw1 = [[0.0 for _ in range(self.in_dim)] for _ in range(self.hidden_dim)]
+        fb1 = [0.0 for _ in range(self.hidden_dim)]
+        fw2 = [0.0 for _ in range(self.hidden_dim)]
+        fb2 = 0.0
+        n = max(1, len(samples))
+        for feats, raw_y in samples:
+            x = self._prepare_vector(feats)
+            y = 1.0 if float(raw_y) >= 0.5 else 0.0
+            z1, h, p = self._forward_cache(x)
+            # Bernoulli log-likelihood gradient wrt logit: (p - y)
+            d_logit = p - y
+            fb2 += d_logit * d_logit
+            for j in range(self.hidden_dim):
+                gw2 = d_logit * h[j]
+                fw2[j] += gw2 * gw2
+                if z1[j] > 0.0:
+                    d_z1 = d_logit * self.w2[j]
+                    fb1[j] += d_z1 * d_z1
+                    for i in range(self.in_dim):
+                        gw1 = d_z1 * x[i]
+                        fw1[j][i] += gw1 * gw1
+        inv_n = 1.0 / n
+        return {
+            "w1": [[v * inv_n for v in row] for row in fw1],
+            "b1": [v * inv_n for v in fb1],
+            "w2": [v * inv_n for v in fw2],
+            "b2": fb2 * inv_n,
+        }
+
+    def consolidate_memory(
+        self,
+        samples: Sequence[tuple[Union[Dict[str, float], Sequence[float]], float]],
+        max_fisher: float = MAX_FISHER_VALUE,
+    ) -> None:
+        """Snapshot current weights + clipped Fisher importance across tasks (prevents plastic lock)."""
+        cap = max(0.1, _ensure_finite_float(max_fisher, "max_fisher"))
+        new_fisher = self.compute_fisher_diagonal(samples)
+        prev_fisher = getattr(self, "_ewc_fisher", None)
+        if prev_fisher is not None:
+            new_fisher = {
+                "w1": [
+                    [min(cap, prev_fisher["w1"][j][i] + new_fisher["w1"][j][i]) for i in range(self.in_dim)]
+                    for j in range(self.hidden_dim)
+                ],
+                "b1": [min(cap, prev_fisher["b1"][j] + new_fisher["b1"][j]) for j in range(self.hidden_dim)],
+                "w2": [min(cap, prev_fisher["w2"][j] + new_fisher["w2"][j]) for j in range(self.hidden_dim)],
+                "b2": min(cap, prev_fisher["b2"] + new_fisher["b2"]),
+            }
+        else:
+            new_fisher = {
+                "w1": [[min(cap, v) for v in row] for row in new_fisher["w1"]],
+                "b1": [min(cap, v) for v in new_fisher["b1"]],
+                "w2": [min(cap, v) for v in new_fisher["w2"]],
+                "b2": min(cap, new_fisher["b2"]),
+            }
+        self._ewc_fisher = new_fisher
+        self._ewc_anchor = {
+            "w1": [row[:] for row in self.w1],
+            "b1": self.b1[:],
+            "w2": self.w2[:],
+            "b2": self.b2,
+        }
+
+    def fit_continual(
+        self,
+        new_samples: Sequence[tuple[Union[Dict[str, float], Sequence[float]], float]],
+        replay_samples: Sequence[tuple[Union[Dict[str, float], Sequence[float]], float]] = (),
+        lr: float = 0.08,
+        epochs: int = 80,
+        ewc_lambda: float = 15.0,
+        consolidate_after: bool = True,
+    ) -> Dict[str, Any]:
+        """Train on new episodes with Elastic Weight Consolidation + Experience Replay."""
+        combined = list(new_samples) + list(replay_samples)
+        if not combined:
+            return {"steps": 0, "brier_loss": 0.0, "accuracy": 0.0}
+
+        prepared = [(self._prepare_vector(f), 1.0 if float(y) >= 0.5 else 0.0) for f, y in combined]
+        fisher = getattr(self, "_ewc_fisher", None)
+        anchor = getattr(self, "_ewc_anchor", None)
+        use_ewc = bool(fisher and anchor and ewc_lambda > 0.0)
+        n = float(len(prepared))
+
+        for _ in range(max(1, int(epochs))):
+            gw1 = [[0.0 for _ in range(self.in_dim)] for _ in range(self.hidden_dim)]
+            gb1 = [0.0 for _ in range(self.hidden_dim)]
+            gw2 = [0.0 for _ in range(self.hidden_dim)]
+            gb2 = 0.0
+
+            for x, y in prepared:
+                z1, h, p = self._forward_cache(x)
+                # Binary cross-entropy gradient wrt logit is cleanly (p - y)
+                d_logit = p - y
+                gb2 += d_logit
+                for j in range(self.hidden_dim):
+                    gw2[j] += d_logit * h[j]
+                    if z1[j] > 0.0:
+                        d_z1 = d_logit * self.w2[j]
+                        gb1[j] += d_z1
+                        for i in range(self.in_dim):
+                            gw1[j][i] += d_z1 * x[i]
+
+            inv_n = 1.0 / n
+            # Apply batch gradient + EWC quadratic anchoring penalty
+            if use_ewc:
+                gb2 = gb2 * inv_n + ewc_lambda * fisher["b2"] * (self.b2 - anchor["b2"])
+            else:
+                gb2 = gb2 * inv_n
+            self.b2 = max(-10.0, min(10.0, self.b2 - lr * max(-5.0, min(5.0, gb2))))
+
+            for j in range(self.hidden_dim):
+                grad_w2 = gw2[j] * inv_n
+                grad_b1 = gb1[j] * inv_n
+                if use_ewc:
+                    grad_w2 += ewc_lambda * fisher["w2"][j] * (self.w2[j] - anchor["w2"][j])
+                    grad_b1 += ewc_lambda * fisher["b1"][j] * (self.b1[j] - anchor["b1"][j])
+                self.w2[j] = max(-10.0, min(10.0, self.w2[j] - lr * max(-5.0, min(5.0, grad_w2))))
+                self.b1[j] = max(-10.0, min(10.0, self.b1[j] - lr * max(-5.0, min(5.0, grad_b1))))
+                for i in range(self.in_dim):
+                    grad_w1 = gw1[j][i] * inv_n
+                    if use_ewc:
+                        grad_w1 += ewc_lambda * fisher["w1"][j][i] * (self.w1[j][i] - anchor["w1"][j][i])
+                    self.w1[j][i] = max(-10.0, min(10.0, self.w1[j][i] - lr * max(-5.0, min(5.0, grad_w1))))
+
+        if consolidate_after:
+            self.consolidate_memory(combined)
+        metrics = self.evaluate(combined)
+        metrics["ewc_protected"] = 1.0 if (use_ewc or self.export_ewc_state() is not None) else 0.0
+        metrics["episodes"] = len(combined)
+        return metrics

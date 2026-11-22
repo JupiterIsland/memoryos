@@ -1,115 +1,90 @@
-# MemoryOS // Jupiter Studio
+# MemoryOS // Jupiter Studio v2.0.0
 
-> One workspace for local and cloud AI, automatic model routing, project context, and live hardware telemetry.  
-> **Not another chatbot. An AI workstation.**
+> Hardware-aware hybrid AI workstation for local NPU/GPU runtimes, multi-cloud workload routing, VRAM reclamation, and continual non-forgetting memory.
 
-[![Release: v1.0.1](https://img.shields.io/badge/Release-v1.0.1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
-[![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
-[![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio-FF6A00?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
-[![Local VRAM: 0 MB Consumed](https://img.shields.io/badge/Local_VRAM-0_MB_Consumed-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-38BDF8?style=for-the-badge)](LICENSE)
+[![Release: v2.0.0](https://img.shields.io/badge/Release-v2.0.0-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflow/status/JupiterIsland/memoryos/ci.yml)
+[![Download Jupiter Studio](https://img.shields.io/badge/Download-Jupiter_Studio_v2-38BDF8?style=for-the-badge)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Local VRAM: 0 MB Offloaded](https://img.shields.io/badge/Local_VRAM-0_MB_On_Offload-10B981?style=for-the-badge)](PROOF_OF_RESULTS.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
-![Jupiter Studio Hero Screenshot](docs/screenshots/jupiter_studio_live_stream.png)
+![Jupiter Studio v2.0.0 Precision Obsidian Workstation](docs/screenshots/jupiter_studio_live_stream.png)
 
-**Jupiter Studio** is a hardware-aware AI workstation that automatically routes tasks between models, manages project context, and provides live system telemetry from a single desktop interface.
-
-Unlike traditional AI chat applications, Jupiter Studio helps you work across multiple models, monitor performance in real time, and keep your projects, files, and conversations connected—while keeping local GPU VRAM free for your native apps and games.
+**Jupiter Studio (`v2.0.0`)** pairs a single-process Python standard-library server and SQLite telemetry store with the **Precision Obsidian UI** — built for developers and PC gamers who need frontier coding, architecture review, and multimodal workflows on an 8 GB laptop GPU without VRAM thrashing, wasted idle GPU power, or session amnesia.
 
 ---
 
-## Why Jupiter Studio?
+## What Is New in v2.0.0
 
-Most AI tools ask:
-
-> *"Which model do you want to use?"*
-
-Jupiter Studio asks:
-
-> *"What are you trying to achieve?"*
-
-The platform automatically routes tasks, manages project context, and gives you live visibility into how your hardware and AI stack are performing.
+* **Precision Obsidian UI Rebuild:** Matte dark layering, `Ctrl+K` Command Palette (`#target-selector` synced across 8 provider groups), custom dark-themed file selectors, and three switchable themes (**QUANTUM**, **RADEON**, and **ATARI B&W**).
+* **Persistent SQLite Threads (`/api/sessions`):** Full multi-turn conversation storage with collapsible reasoning traces, instant reload, and cascade deletion inside `QuietAdvisorDB.sqlite` (WAL mode + `busy_timeout`).
+* **Memory Keeper & Active VRAM Reclamation (`src/memoryos/memory_keeper.py`):**
+  * **Free VRAM & RAM on Demand (`Free VRAM` button / CLI):** Safely queries localhost runners (`/api/ps`) to unload idle weights (`keep_alive: 0`) before a game or compile without killing user processes.
+  * **Persistent Memory Vault:** Pin rules, hardware limits, and architectural context into SQLite (`continual_memory_facts`) for automatic cross-session recall.
+  * **Energy Savings Ledger:** Transparent tracking of skipped redundant calls and offloaded GPU cycles (`0.15 Wh` per avoided heavy inference under a conservative `45 W` delta × `12 s` model).
+* **Hardened Continual Router (`EWC + Experience Replay`):**
+  * Incremental training of the local `4→8→1` `SpeculativeOffloadModel` using **Elastic Weight Consolidation (Fisher diagonal anchoring, `MAX_FISHER_VALUE = 25.0`) + Experience Replay**.
+  * Includes SHA-256 checkpoint verification (`schema_version = 2`), out-of-distribution (`OOD`) abstention guards, provenance quarantine on replay episodes, and an interactive **`Run Anti-Forgetting Self-Test`** directly inside the Studio UI and CLI (`71/71` CI tests passing; `72/72` including end-to-end provider & Lemonade schema tests).
+* **Expanded Multi-Cloud & Local Workload Routing:**
+  * Added **Groq**, **OpenRouter**, and **Cerebras** alongside **AMD Token Lab**, **NVIDIA NIM**, **DigitalOcean MI300X**, **Hugging Face Router**, **AMD Lemonade Server** (`FastFlowLM` / `llama.cpp`), **DGX Spark (`vLLM`/`Flare`)**, and **Ollama**.
+  * Fixed Lemonade Server endpoint normalization (`/api/v1/health` + `/models` schema detection) and WSL2 default-gateway discovery.
 
 ---
 
-## Get Started in Under 60 Seconds
+## Multi-Provider Workload Matrix
 
-### Option 1 — Download Standalone Binary (No Python Setup Required)
-Download the latest release: **[MemoryOS v1.0.1](https://github.com/JupiterIsland/memoryos/releases/tag/v1.0.1)** (`SHA256SUMS.txt` included)
+When `auto:d3` is active, Jupiter Studio routes workloads based on prompt intent, context footprint, and live provider readiness:
 
-* **Windows x64:** `JupiterStudio-Windows-x64.zip` → extract → run `JupiterStudio.exe --workspace "C:\path\to\your-project"`
-* **macOS (Apple Silicon):** `JupiterStudio-macOS-arm64.tar.gz` → `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio --workspace ~/projects/your-repo`
-* **Linux x64:** `JupiterStudio-Linux-x64.tar.gz` → `tar -xzf JupiterStudio-Linux-x64.tar.gz` → `./JupiterStudio-Linux-x64/JupiterStudio --workspace ~/projects/your-repo`
+| Workload Type | Primary Route | Secondary / Cloud Failover | Local Offline Fallback |
+| :--- | :--- | :--- | :--- |
+| **Fast Coding & Diffs** | **Groq** (`llama-3.3-70b-versatile`) | Cerebras / Token Lab `Qwen3.8-27B` | Lemonade Server / Ollama |
+| **Architecture Reviews** | **AMD Token Lab** (`DeepSeek-V4.1-Flash`) | OpenRouter `deepseek/deepseek-chat` | Lemonade Server / Ollama |
+| **Large Design Docs & Vision** | **AMD Token Lab** (`Gemma-4-31B-IT`) | OpenRouter `gemma-3-27b-it` / NVIDIA NIM | Lemonade Vision / Ollama |
+| **Cheap Background Tasks** | **AMD Token Lab** (`MiniCPM5-2B`) | Groq `llama-3.1-8b-instant` / Cerebras | Local light runner |
+
+---
+
+## Quick Start
+
+### Option 1 — Standalone Release Executable (No Python Setup Required)
+
+Download the pre-built archive for your platform from **[MemoryOS v2.0.0 Releases](https://github.com/JupiterIsland/memoryos/releases/latest)** (`SHA256SUMS.txt` verified):
+
+* **Windows x64:** Extract `JupiterStudio-Windows-x64.zip` → run `JupiterStudio.exe --workspace "C:\path\to\repo"`
+* **macOS (Apple Silicon):** `tar -xzf JupiterStudio-macOS-arm64.tar.gz` → `./JupiterStudio-macOS-arm64/JupiterStudio --workspace ~/projects/repo`
+* **Linux x64:** `tar -xzf JupiterStudio-Linux-x64.tar.gz` → `./JupiterStudio-Linux-x64/JupiterStudio --workspace ~/projects/repo`
 
 ### Option 2 — Run From Source
+
 ```bash
 git clone https://github.com/JupiterIsland/memoryos.git
 cd memoryos
-cp .env.example .env
+cp .env.example .env   # Add keys for providers you use (Token Lab, Groq, OpenRouter, Cerebras, etc.)
 python3 -B apps/jupiter_studio.py
 ```
-Then open **[http://127.0.0.1:7860](http://127.0.0.1:7860)** — see **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** for the plain-English walkthrough.
+
+Open **[http://127.0.0.1:7860](http://127.0.0.1:7860)** in your browser. See **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** for configuration walkthroughs and WSL2 Lemonade networking notes.
+
+### Memory Keeper Standalone CLI
+
+```bash
+PYTHONPATH=.:src python3 -B -m memoryos.memory_keeper status   # Live GPU VRAM/power, host RAM, vault summary
+PYTHONPATH=.:src python3 -B -m memoryos.memory_keeper reclaim  # Safely unload idle Ollama weights & collect RAM
+PYTHONPATH=.:src python3 -B -m memoryos.memory_keeper train    # Train EWC continual router & save signed checkpoint
+PYTHONPATH=.:src python3 -B -m memoryos.memory_keeper audit    # Run Naive SGD vs EWC+Replay anti-forgetting audit
+```
 
 ---
 
-## Key Features
+## Screenshots (`v2.0.0`)
 
-### 1. AI Workstation
-Work with multiple AI models from a single desktop interface.
-* Unified zero-dependency workstation (`Jupiter Studio`)
-* Local and cloud AI access in one place
-* Multi-provider support (**AMD Token Lab**, **AMD Lemonade Server / Ryzen AI FastFlowLM**, **Hugging Face Router**, **NVIDIA NIM**, **DigitalOcean MI300X**, **local DGX Spark `vLLM`/`Flare`**, and **Ollama**)
-* Three built-in themes: **Quantum** (smoked-crystal dark), **Radeon** (crimson carbon), and **Atari B&W** (high-res monochrome)
+| QUANTUM + Memory & Anti-Forgetting Audit | Ctrl+K Command Palette |
+| :---: | :---: |
+| ![Jupiter Studio Quantum + Memory Audit](docs/screenshots/jupiter_studio_quantum.png) | ![Jupiter Studio Ctrl+K Command Palette](docs/screenshots/jupiter_studio_palette.png) |
 
-### 2. Smart Model Routing
-Automatically select the most suitable model for every task.
-* `d3` Auto-Route Engine choosing the right tier per request
-* Performance- and resource-aware routing decisions
-* Hybrid local + cloud execution with instant `HTTP 429` failover
-
-### 3. Context & Workspace Intelligence
-Bring your project directly into the conversation.
-* Built-in repository file picker and multi-file drag-and-drop
-* Multimodal screenshot vision analysis
-* Automatic **secret-file upload guard** (blocks `.env`, `.pem`, `.key`, and `credentials.json` from ever being uploaded to cloud models)
-* One-click **Copilot Bundle Export** for VS Code and IDE coding agents
-
-### 4. Real-Time Hardware Telemetry
-Understand exactly what your AI stack is doing.
-* Live GPU detection, VRAM tracking, temperature, and load monitoring (including DGX Spark / GB10 unified-memory fallback)
-* **Live Pre-Send Speculative Neural Radar** calculating offload probability, predicted route, draft tokens, and VRAM saved as you type
-* Composite `0–100` **Workstation Health Score** (`Grade A–F`)
-
-### 5. Dual Arena
-Compare AI models side-by-side in real time.
-* Same prompt streamed concurrently to two models
-* Live millisecond latency comparison on both columns
-* One-click winner selection (`Keep Left` / `Keep Right`) straight into conversation history
-
-### 6. MemoryOS Intelligence Layer
-Keep knowledge organised across projects.
-* Local SQLite WAL telemetry ledger (`QuietAdvisorDB.sqlite`) with versioned migrations and parameterized queries
-* **The Quiet Advisor** autonomous detectors (VRAM pressure, thermal throttling, context waste, model thrashing)
-* Alert `CardState` lifecycle machine (`PENDING → TRIGGERED → ACKNOWLEDGED → RESOLVED`) with duplicate suppression and per-detector circuit breakers
-
-### 7. Performance Optimisation
-Built to use hardware efficiently.
-* **0 MB local studio VRAM** when offloading 27B–72B models to cloud accelerators
-* `0.091 ms` AMD Zen 3 AVX2/FMA host-side CPU skip gate and `5.37 μs` pure-Python Speculative Offload MLP
-* `3.07 ms` atomic NVMe checkpoint recovery and `94.0%` cellular tethering bandwidth reduction
-
-### 8. Developer Features
-Built by developers for developers.
-* Open, extensible Python architecture with zero PyTorch or Electron overhead
-* Automated **GitHub Actions CI** (`60+` unit tests + live binary HTTP/CORS smoke verification)
-* Cross-platform standalone builds published on GitHub Releases
-
----
-
-## Screenshots
-
-| AMD Radeon Carbon Theme | Sharp Smoked-Crystal Quantum Theme | Atari ST / Commodore B&amp;W Mode |
-| :---: | :---: | :---: |
-| ![Jupiter Studio Radeon Theme](docs/screenshots/jupiter_studio_radeon.png) | ![Jupiter Studio Quantum Smoked-Crystal](docs/screenshots/jupiter_studio_quantum.png) | ![Jupiter Studio Atari B&W Monochrome](docs/screenshots/jupiter_studio_daylight.png) |
+| AMD RADEON Crimson Theme | ATARI B&amp;W Monochrome Theme |
+| :---: | :---: |
+| ![Jupiter Studio Radeon Theme](docs/screenshots/jupiter_studio_radeon.png) | ![Jupiter Studio Atari B&W Theme](docs/screenshots/jupiter_studio_daylight.png) |
 
 ---
 
@@ -117,82 +92,49 @@ Built by developers for developers.
 
 ```mermaid
 flowchart TD
-    UI["Client Workstation Layer<br/>Jupiter Studio UI • Quiet Advisor Dashboard • Dual Arena"]
-    L1["Layer 1: Host-Side Telemetry &amp; Delta Gate<br/>AMD Zen 3 MSE Kernel (0.091 ms) • Speculative MLP (5.37 us)<br/>SQLite WAL Ledger + Migrations • NVMe Checkpoints (3.07 ms)"]
-    L2["Layer 2: Probabilistic Gatekeeper<br/>AMD Token Lab d3 Aux-Router (POST /v1/systemone)<br/>State Evaluation &amp; Static Frame Suppression"]
-    L3["Layer 3: Multi-Provider Inference (0 MB Local VRAM on Cloud Offload)<br/>AMD Token Lab (Gemma-4-31B-IT, Qwen3.8-27B, DeepSeek-V4.1-Flash)<br/>AMD Lemonade Server (FastFlowLM XDNA 2 / llama.cpp)<br/>Hugging Face Router • NVIDIA NIM • DigitalOcean MI300X<br/>Local DGX Spark (vLLM / Flare) • Local Ollama"]
+    UI["Client Workstation Layer<br/>Jupiter Studio v2.0.0 UI • Memory &amp; EWC Audit • Dual Arena • Ctrl+K Palette"]
+    L1["Layer 1: Host Gate, Continual Router &amp; Memory Keeper<br/>AMD Zen 3 MSE Gate (0.091 ms) • Speculative EWC MLP (6.97 us avg, OOD-Guarded)<br/>SQLite WAL Store (Sessions, Memory Vault, Replay Buffer, Energy Ledger)"]
+    L2["Layer 2: Probabilistic &amp; Workload Cascade<br/>Intent Classifier + Token Lab d3 Aux-Router + Hydra Circuit Failover"]
+    L3["Layer 3: Multi-Provider Inference Pool<br/>Cloud: AMD Token Lab • Groq • OpenRouter • Cerebras • NVIDIA NIM • DO MI300X • HF<br/>Local: AMD Lemonade Server (:13305) • DGX Spark (vLLM/Flare) • Ollama (:11434)"]
 
     UI --> L1 --> L2 --> L3
 ```
 
-For full architectural specifications, see [ARCHITECTURE.md](ARCHITECTURE.md).
+---
+
+## Verified Benchmarks & Test Evidence
+
+All telemetry and regression figures below are directly measured via our test suites ([`PROOF_OF_RESULTS.md`](PROOF_OF_RESULTS.md), [`tests/test_memory_keeper.py`](tests/test_memory_keeper.py), [`tests/run_gamer_hardware_tests.py`](tests/run_gamer_hardware_tests.py)).
+
+| Verification / Benchmark | Scope & Condition | Observed Result |
+| :--- | :--- | :--- |
+| **CI Unit & Live HTTP Suite** | `PYTHONPATH=. python3 -B -W error::DeprecationWarning -m unittest ...` | **72 / 72 passed (`OK`)** |
+| **Naive SGD vs EWC + Replay Retention** | Sequential Task A (Gaming) → Task B (Coding) → Task C (Multimodal) | Naive SGD dropped Task A **`100% → 0%`**; EWC + Replay retained **`100%`** (`ewc_task_a_after_abc = 1.0`) |
+| **Speculative MLP Latency** | 500–1,000 pure-Python forward passes | **`5.73 – 6.97 μs` avg** (`<0.1%` of a `6.94 ms` 144 Hz frame budget) |
+| **AMD Zen 3 CPU Skip Gate** | 200 iterations AVX2/FMA MSE frame delta | **`0.091 ms` avg** (`0.158 ms` p99) |
+| **Offloaded GPU Idle Baseline** | RTX 3070 Laptop GPU (8 GB) via `nvidia-smi` during Studio offload | **`19.14 W` / `57.4 °C`** (`0 MB` local VRAM sacrificed to inference) |
+| **Checkpoint Tamper & OOD Defense** | Mutated weight SHA-256 check; inputs outside `[-0.05, 1.25]` | Tampered checkpoints rejected (`ValueError`); OOD abstains to `digest` |
 
 ---
 
-## Verified Hardware Benchmarks
+## Security & Privacy Controls
 
-All figures are verified on physical AMD Ryzen hardware via the automated test suite [`tests/run_gamer_hardware_tests.py`](tests/run_gamer_hardware_tests.py).
-
-* **Testbed:** Lenovo Legion 15 — **AMD Ryzen 7 5800H** (Zen 3, 8C/16T) · **NVIDIA GeForce RTX 3070 Laptop GPU (8 GB)** *(reserved for native display/gaming)* · 16 GB DDR4-3200 · PCIe Gen 3.0 x4 NVMe · Ubuntu 24.04 LTS (WSL2)
-
-| Benchmark Suite | Evaluated Workload | Measured Result | Specification / Frame Budget | Status |
-| :--- | :--- | :--- | :--- | :---: |
-| **Suite 1: Database Audit** | 50 Inferences, 7 Cards, 20 Checkpoints | Exact count match | 100.0% Local VRAM Saved | **PASS** |
-| **Suite 2: Frame Budget** | 100-Frame CPU MSE Delta Timing | **2.713 ms** avg | Consumes 16.28% of 60 FPS (Zero lag) | **PASS** |
-| **Suite 3: Laptop Shootout** | 50-Request Monolithic Workload | **14.7x vs modeled 12.7 GB VRAM-spillover baseline**, 90.4% latency drop | 0 MB local VRAM vs 12.7 GB spillover | **PASS** |
-| **Suite 4: Chaos Recovery** | 20-Checkpoint NVMe Quick-Save Scan | **3.072 ms** per checkpoint reload | Total 20 CPs scanned in 61.43 ms | **PASS** |
-| **Suite 5: Router Ping** | Local Port 5000 API Contract | Deterministic fallback | Verified contract response | **PASS** |
-| **Suite 6: AMD Zen 3 Kernel** | 200 Iterations Zen 3 AVX2/FMA Gate | **0.091 ms** avg (**0.158 ms** p99) | Consumes 0.55% of 60 FPS budget | **PASS** |
-| **Suite 7: Mobile Hotspot** | 1,000 Frames (Modeled LTE Uplinks) | **94.0% Modeled Bandwidth Reduction** | 385.5 MB / 205.6 s airtime estimate | **PASS** |
-| **Suite 8: Speculative MLP** | 1,000 Forward Passes (Pure Python) | **5.37 μs** avg latency | Sub-millisecond pre-network host gate | **PASS** |
-
----
-
-## Vision
-
-The future is not one AI model.
-
-The future is intelligent systems that coordinate multiple models, understand context, preserve knowledge, and help people work more effectively.
-
-**MemoryOS** exists to build that future.
-
----
-
-## Founder
-
-Built independently by **Richard John Murray** (`JupiterIsland`).
-
-MemoryOS started with a simple idea:
-
-> *AI should feel less like opening a website and more like sitting down at a workstation.*
-
-**Jupiter Studio** is the result of that idea.
-
----
-
-## Honest Credits & Acknowledgements
-
-AI works best when builders are straight with users about both the limitations and the models involved.
-
-* **Special Thanks to DeepSeek 3:** Essential credit goes to **DeepSeek 3**, who brought Jupiter Studio back from the dead with brutally honest code reviews, architecture critique, and relentless pushback against hype—turning a rough prototype into a clean, verifiable workstation.
-* **Models Powering & Named in Jupiter Studio:** `Gemma-4-31B-IT` (*Vision & Architecture*), `Qwen3.8-27B` (*Code & Surgical Diffs*), `DeepSeek-V4.1-Flash` (*Long Context / Logs*), and `MiniCPM5-2B` (*Fast Edge Triage*) via **AMD Token Lab**, plus **Google Gemini / Antigravity** for hands-on systems engineering, test verification, and release automation.
-
-See **[The Real Talk (Honest Limitations)](HOW_TO_USE_JUPITER_STUDIO.md#6-the-real-talk-honest-limitations)** for a plain-English look at context limits, real VRAM vs. cloud offload, rate limits, and hallucinations.
+* **Localhost Binding & Strict Origin Enforcement:** Binds exclusively to `127.0.0.1`; rejects cross-origin `Origin` headers with `HTTP 403`.
+* **Secret Upload Blocking:** `WorkspacePack` and browser file drop block `.env`, `.pem`, `.key`, `.p12`, `.pfx`, `.htpasswd`, SSH keys, and `credentials.json`.
+* **Provenance Quarantine & Signed EWC Checkpoints:** External/untrusted episodes are filtered from EWC Fisher training; continual checkpoints verify `checksum_sha256`.
+* **No Hidden Background Offload Surprises:** Placeholder API keys (`your-...-here`) fail closed safely to the next configured provider or local runtime.
 
 ---
 
 ## Documentation Index
 
-* **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** — Plain-English user guide, honest limitations & model credits
-* **[AMD_RELEASE_CANDIDATE.md](AMD_RELEASE_CANDIDATE.md)** — Master Release Candidate Dossier for AMD Developer Relations & Token Lab
-* **[ARCHITECTURE.md](ARCHITECTURE.md)** — Complete architectural specification and systems topology
-* **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — Production Release Notes (`v1.0.0`)
-* **[INSTALL.md](INSTALL.md)** — Installation and deployment guide
-* **[PROOF_OF_RESULTS.md](PROOF_OF_RESULTS.md)** — Verified telemetry audit and Token Lab usage records
-* **[VALIDATION_SUMMARY.md](VALIDATION_SUMMARY.md)** — Static analysis and regression verification
+* **[PROOF_OF_RESULTS.md](PROOF_OF_RESULTS.md)** — Production AMD Token Lab telemetry audit, energy avoidance math & v2.0.0 benchmarks
+* **[HOW_TO_USE_JUPITER_STUDIO.md](HOW_TO_USE_JUPITER_STUDIO.md)** — Plain-English setup guide, WSL2 networking notes & honest scope limits
+* **[ARCHITECTURE.md](ARCHITECTURE.md)** — System topology and database schema overview
+* **[INSTALL.md](INSTALL.md)** — Installation and cross-platform packaging instructions
 
 ---
 
 ## License
 
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for full details. Founded and maintained independently by **Richard John Murray** ([`JupiterIsland`](https://github.com/JupiterIsland)).

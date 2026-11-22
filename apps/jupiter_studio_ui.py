@@ -1,4 +1,4 @@
-"""Single-module Precision Obsidian UI for Jupiter Studio (v1.1.0)."""
+"""Single-module Precision Obsidian UI for Jupiter Studio (v2.0.0)."""
 
 STUDIO_HTML = r"""<!DOCTYPE html>
 <html lang="en" data-theme="quantum">
@@ -240,7 +240,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 
   .rail-tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -465,8 +465,87 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
 
   .ws-file-row input {
-    accent-color: var(--accent);
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
     margin: 0;
+    transition: border-color 0.14s ease, background 0.14s ease;
+  }
+
+  .ws-file-row input:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .ws-file-row input:checked::after {
+    content: "";
+    width: 4px;
+    height: 8px;
+    border: solid #06090f;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+
+  .mem-stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 8px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+
+  .mem-fact-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    font-size: 12px;
+  }
+
+  .mem-topic-pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--border-accent);
+    padding: 1px 6px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+  }
+
+  .btn-free-vram {
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 5px;
+    border: 1px solid var(--border-accent);
+    background: var(--accent-dim);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-free-vram:hover {
+    filter: brightness(1.12);
   }
 
   /* Bottom Telemetry Dock */
@@ -1343,7 +1422,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
         <div class="brand-mark">JS</div>
         <span class="brand-title">Jupiter Studio</span>
       </div>
-      <span class="brand-ver">v1.1.0</span>
+      <span class="brand-ver">v2.0.0</span>
     </div>
 
     <div class="rail-actions">
@@ -1355,6 +1434,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <div class="rail-tabs" role="tablist">
         <button class="rail-tab active" id="tab-sessions" onclick="switchRailTab('sessions')">Sessions</button>
         <button class="rail-tab" id="tab-workspace" onclick="switchRailTab('workspace')">Workspace</button>
+        <button class="rail-tab" id="tab-memory" onclick="switchRailTab('memory')">Memory</button>
       </div>
     </div>
 
@@ -1383,11 +1463,38 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- Pane 3: Continual Memory Vault & Energy Saver -->
+    <div class="rail-pane" id="pane-memory">
+      <div class="ws-toolbar">
+        <div class="ws-btn-row">
+          <button class="btn-mini" id="btn-reclaim-vram" onclick="reclaimVramNow()">Free VRAM &amp; RAM</button>
+          <button class="btn-mini" id="btn-train-ewc" onclick="trainContinualModel()">Train EWC Model</button>
+        </div>
+        <button class="btn-mini" id="btn-audit-ewc" onclick="runAntiForgettingAudit()" style="width:100%;">Run Anti-Forgetting Self-Test</button>
+        <div class="mem-stat-row">
+          <div><span style="color:var(--muted);">ENERGY</span> <b id="mem-wh-saved">0.0 Wh</b></div>
+          <div><span style="color:var(--muted);">EWC</span> <b id="mem-ewc-status">0 ep</b></div>
+        </div>
+        <div id="mem-audit-box" style="display:none; padding:7px 9px; border-radius:7px; border:1px solid var(--border-accent); background:var(--accent-dim); font-family:var(--font-mono); font-size:10.5px; color:var(--text);"></div>
+        <input class="ws-input" id="mem-topic-input" type="text" placeholder="Memory topic (e.g. hardware, goal)..." />
+        <div style="display:flex; gap:6px;">
+          <input class="ws-input" id="mem-content-input" type="text" placeholder="Install persistent memory fact..." onkeydown="if(event.key==='Enter') installMemoryFact();" />
+          <button class="btn-mini" style="padding:0 10px; white-space:nowrap;" onclick="installMemoryFact()">Pin</button>
+        </div>
+      </div>
+      <div class="session-scroll" id="memory-fact-list">
+        <div style="padding:12px 6px; color:var(--muted); font-size:11.5px;">No persistent memories pinned yet.</div>
+      </div>
+    </div>
+
     <!-- Compact Workstation & Policy Telemetry Dock -->
     <div class="telemetry-dock">
       <div class="tel-head">
         <span class="tel-title">Workstation Health</span>
-        <span class="health-pill" id="hw-health">98 / A+</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn-free-vram" onclick="reclaimVramNow()" title="Unload idle local models & free RAM/VRAM">Free VRAM</button>
+          <span class="health-pill" id="hw-health">98 / A+</span>
+        </div>
       </div>
       <div class="hw-gpu-line" id="hw-gpu">Detecting local silicon...</div>
       <div class="hw-vram-line" id="hw-vram">0 / 0 MB</div>
@@ -1424,10 +1531,25 @@ STUDIO_HTML = r"""<!DOCTYPE html>
           <select id="target-selector" onchange="onTargetChange()">
             <option value="auto:d3" selected>⚡ Auto-Route (d3 Smart Router)</option>
             <optgroup label="AMD Token Lab Cloud (Zero VRAM)" id="opt-tokenlab">
-              <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Vision &amp; Architecture)</option>
+              <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Large Design Docs &amp; Vision)</option>
               <option value="cloud:Qwen3.8-27B">Qwen3.8-27B (Code &amp; Surgical Diffs)</option>
-              <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Long Context / Logs)</option>
-              <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Fast Edge Triage)</option>
+              <option value="cloud:DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash (Architecture Reviews &amp; Logs)</option>
+              <option value="cloud:MiniCPM5-2B">MiniCPM5-2B (Cheap Background Tasks)</option>
+            </optgroup>
+            <optgroup label="Groq Cloud (Fast Coding LPU)" id="opt-groq">
+              <option value="groq:llama-3.3-70b-versatile">Llama-3.3-70B-Versatile (Groq Fast Coding)</option>
+              <option value="groq:qwen/qwen3-32b">Qwen3-32B (Groq Reasoning)</option>
+              <option value="groq:llama-3.1-8b-instant">Llama-3.1-8B-Instant (Groq Background)</option>
+            </optgroup>
+            <optgroup label="OpenRouter Cloud (Multi-Model Gateway)" id="opt-openrouter">
+              <option value="openrouter:deepseek/deepseek-chat">DeepSeek-V4/Chat (OpenRouter Architecture)</option>
+              <option value="openrouter:google/gemma-3-27b-it">Gemma-3-27B-IT (OpenRouter Design Docs)</option>
+              <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (OpenRouter Code)</option>
+            </optgroup>
+            <optgroup label="Cerebras Cloud (Wafer-Scale Fast Inference)" id="opt-cerebras">
+              <option value="cerebras:llama-3.3-70b">Llama-3.3-70B (Cerebras Cloud)</option>
+              <option value="cerebras:qwen-3-32b">Qwen-3-32B (Cerebras Cloud)</option>
+              <option value="cerebras:llama3.1-8b">Llama-3.1-8B (Cerebras Background)</option>
             </optgroup>
             <optgroup label="NVIDIA NIM / Brev Cloud" id="opt-nvidia">
               <option value="nv:qwen/qwen2.5-coder-32b-instruct">Qwen-2.5-Coder-32B (NVIDIA NIM)</option>
@@ -1744,11 +1866,136 @@ function toggleSidebar() {
 }
 
 function switchRailTab(tab) {
-  const isSessions = tab !== "workspace";
-  document.getElementById("tab-sessions")?.classList.toggle("active", isSessions);
-  document.getElementById("tab-workspace")?.classList.toggle("active", !isSessions);
-  document.getElementById("pane-sessions")?.classList.toggle("active", isSessions);
-  document.getElementById("pane-workspace")?.classList.toggle("active", !isSessions);
+  const mode = tab === "workspace" ? "workspace" : (tab === "memory" ? "memory" : "sessions");
+  document.getElementById("tab-sessions")?.classList.toggle("active", mode === "sessions");
+  document.getElementById("tab-workspace")?.classList.toggle("active", mode === "workspace");
+  document.getElementById("tab-memory")?.classList.toggle("active", mode === "memory");
+  document.getElementById("pane-sessions")?.classList.toggle("active", mode === "sessions");
+  document.getElementById("pane-workspace")?.classList.toggle("active", mode === "workspace");
+  document.getElementById("pane-memory")?.classList.toggle("active", mode === "memory");
+  if (mode === "memory") loadMemoryVault();
+}
+
+async function loadMemoryVault() {
+  const listEl = document.getElementById("memory-fact-list");
+  if (!listEl) return;
+  try {
+    const res = await fetch("/api/memory/vault");
+    if (!res.ok) return;
+    const data = await res.json();
+    const s = data.summary || {};
+    const whEl = document.getElementById("mem-wh-saved");
+    const ewcEl = document.getElementById("mem-ewc-status");
+    if (whEl) whEl.textContent = `${Number(s.estimated_wh_saved || 0).toFixed(2)} Wh`;
+    if (ewcEl) ewcEl.textContent = `${Number(s.episodes_count || 0)} ep`;
+    const facts = Array.isArray(data.facts) ? data.facts : [];
+    if (!facts.length) {
+      listEl.innerHTML = `<div style="padding:14px 8px; color:var(--muted); font-size:12px;">No persistent memories pinned yet. Pin rules or hardware preferences so models never forget them across threads.</div>`;
+      return;
+    }
+    listEl.innerHTML = facts.map((f) => `
+      <div class="mem-fact-card">
+        <div style="min-width:0; flex:1;">
+          <span class="mem-topic-pill">${escapeHtml(f.topic || "general")}</span>
+          <div style="color:var(--text-soft); word-break:break-word;">${escapeHtml(f.content || "")}</div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--muted); margin-top:4px;">Recalled ${Number(f.recall_count || 0)}x</div>
+        </div>
+        <button class="session-del" style="opacity:0.75;" title="Remove memory" onclick="forgetMemoryFact(${Number(f.id)})">&times;</button>
+      </div>
+    `).join("");
+  } catch (_) {}
+}
+
+async function reclaimVramNow() {
+  try {
+    const res = await fetch("/api/memory/reclaim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await res.json();
+    const unloaded = Array.isArray(d.unloaded_models) && d.unloaded_models.length ? ` (Unloaded ${d.unloaded_models.join(", ")})` : "";
+    showToast(`Reclaimed ${d.vram_freed_mb || 0} MB VRAM · ${d.ram_freed_mb || 0} MB RAM${unloaded}`);
+    loadStatus();
+    loadMemoryVault();
+  } catch (_) {
+    showToast("Memory reclaim failed");
+  }
+}
+
+async function trainContinualModel() {
+  try {
+    const res = await fetch("/api/memory/train", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ epochs: 80, seed_defaults: true }),
+    });
+    const d = await res.json();
+    if (d.trained) {
+      showToast(`EWC continual model updated (${d.episodes_total} ep · ${(Number(d.accuracy || 0) * 100).toFixed(0)}% acc)`);
+    } else {
+      showToast("No routing episodes logged yet to train EWC");
+    }
+    loadMemoryVault();
+    updateSpeculativeRadar();
+  } catch (_) {
+    showToast("EWC training failed");
+  }
+}
+
+async function runAntiForgettingAudit() {
+  const box = document.getElementById("mem-audit-box");
+  if (box) {
+    box.style.display = "block";
+    box.textContent = "Running Naive SGD vs EWC+Replay retention test...";
+  }
+  try {
+    const res = await fetch("/api/memory/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await res.json();
+    const na = Math.round(Number(d.naive_task_a_after || 0) * 100);
+    const ea = Math.round(Number(d.ewc_task_a_after || 0) * 100);
+    const eb = Math.round(Number(d.ewc_task_b_after || 0) * 100);
+    if (box) {
+      box.textContent = `${d.passed ? "PASS" : "CHECK"} · Naive A→B kept ${na}% · EWC+Replay kept ${ea}% / B=${eb}% (${d.mlp_mean_us} μs)`;
+    }
+    showToast(d.passed ? "Anti-forgetting audit PASSED (100% retained)" : "Anti-forgetting audit completed");
+  } catch (_) {
+    if (box) box.textContent = "Audit request failed";
+  }
+}
+
+async function installMemoryFact() {
+  const topicEl = document.getElementById("mem-topic-input");
+  const bodyEl = document.getElementById("mem-content-input");
+  const topic = (topicEl?.value || "general").trim();
+  const content = (bodyEl?.value || "").trim();
+  if (!content) { showToast("Enter memory text first"); return; }
+  try {
+    const res = await fetch("/api/memory/remember", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, content }),
+    });
+    if (res.ok) {
+      if (bodyEl) bodyEl.value = "";
+      showToast("Persistent memory installed");
+      loadMemoryVault();
+    }
+  } catch (_) {
+    showToast("Failed to install memory");
+  }
+}
+
+async function forgetMemoryFact(factId) {
+  try {
+    await fetch(`/api/memory/fact/${Number(factId)}`, { method: "DELETE" });
+    loadMemoryVault();
+    showToast("Memory removed");
+  } catch (_) {}
 }
 
 /* ── PERSISTENT SQLITE SESSIONS ─────────────────────────── */
@@ -1969,6 +2216,18 @@ async function loadModels() {
     const optHF = document.getElementById("opt-hf");
     if (optHF && p.hf) {
       optHF.label = `Hugging Face Cloud ${p.hf.ready ? "● Ready" : "○ (Set HF_TOKEN in .env)"}`;
+    }
+    const optGroq = document.getElementById("opt-groq");
+    if (optGroq && p.groq) {
+      optGroq.label = `Groq Cloud ${p.groq.ready ? "● Ready" : "○ (Set GROQ_API_KEY in .env)"}`;
+    }
+    const optOR = document.getElementById("opt-openrouter");
+    if (optOR && p.openrouter) {
+      optOR.label = `OpenRouter Cloud ${p.openrouter.ready ? "● Ready" : "○ (Set OPENROUTER_API_KEY in .env)"}`;
+    }
+    const optCer = document.getElementById("opt-cerebras");
+    if (optCer && p.cerebras) {
+      optCer.label = `Cerebras Cloud ${p.cerebras.ready ? "● Ready" : "○ (Set CEREBRAS_API_KEY in .env)"}`;
     }
     const optLemonade = document.getElementById("opt-lemonade");
     if (optLemonade && p.lemonade) {
@@ -2686,6 +2945,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStatus();
   loadWorkspaceFiles();
   loadSessions();
+  loadMemoryVault();
   updateSpeculativeRadar();
   setInterval(loadStatus, 15000);
 });
