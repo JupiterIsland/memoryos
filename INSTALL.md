@@ -1,107 +1,65 @@
-# Installing MemoryOS Developer Preview v0.1
+# Installing MemoryOS // Jupiter Studio (`v2.1.2`)
 
-MemoryOS is a local-first **AI traffic controller, multi-model router, and VRAM protection engine** pairing **The Quiet Advisor** (`localhost:5000`) with **Jupiter Desktop v2** (`PyQt6` media & visual studio) and **AMD Token Lab** (`d3`, `Gemma-4-31B-IT`, `Qwen3.8-27B`, `MiniCPM5-2B`).
+> Looking for the fastest path? Read **[`QUICKSTART.md`](QUICKSTART.md)** to go from `git clone` to a live workstation in **under 5 minutes at $0.00**.
+
+MemoryOS // Jupiter Studio (`v2.1.2`) runs on the **Python 3.11+ standard library** with **zero third-party runtime `pip` dependencies** — no 15 GB PyTorch install, no Docker daemon, and no manual `ffmpeg` setup required.
 
 ---
 
 ## 1. Prerequisites
 
-- **Python:** `3.10+` (`3.11` or `3.12` recommended)
+- **Python:** `3.11+` (`3.11`, `3.12`, or `3.13`; standard installer from [python.org](https://www.python.org/downloads/) on Windows with **"Add Python to PATH"** enabled)
+- **Git:** Any recent Git client (or download the release `.zip` archive)
 - **OS:** Windows 10/11, Linux, or macOS
-- **GPU:** Any consumer GPU (e.g., 8GB NVIDIA RTX 3070 or AMD Radeon) or CPU-only mode — **0 MB of local VRAM is required** for 27B/31B model inference when connected to AMD Token Lab (and the router includes an automatic offline fallback when running without an API key).
+- **GPU:** Optional — works on CPU-only laptops (`Frank-v1` uses `0 MB` GPU VRAM), 8 GB consumer GPUs (e.g. RTX 3070 via Local Ollama), or cloud offload
 
 ---
 
-## 2. Clone & Configure Environment (1 Minute)
+## 2. Option A — Run From Source (Recommended)
 
 ### Windows (PowerShell)
-
 ```powershell
 git clone https://github.com/JupiterIsland/memoryos.git
 cd memoryos
-
 Copy-Item .env.example .env
+python -B verify.py --quick
+python -B apps/jupiter_studio.py
 ```
 
-Open `.env` in any text editor and paste your AMD Token Lab key (optional — if left blank, MemoryOS automatically runs in deterministic offline fallback mode):
-
-```ini
-TOKENLAB_API_KEY=tl-your-amd-tokenlab-key-here
-TOKENLAB_BASE_URL=https://api.tokenlab.amd.com/v1
-QUIET_ADVISOR_DB=QuietAdvisorDB.sqlite
-```
-
----
-
-## 3. Install Dependencies (Choose Your Service)
-
-MemoryOS is split into lean services so you never have to download a 15GB PyTorch monolith just to run the router or dashboard:
-
-### Option A: Router + Quiet Advisor Web Dashboard Only (~150MB)
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-router.txt
-```
-
-### Option B: Full Hybrid Desktop Setup (Router + Jupiter Desktop PyQt6 UI)
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-router.txt -r requirements-desktop.txt
-```
-
-*(Note: Even before installing `fastapi` or `uvicorn`, `python server.py` works out of the box using Python's built-in HTTP server.)*
-
----
-
-## 4. Initialize Telemetry & Verify Everything Works
-
-Run the one-command bootstrap and verification suite:
-
-```powershell
-python bootstrap.py
-python verify_all_systems.py
-```
-
-Expected output:
-- Initializes `QuietAdvisorDB.sqlite` from `schema.sql`
-- Ingests `memory/tokenlab_export.json` telemetry
-- Verifies `d3` routing across `MiniCPM5-2B` (`fast_light`), `Qwen3.8-27B` (`balanced_code`), and `Gemma-4-31B-IT` (`vision_heavy`)
-- Prints `ALL 3 SYSTEMS VERIFIED SUCCESSFULLY.`
-
----
-
-## 5. Launch the Applications
-
-### 1. Start the MemoryOS Router & Quiet Advisor Web Dashboard (`http://127.0.0.1:5000`)
-
-```powershell
-python server.py --host 127.0.0.1 --port 5000
-```
-
-Open **http://127.0.0.1:5000** in your browser to view live telemetry, `d3` probabilities, context waste detection, and `[Acknowledge & Apply]` recommendation cards.
-
-### 2. Launch Jupiter Desktop v2 (PyQt6 Video & Visual AI Studio)
-
-In a second terminal:
-
-```powershell
-python apps/jupiter-tv-desktop-v2/app.py
-```
-
-### 3. Launch the Standalone Quiet Advisor Desktop Toast
-
-```powershell
-python quiet_advisor_ui.py
-```
-
----
-
-## 6. Optional: Run the Router in Docker
-
+### Linux / macOS
 ```bash
-docker compose -f docker-compose-router.yml up --build
+git clone https://github.com/JupiterIsland/memoryos.git
+cd memoryos
+cp .env.example .env
+python3 -B verify.py --quick
+python3 -B apps/jupiter_studio.py
 ```
+
+Open **[http://127.0.0.1:7860](http://127.0.0.1:7860)**.
+
+### Automated Clean-Room Install Audit (Windows)
+To run the same transactional clean-install check executed in CI (validates Git, non-Store Python `3.11+`, isolated `.venv`, full `16`-module unit suite, `NEON_SINGLE_FILE.py`, EWC audit, and headless `/api/health` startup):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/clean_install_windows.ps1
+```
+
+---
+
+## 3. Option B — Standalone Pre-Built Executables
+
+Download pre-built single-file binaries from **[GitHub Releases](https://github.com/JupiterIsland/memoryos/releases/latest)** and verify against `SHA256SUMS.txt`:
+
+- **Windows x64:** Extract `JupiterStudio-Windows-x64.zip` -> `JupiterStudio.exe`
+- **macOS (Apple Silicon):** `tar -xzf JupiterStudio-macOS-arm64.tar.gz` -> `./JupiterStudio-macOS-arm64/JupiterStudio`
+- **Linux x64:** `tar -xzf JupiterStudio-Linux-x64.tar.gz` -> `./JupiterStudio-Linux-x64/JupiterStudio`
+
+> **Note:** Release binaries are built with PyInstaller (`installer/JupiterStudio.spec`) and are currently unsigned; Windows SmartScreen may prompt on first run. Place an optional `.env` file beside the executable if you wish to configure cloud keys.
+
+---
+
+## 4. Storage Paths & Zero-Spend Defaults
+
+- **SQLite Vault & Ledger:** `./QuietAdvisorDB.sqlite` (created automatically on first launch; override via `QUIET_ADVISOR_DB` in `.env`).
+- **Generated Videos:** `./outputs/video/` by default (`MEMORYOS_VIDEO_OUTPUT_DIR` in `.env`). No external drive letter is required.
+- **Zero-Spend Safety Lock:** `.env.example` sets `MEMORYOS_VIDEO_MAX_JOB_USD="0.00"` by default so paid cloud video APIs cannot bill you unless you explicitly raise the cap.

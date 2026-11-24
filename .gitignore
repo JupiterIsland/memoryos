@@ -22,3 +22,6 @@ dist/
 *.sqlite-wal
 *.db
 .aider*
+outputs/
+.venv/
+.venv-*/

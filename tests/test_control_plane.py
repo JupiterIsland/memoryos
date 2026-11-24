@@ -459,7 +459,7 @@ class TestRouterServerSecurity(unittest.TestCase):
     def test_fallback_server_enforces_host_origin_referer_and_sec_fetch_site(self) -> None:
         prev_qa_db = router_server._qa_db
         prev_hs = router_server._heat_stream
-        with tempfile.TemporaryDirectory() as td:
+        with mock.patch.dict(os.environ, {"TOKENLAB_API_KEY": ""}), tempfile.TemporaryDirectory() as td:
             temp_db = Path(td) / "router_sec.sqlite"
             srv = router_server.create_fallback_server(host="127.0.0.1", port=0, db_path=temp_db)
             port = srv.server_address[1]

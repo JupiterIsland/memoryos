@@ -45,6 +45,10 @@ hiddenimports = [
     "src.memoryos.grant_ledger",
     "memoryos.grant_ledger",
     "src.memoryos.amd_zen_studio",
+    "src.memoryos.cloud_video",
+    "memoryos.cloud_video",
+    "src.memoryos.hf_hub",
+    "memoryos.hf_hub",
 ]
 
 a = Analysis(

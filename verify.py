@@ -46,6 +46,8 @@ CI_COMPILE_MODULES = [
     "src/memoryos/workspace_pack.py",
     "src/memoryos/router.py",
     "src/memoryos/browser_app.py",
+    "src/memoryos/cloud_video.py",
+    "src/memoryos/hf_hub.py",
     "src/memoryos/server.py",
     "src/memoryos/core/neural_memory_graph.py",
     "src/memoryos/grant_ledger.py",
@@ -68,6 +70,8 @@ CI_TEST_MODULES = [
     "tests/test_heatstream.py",
     "tests/test_grant_ledger_reconciliation.py",
     "tests/test_offload_integrity.py",
+    "tests/test_cloud_video.py",
+    "tests/test_hf_hub.py",
 ]
 
 _STATE_FIXTURES = (

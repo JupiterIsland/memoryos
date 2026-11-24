@@ -170,7 +170,9 @@ try {
         tests/test_nvidia_brev_router.py `
         tests/test_heatstream.py `
         tests/test_grant_ledger_reconciliation.py `
-        tests/test_offload_integrity.py
+        tests/test_offload_integrity.py `
+        tests/test_cloud_video.py `
+        tests/test_hf_hub.py
     if ($LASTEXITCODE -ne 0) {
         Fail "Unit test suite failed (exit code $LASTEXITCODE)."
     }

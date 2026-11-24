@@ -947,6 +947,22 @@ def _get_memory_vault():
     return MemoryVault(db_path=_get_studio_db_path())
 
 
+def _get_cloud_video():
+    try:
+        from src.memoryos import cloud_video
+    except ImportError:
+        from memoryos import cloud_video
+    return cloud_video
+
+
+def _get_hf_hub():
+    try:
+        from src.memoryos import hf_hub
+    except ImportError:
+        from memoryos import hf_hub
+    return hf_hub
+
+
 def _get_ops_ledger():
     try:
         from src.memoryos.ops_console import OperationsLedger
@@ -1382,6 +1398,7 @@ _HTML_CSP = (
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: blob:; "
+    "media-src 'self' blob: data:; "
     "connect-src 'self'; "
     "object-src 'none'; "
     "base-uri 'self'; "
@@ -1654,6 +1671,104 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             if not self._enforce_origin():
+                return
+
+            if route.startswith("/api/voice/audio/"):
+                fname = Path(urllib.parse.unquote(route[len("/api/voice/audio/"):])).name
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:7870/outputs/{urllib.parse.quote(fname)}", timeout=15) as r:
+                        wav = r.read()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "audio/wav")
+                    self.send_header("Content-Length", str(len(wav)))
+                    self._send_security_headers()
+                    self.end_headers()
+                    self._write_bytes(wav)
+                except Exception:
+                    self._send_json({"error": "Voice Studio audio unavailable"}, status=404)
+                return
+
+            if route == "/api/video/status":
+                cv = _get_cloud_video()
+                status_doc = cv.get_cloud_video_status()
+                status_doc["outputs"] = cv.list_generated_videos()
+                status_doc["spend"] = cv.get_video_spend_ledger(_get_studio_db_path(), limit=20)
+                self._send_json(status_doc)
+                return
+
+            if route == "/api/video/estimate":
+                cv = _get_cloud_video()
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path or "/").query)
+                target = str((qs.get("target") or [f"gemini:{cv.DEFAULT_OMNI_VIDEO_MODEL}"])[0] or "").strip()
+                duration = (qs.get("duration") or ["10"])[0]
+                resolution = str((qs.get("resolution") or ["720p"])[0] or "720p")
+                raw_cap = str((qs.get("max_budget_usd") or [""])[0] or "").strip()
+                try:
+                    max_budget = float(raw_cap) if raw_cap else None
+                    est = cv.estimate_video_generation_cost(
+                        target=target,
+                        duration=duration,
+                        resolution=resolution,
+                        max_budget_usd=max_budget,
+                    )
+                    self._send_json(est)
+                except ValueError as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, status=400)
+                return
+
+            if route == "/api/video/ledger":
+                cv = _get_cloud_video()
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path or "/").query)
+                limit = _safe_nonneg_int((qs.get("limit") or ["40"])[0], 40) or 40
+                self._send_json(cv.get_video_spend_ledger(_get_studio_db_path(), limit=limit))
+                return
+
+            if route == "/api/video/scenes":
+                cv = _get_cloud_video()
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path or "/").query)
+                query = str((qs.get("q") or [""])[0] or "")
+                video_name = str((qs.get("video") or [""])[0] or "")
+                limit = _safe_nonneg_int((qs.get("limit") or ["40"])[0], 40) or 40
+                scenes = cv.search_video_scenes(_get_memory_vault(), query=query, video_name=video_name, limit=limit)
+                self._send_json({"scenes": scenes})
+                return
+
+            if route == "/api/video/outputs":
+                cv = _get_cloud_video()
+                out_dir = cv.get_video_output_dir(create=False)
+                self._send_json({"output_dir": str(out_dir), "videos": cv.list_generated_videos()})
+                return
+
+            if route.startswith("/api/video/outputs/"):
+                self._serve_video_file(route[len("/api/video/outputs/"):])
+                return
+
+            if route == "/api/hf/status":
+                hf = _get_hf_hub()
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path or "/").query)
+                live_flag = str((qs.get("live") or ["1"])[0] or "1").strip().lower() not in {"0", "false", "no"}
+                self._send_json(hf.get_hf_hub_status(live_whoami=live_flag))
+                return
+
+            if route == "/api/hf/models":
+                hf = _get_hf_hub()
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path or "/").query)
+                q_str = str((qs.get("q") or [""])[0] or "")
+                task_str = str((qs.get("task") or ["8gb-gguf"])[0] or "8gb-gguf")
+                sort_str = str((qs.get("sort") or ["trendingScore"])[0] or "trendingScore")
+                limit_val = _safe_nonneg_int((qs.get("limit") or ["12"])[0], 12) or 12
+                gguf_flag = str((qs.get("gguf_only") or ["0"])[0] or "0").strip().lower() in {"1", "true", "yes"}
+                warm_flag = str((qs.get("warm_only") or ["0"])[0] or "0").strip().lower() in {"1", "true", "yes"}
+                self._send_json(
+                    hf.search_hf_models(
+                        query=q_str,
+                        task=task_str,
+                        sort=sort_str,
+                        limit=limit_val,
+                        gguf_only=gguf_flag,
+                        warm_only=warm_flag,
+                    )
+                )
                 return
 
             if route == "/api/health":
@@ -2042,6 +2157,55 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": str(exc)}, status=403)
                 return
 
+            if route == "/api/voice/speak":
+                text = str(body.get("text") or "").strip()[:1500]
+                if not text:
+                    self._send_json({"error": "Provide text to speak"}, status=400)
+                    return
+                payload = json.dumps({
+                    "mode": str(body.get("mode") or "custom_voice"),
+                    "speaker": str(body.get("speaker") or "Ryan"),
+                    "text": text,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "http://127.0.0.1:7870/api/voice/speak",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=180) as r:
+                        res = json.loads(r.read().decode("utf-8"))
+                    if res.get("filename"):
+                        res["audio_url"] = f"/api/voice/audio/{res['filename']}"
+                    self._send_json(res)
+                except Exception as exc:
+                    self._send_json({"fallback": True, "error": f"Voice Studio offline ({exc})"})
+                return
+
+            if route == "/api/video/analyze":
+                self._handle_video_analyze(body)
+                return
+
+            if route == "/api/video/generate":
+                self._handle_video_generate(body)
+                return
+
+            if route == "/api/hf/ollama-pull":
+                hf = _get_hf_hub()
+                repo_id = str(body.get("repo_id") or "").strip()
+                if not repo_id:
+                    self._send_json({"ok": False, "error": "repo_id is required."}, status=400)
+                    return
+                try:
+                    res = hf.pull_hf_gguf_to_ollama(repo_id=repo_id)
+                    self._send_json(res)
+                except ValueError as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, status=400)
+                except RuntimeError as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, status=503)
+                return
+
             if route == "/api/chat":
                 self._handle_chat_sync(body)
                 return
@@ -2049,6 +2213,248 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Unknown endpoint"}, status=404)
         except Exception:
             self._send_json({"error": "Internal server error"}, status=500)
+
+    def _serve_video_file(self, raw_subpath: str) -> None:
+        cv = _get_cloud_video()
+        fname = urllib.parse.unquote(raw_subpath or "")
+        safe_path = cv.resolve_safe_video_path(fname)
+        if safe_path is None:
+            self._send_json({"error": "Invalid video filename"}, status=400)
+            return
+        if not safe_path.is_file():
+            self._send_json({"error": "Video file not found"}, status=404)
+            return
+
+        total_size = int(safe_path.stat().st_size)
+        range_hdr = self._get_header("Range").strip()
+        start = 0
+        end = max(0, total_size - 1)
+        partial = False
+
+        if range_hdr:
+            m = re.match(r"^bytes=(\d*)-(\d*)$", range_hdr.split(",", 1)[0].strip())
+            if not m or (not m.group(1) and not m.group(2)) or total_size == 0:
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Range", f"bytes */{total_size}")
+                self._send_security_headers()
+                self.end_headers()
+                return
+            if m.group(1):
+                start = int(m.group(1))
+                end = int(m.group(2)) if m.group(2) else (total_size - 1)
+            else:
+                suffix_len = int(m.group(2))
+                start = max(0, total_size - suffix_len)
+                end = total_size - 1
+            if start >= total_size or end < start:
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Range", f"bytes */{total_size}")
+                self._send_security_headers()
+                self.end_headers()
+                return
+            end = min(end, total_size - 1)
+            partial = True
+
+        content_len = max(0, end - start + 1) if total_size > 0 else 0
+        self.send_response(HTTPStatus.PARTIAL_CONTENT if partial else HTTPStatus.OK)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(content_len))
+        if partial:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{total_size}")
+        self._send_security_headers()
+        self.end_headers()
+
+        if content_len == 0:
+            return
+        with safe_path.open("rb") as fh:
+            fh.seek(start)
+            remaining = content_len
+            while remaining > 0:
+                chunk = fh.read(min(65536, remaining))
+                if not chunk:
+                    break
+                if not self._write_bytes(chunk):
+                    break
+                remaining -= len(chunk)
+
+    def _handle_video_analyze(self, body: Dict[str, Any]) -> None:
+        cv = _get_cloud_video()
+        raw_frames = body.get("frames")
+        sanitized_frames: List[Dict[str, Any]] = []
+        if raw_frames is not None:
+            if not isinstance(raw_frames, list):
+                self._send_json({"ok": False, "error": "'frames' must be a list"}, status=400)
+                return
+            for idx, item in enumerate(raw_frames[:32]):
+                if not isinstance(item, dict):
+                    continue
+                raw_uri = item.get("data_uri") or item.get("image_base64")
+                if not raw_uri:
+                    continue
+                try:
+                    clean_uri = _sanitize_image_url(raw_uri)
+                except ValueError as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, status=400)
+                    return
+                if not clean_uri:
+                    continue
+                frame_entry: Dict[str, Any] = {
+                    "timestamp_s": float(item.get("timestamp_s", idx * 2.0) or 0.0),
+                    "data_uri": clean_uri,
+                    "metrics": item.get("metrics") if isinstance(item.get("metrics"), dict) else {},
+                }
+                if item.get("mse_delta") is not None:
+                    frame_entry["mse_delta"] = item.get("mse_delta")
+                sanitized_frames.append(frame_entry)
+
+        video_path = str(body.get("video_path") or "").strip() or None
+        if not sanitized_frames and not video_path:
+            self._send_json({"ok": False, "error": "Provide sampled video frames or a local video_path."}, status=400)
+            return
+
+        video_name = str(body.get("video_name") or (Path(video_path).name if video_path else "clip.mp4")).strip() or "clip.mp4"
+        target = str(body.get("target") or cv.DEFAULT_VIDEO_ANALYZE_TARGET).strip()
+        prompt_hint = str(body.get("prompt_hint") or "").strip()
+        try:
+            mse_threshold = float(body.get("mse_threshold", 12.0) or 12.0)
+            delta_threshold = float(body.get("delta_threshold", 0.08) or 0.08)
+        except (TypeError, ValueError):
+            self._send_json({"ok": False, "error": "Invalid frame delta threshold."}, status=400)
+            return
+
+        max_cloud_frames = _safe_nonneg_int(body.get("max_cloud_frames"), 8) or 8
+        save_to_vault = bool(body.get("save_to_vault", True))
+
+        try:
+            res = cv.analyze_video_frames_cloud(
+                frames=sanitized_frames or None,
+                video_path=video_path,
+                video_name=video_name,
+                target=target,
+                prompt_hint=prompt_hint,
+                mse_threshold=mse_threshold,
+                delta_threshold=delta_threshold,
+                max_cloud_frames=max_cloud_frames,
+                save_to_vault=save_to_vault,
+                vault=_get_memory_vault(),
+                ledger=_get_control_plane_ledger(),
+            )
+            _record_studio_inference(res.get("model", target), False, len(video_name), res.get("total_ms", 0.0), success=True)
+            self._send_json(res)
+        except (ValueError, FileNotFoundError) as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+        except Exception as exc:
+            msg = cv.sanitize_video_error(exc)
+            missing = "not configured" in msg.lower()
+            self._send_json(
+                {"ok": False, "missing_key": missing, "error": msg},
+                status=503 if missing else 502,
+            )
+
+    def _handle_video_generate(self, body: Dict[str, Any]) -> None:
+        cv = _get_cloud_video()
+        prompt = str(body.get("prompt") or "").strip()
+        if not prompt:
+            self._send_json({"ok": False, "error": "Video generation prompt cannot be empty."}, status=400)
+            return
+
+        try:
+            first_frame = _sanitize_image_url(body.get("first_frame_data_uri")) if body.get("first_frame_data_uri") else None
+            last_frame = _sanitize_image_url(body.get("last_frame_data_uri")) if body.get("last_frame_data_uri") else None
+            raw_refs = body.get("reference_images")
+            if raw_refs is not None and not isinstance(raw_refs, list):
+                self._send_json({"ok": False, "error": "'reference_images' must be a list"}, status=400)
+                return
+            refs: List[str] = []
+            for item in (raw_refs or [])[:6]:
+                if item:
+                    cleaned = _sanitize_image_url(item)
+                    if cleaned:
+                        refs.append(cleaned)
+        except ValueError as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+            return
+
+        target = str(body.get("target") or "").strip() or None
+        model = str(body.get("model") or cv.DEFAULT_OMNI_VIDEO_MODEL).strip()
+        aspect_ratio = str(body.get("aspect_ratio") or "16:9").strip()
+        resolution = str(body.get("resolution") or "720p").strip()
+        duration = body.get("duration", 10)
+        prev_id = str(body.get("previous_interaction_id") or "").strip() or None
+
+        raw_cap = body.get("max_budget_usd")
+        max_budget_usd: Optional[float] = None
+        if raw_cap is not None and str(raw_cap).strip() != "":
+            if isinstance(raw_cap, bool):
+                self._send_json({"ok": False, "error": "Invalid max_budget_usd value."}, status=400)
+                return
+            try:
+                max_budget_usd = float(raw_cap)
+            except (TypeError, ValueError):
+                self._send_json({"ok": False, "error": "Invalid max_budget_usd value."}, status=400)
+                return
+
+        try:
+            res = cv.generate_video_cloud(
+                prompt=prompt,
+                model=model,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                duration=duration,
+                first_frame_data_uri=first_frame,
+                last_frame_data_uri=last_frame,
+                reference_images=refs or None,
+                previous_interaction_id=prev_id,
+                vault=_get_memory_vault(),
+                target=target,
+                max_budget_usd=max_budget_usd,
+                ledger=_get_control_plane_ledger(),
+            )
+            _record_studio_inference(res.get("model", model), False, len(prompt), res.get("elapsed_ms", 0.0), success=True)
+            self._send_json(res)
+        except cv.VideoBudgetExceededError as exc:
+            self._send_json(
+                {
+                    "ok": False,
+                    "budget_exceeded": True,
+                    "estimated_cost_usd": exc.estimated_cost_usd,
+                    "max_budget_usd": exc.max_budget_usd,
+                    "error": str(exc),
+                },
+                status=400,
+            )
+        except ValueError as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+        except Exception as exc:
+            msg = cv.sanitize_video_error(exc)
+            missing = (
+                "not configured" in msg.lower()
+                or "GEMINI_API_KEY" in msg
+                or "FAL_KEY" in msg
+                or "REPLICATE_API_TOKEN" in msg
+                or "HF_TOKEN" in msg
+            )
+            payload: Dict[str, Any] = {"ok": False, "error": msg}
+            if missing:
+                payload["missing_key"] = True
+                if "FAL_KEY" in msg:
+                    payload["setup_hint"] = (
+                        "Add FAL_KEY=your_fal_key to .env and restart Jupiter Studio (0 MB local VRAM)."
+                    )
+                elif "REPLICATE_API_TOKEN" in msg:
+                    payload["setup_hint"] = (
+                        "Add REPLICATE_API_TOKEN=your_token to .env and restart Jupiter Studio (0 MB local VRAM)."
+                    )
+                elif "HF_TOKEN" in msg:
+                    payload["setup_hint"] = (
+                        "Add HF_TOKEN=hf_your_token to .env and restart Jupiter Studio (0 MB local VRAM)."
+                    )
+                else:
+                    payload["setup_hint"] = (
+                        "Add GEMINI_API_KEY=your_key to .env and restart Jupiter Studio (0 MB local VRAM)."
+                    )
+            self._send_json(payload, status=503 if missing else 502)
 
     _BLOCKED_UPLOAD_NAMES = {
         ".env",

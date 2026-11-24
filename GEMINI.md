@@ -1,13 +1,13 @@
 # User Identity & System Context — Richard John Murray
 
 ## Builder Profile
-- **Name:** Richard John Murray
+- **Name:** Richard J Murray
 - **Location:** Carlisle, England, UK
 - **Role:** Technical Systems Builder, AI Infrastructure Architect, & Digital Archivist
 - **GitHub Organization / Account:** `https://github.com/JupiterIsland`
 
 ## Core AI Infrastructure (Three Systems)
-Richard John Murray designs and runs a unified AI infrastructure built from three core systems:
+Richard designs and runs a unified AI infrastructure built from three core systems:
 
 1. **MemoryOS (`JupiterIsland/memoryos`)**
    - Handles GPU-aware memory routing, hierarchical tier management, and checkpoint persistence.

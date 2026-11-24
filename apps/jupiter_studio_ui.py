@@ -2020,6 +2020,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
               <option value="do:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B (MI300X)</option>
             </optgroup>
             <optgroup label="Hugging Face Cloud (Zero Download / HF_TOKEN)" id="opt-hf">
+              <option value="hf:Qwen/Qwen3.8-27B">Qwen3.8-27B Multimodal (HF Router)</option>
               <option value="hf:Qwen/Qwen2.5-72B-Instruct">Qwen2.5-72B-Instruct (HF Router)</option>
               <option value="hf:meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B-Instruct (HF Router)</option>
               <option value="hf:deepseek-ai/DeepSeek-R1">DeepSeek-R1 (HF Router)</option>
@@ -2047,6 +2048,9 @@ STUDIO_HTML = r"""<!DOCTYPE html>
               <option value="ollama:bonsai-2:27b">bonsai-2:27b (PrismML Ternary 27B · Low VRAM)</option>
               <option value="ollama:gemma4:12b">gemma4:12b (Gemma 4 12B · Ollama)</option>
               <option value="ollama:raon-1-nano">raon-1-nano (Game-Loop 1.5B / 256K)</option>
+              <option value="ollama:hf.co/unsloth/gemma-4-E2B-it-GGUF">hf.co/unsloth/gemma-4-E2B-it-GGUF (HF Local Vision · $0)</option>
+              <option value="ollama:hf.co/unsloth/Qwen3.5-4B-GGUF">hf.co/unsloth/Qwen3.5-4B-GGUF (HF Local 4B · $0)</option>
+              <option value="ollama:hf.co/prism-ml/Bonsai-4B-gguf">hf.co/prism-ml/Bonsai-4B-gguf (HF Ternary 4B · $0)</option>
             </optgroup>
           </select>
         </div>
@@ -2055,6 +2059,8 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <div class="topbar-right">
         <div class="theme-switch" role="group" aria-label="Console Stage">
           <button class="theme-btn active" id="stage-btn-ops" onclick="switchStageView('ops')">Operations</button>
+          <button class="theme-btn" id="stage-btn-video" onclick="switchStageView('video')">Cloud Video</button>
+          <button class="theme-btn" id="stage-btn-hf" onclick="switchStageView('hf')">HF Models</button>
           <button class="theme-btn" id="stage-btn-cc" onclick="switchStageView('control')">Control Centre</button>
         </div>
         <div class="settings-wrap">
@@ -2173,6 +2179,228 @@ STUDIO_HTML = r"""<!DOCTYPE html>
               <tr><th>Op ID</th><th>Objective</th><th>Intent</th><th>Resource</th><th>Guard</th><th>Status</th><th>Latency</th></tr>
             </thead>
             <tbody id="cc-ledger-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="cc-wrap" id="cloud-video-stage">
+      <div class="cc-card">
+        <div class="cc-card-head">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="cc-title">Cloud Video Offload Studio</span>
+            <span class="branch-pill" id="vid-vram-pill">0 MB Local VRAM</span>
+            <span class="branch-pill" id="vid-analyzer-pill">Analyzer: Checking...</span>
+            <span class="branch-pill" id="vid-generator-pill">Generator: Checking...</span>
+            <span class="branch-pill" id="vid-storage-pill">Output: Checking...</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-mini" onclick="loadCloudVideoStage()">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cc-grid">
+        <div class="cc-card">
+          <div class="cc-card-head">
+            <span class="cc-title">1. Cloud Video Analyzer &amp; Scene Indexer</span>
+            <span class="branch-pill">CPU Gate -&gt; Token Lab</span>
+          </div>
+          <div style="font-size:12px; color:var(--text-soft);">
+            Samples keyframes in your browser on CPU, drops static/duplicate frames via MemoryOS delta gating, and offloads only scene transitions to AMD Token Lab (0 MB RTX VRAM).
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="file" id="vid-file-input" accept="video/*" style="display:none;" onchange="onVideoFileChosen(this.files && this.files[0])" />
+            <button class="btn-mini" onclick="document.getElementById('vid-file-input').click()">Choose Video (.mp4 / .mov / .webm)</button>
+            <select class="ws-input" id="vid-analyze-model" style="width:auto; min-width:210px; padding:0 8px;">
+              <option value="cloud:MiniCPM-V-4.7-35B-A3B">MiniCPM-V-4.7-35B-A3B (Token Lab · $0 Grant)</option>
+              <option value="cloud:MiniCPM-V-4.7-1B">MiniCPM-V-4.7-1B (Fast Vision · Token Lab)</option>
+              <option value="cloud:Gemma-4-31B-IT">Gemma-4-31B-IT (Deep Vision · Token Lab)</option>
+              <option value="ollama:hf.co/unsloth/gemma-4-E2B-it-GGUF">Gemma 4 E2B GGUF (HF Local Vision · $0.00)</option>
+              <option value="ollama:gemma4:26b">gemma4:26b (Local Ollama Vision · $0.00)</option>
+              <option value="hf:Qwen/Qwen3.8-27B">Qwen 3.8 27B Vision (HF Router)</option>
+              <option value="gemini:gemini-3.8-flash">Gemini 3.8 Flash (Google Gemini API)</option>
+            </select>
+            <select class="ws-input" id="vid-sample-interval" style="width:auto; padding:0 8px;" title="Sample interval in seconds">
+              <option value="2">Every 2s</option>
+              <option value="4" selected>Every 4s</option>
+              <option value="8">Every 8s</option>
+            </select>
+            <select class="ws-input" id="vid-max-frames" style="width:auto; padding:0 8px;" title="Max keyframes sent to cloud">
+              <option value="4">Max 4 cloud</option>
+              <option value="8" selected>Max 8 cloud</option>
+              <option value="12">Max 12 cloud</option>
+            </select>
+          </div>
+          <video id="vid-preview-player" controls style="display:none; width:100%; max-height:240px; border-radius:8px; border:1px solid var(--border); background:#000;"></video>
+          <canvas id="vid-sample-canvas" style="display:none;"></canvas>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input class="ws-input" id="vid-prompt-hint" type="text" placeholder="Focus hint (e.g. Archive Signal VHS cuts, guitars, studio gear)..." style="flex:1; min-width:200px;" />
+            <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text-soft); cursor:pointer;">
+              <input type="checkbox" id="vid-save-vault" checked /> Save to Vault
+            </label>
+            <button class="btn-send" id="btn-vid-analyze" onclick="runCloudVideoAnalyze()" style="height:30px;">Analyze Video in Cloud</button>
+          </div>
+          <div id="vid-analyze-status" style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">Pick a local video clip to sample and index in the cloud.</div>
+          <div id="vid-analyze-metrics" style="display:none; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); font-family:var(--font-mono); font-size:11px; color:var(--text-soft);"></div>
+          <div id="vid-scene-results" style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="cc-card">
+          <div class="cc-card-head">
+            <span class="cc-title">2. Multi-Provider Cloud Video Generator</span>
+            <span class="branch-pill" id="vid-gen-dest-pill">0 MB VRAM -&gt; ./outputs/video</span>
+          </div>
+          <div id="vid-gen-setup-note" style="display:none; padding:8px 10px; border-radius:8px; border:1px solid var(--border-accent); background:var(--accent-dim); font-size:11.5px; color:var(--text);"></div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select class="ws-input" id="vid-gen-target" style="flex:1; min-width:230px; padding:0 8px;" onchange="onVideoGenTargetChange()">
+              <option value="gemini:gemini-omni-1.2-flash" selected>Gemini Omni 1.2 Flash (Google Cloud)</option>
+              <option value="fal:fal-ai/wan-25-preview/text-to-video">Wan 2.5 Preview (fal.ai Draft · ~$0.05/s)</option>
+              <option value="fal:fal-ai/pika/v2.2/text-to-video">Pika 2.2 (fal.ai Fast Draft · ~$0.04/s)</option>
+              <option value="fal:fal-ai/kling-video/v2.1/standard/text-to-video">Kling 2.1 Standard (fal.ai · ~$0.11/s)</option>
+              <option value="replicate:wan-video/wan-2.5-t2v">Wan 2.5 T2V (Replicate · ~$0.05/s)</option>
+              <option value="replicate:runwayml/gen4-turbo">Runway Gen-4 Turbo (Replicate · ~$0.12/s)</option>
+              <option value="replicate:luma/ray-2">Luma Ray 2 (Replicate · ~$0.24/s)</option>
+              <option value="hf:Wan-AI/Wan2.2-TI2V-5B">Wan 2.2 TI2V 5B (Hugging Face Open-Weight · ~$0.05/s)</option>
+              <option value="hf:Wan-AI/Wan2.2-T2V-A14B">Wan 2.2 T2V A14B MoE (Hugging Face Open-Weight · ~$0.08/s)</option>
+            </select>
+            <button class="btn-mini" onclick="applyVideoPreset('draft')" title="Low-cost quick preview preset">Draft 360p · 5s</button>
+            <button class="btn-mini" onclick="applyVideoPreset('hero')" title="Full HD flagship render preset">Hero 1080p · 10s</button>
+          </div>
+          <textarea class="ws-input" id="vid-gen-prompt" rows="3" style="height:74px; padding:8px 10px; font-family:var(--font-sans); resize:vertical;" placeholder="Describe a video scene to generate in the cloud (e.g. Analog CRT studio rack glowing in deep monochrome shadow, slow push-in)..."></textarea>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select class="ws-input" id="vid-gen-aspect" style="width:auto; padding:0 8px;">
+              <option value="16:9" selected>16:9 Landscape</option>
+              <option value="9:16">9:16 Portrait</option>
+            </select>
+            <select class="ws-input" id="vid-gen-res" style="width:auto; padding:0 8px;" onchange="updateVideoCostEstimate()">
+              <option value="360p">360p Fast</option>
+              <option value="720p" selected>720p HD</option>
+              <option value="1080p">1080p Full HD</option>
+              <option value="4k">4K Ultra HD</option>
+            </select>
+            <select class="ws-input" id="vid-gen-duration" style="width:auto; padding:0 8px;" onchange="updateVideoCostEstimate()">
+              <option value="3">3s</option>
+              <option value="5" selected>5s</option>
+              <option value="8">8s</option>
+              <option value="10">10s</option>
+              <option value="15">15s</option>
+            </select>
+            <label style="display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:11px; color:var(--muted);">
+              Cap $:
+              <input class="ws-input" id="vid-gen-max-usd" type="number" min="0" step="0.25" value="0.00" style="width:76px; padding:0 6px;" oninput="updateVideoCostEstimate()" />
+            </label>
+            <input class="ws-input" id="vid-gen-prev-id" type="text" placeholder="Optional previous_interaction_id (Omni edit/extend)..." style="flex:1; min-width:150px;" />
+          </div>
+          <div id="vid-gen-cost-bar" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); font-family:var(--font-mono); font-size:11px; color:var(--text-soft);">
+            Pre-Flight Estimate: $0.50 USD (5s x $0.10/s) · Cap $0.00 (HARD ZERO-SPEND LOCK)
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--muted);">
+            <label style="display:inline-flex; align-items:center; gap:4px;">First frame: <input type="file" id="vid-gen-first-frame" accept="image/*" style="max-width:155px; font-size:10.5px;" /></label>
+            <label style="display:inline-flex; align-items:center; gap:4px;">Last frame: <input type="file" id="vid-gen-last-frame" accept="image/*" style="max-width:155px; font-size:10.5px;" /></label>
+            <button class="btn-send" id="btn-vid-generate" onclick="runCloudVideoGenerate()" style="height:30px; margin-left:auto;">Generate in Cloud</button>
+          </div>
+          <div style="font-size:11px; color:var(--muted);">Text-to-video &amp; image-to-video run in cloud (0 MB VRAM); uploading source videos for Omni edits is regionally restricted in UK/EEA/Switzerland.</div>
+          <div id="vid-gen-status" style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">Ready. Outputs stream directly to external drive.</div>
+        </div>
+      </div>
+
+      <div class="cc-grid">
+        <div class="cc-card">
+          <div class="cc-card-head">
+            <span class="cc-title">Indexed Scene MemoryVault Search</span>
+            <div style="display:flex; gap:6px;">
+              <input class="ws-input" id="vid-scene-search" type="text" placeholder="Search scenes (e.g. guitar, dusk)..." style="width:200px;" onkeydown="if(event.key==='Enter') searchIndexedScenes();" />
+              <button class="btn-mini" onclick="searchIndexedScenes()">Search Vault</button>
+            </div>
+          </div>
+          <div id="vid-vault-scenes" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="cc-card">
+          <div class="cc-card-head">
+            <span class="cc-title">Cloud Video Output Gallery</span>
+            <button class="btn-mini" onclick="loadCloudVideoStage()">Reload Clips</button>
+          </div>
+          <div id="vid-outputs-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;"></div>
+        </div>
+      </div>
+
+      <div class="cc-card">
+        <div class="cc-card-head">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="cc-title">Auditable Video Spend &amp; Savings Ledger</span>
+            <span class="branch-pill" id="vid-ledger-spend-pill">Est. Spend: $0.00</span>
+            <span class="branch-pill" id="vid-ledger-gated-pill">Frames Gated: 0</span>
+            <span class="branch-pill" id="vid-ledger-chain-pill">SHA-256 Valid</span>
+          </div>
+          <button class="btn-mini" onclick="loadVideoSpendLedger()">Refresh Ledger</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="cc-table">
+            <thead>
+              <tr><th>Type</th><th>Provider / Model</th><th>Scope</th><th>Est. Cost</th><th>Local VRAM</th><th>Ledger Event</th></tr>
+            </thead>
+            <tbody id="vid-ledger-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="cc-wrap" id="hf-hub-stage">
+      <div class="cc-card">
+        <div class="cc-card-head">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="cc-title">Hugging Face Open-Weight Model Hub</span>
+            <span class="branch-pill" id="hf-billing-pill">HF Billing: Checking...</span>
+            <span class="branch-pill" id="hf-lock-pill">Spend Lock: Cap $0.00</span>
+            <span class="branch-pill" id="hf-cache-pill">On Disk: 0 models ($0.00)</span>
+            <span class="branch-pill" id="hf-ollama-pill">Ollama: Checking...</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-mini" onclick="loadHfHubStage()">Refresh Hub</button>
+            <button class="btn-mini" onclick="switchStageView('ops')">Back to Chat</button>
+          </div>
+        </div>
+        <div id="hf-safety-banner" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-accent); background:var(--code-bg); font-family:var(--font-mono); font-size:11px; color:var(--text-soft);">
+          Public Hugging Face Hub Explorer ($0.00) · Calibrated for AMD Ryzen 7 5800H (16 GB RAM) + NVIDIA RTX 3070 (8 GB VRAM). Pull GGUF weights straight into Local Ollama at $0.00 or inspect open-weight video/vision models under your hard zero-spend lock.
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+          <input class="ws-input" id="hf-search-input" type="text" placeholder="Search huggingface.co/models (e.g. qwen3, gemma-4, wan2.2, ltx-video, kokoro, gguf)..." style="flex:1; min-width:240px;" onkeydown="if(event.key==='Enter'){event.preventDefault(); searchHfHubModels();}" />
+          <select class="ws-input" id="hf-sort-select" style="width:auto; padding:0 8px;" onchange="searchHfHubModels()">
+            <option value="trendingScore" selected>Trending Now</option>
+            <option value="downloads">Most Downloads</option>
+            <option value="likes">Most Likes</option>
+          </select>
+          <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text-soft); cursor:pointer;">
+            <input type="checkbox" id="hf-warm-only" onchange="searchHfHubModels()" /> Live Serverless Only
+          </label>
+          <button class="btn-send" onclick="searchHfHubModels()" style="height:30px;">Search Hub</button>
+        </div>
+        <div id="hf-task-pills" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;">
+          <button class="btn-mini active" data-hftask="8gb-gguf" onclick="selectHfTask('8gb-gguf')">8GB Local GGUF ($0.00)</button>
+          <button class="btn-mini" data-hftask="text-to-video" onclick="selectHfTask('text-to-video')">Text-to-Video</button>
+          <button class="btn-mini" data-hftask="image-text-to-text" onclick="selectHfTask('image-text-to-text')">Vision / Video VLM</button>
+          <button class="btn-mini" data-hftask="text-generation" onclick="selectHfTask('text-generation')">Coding &amp; Reasoning</button>
+          <button class="btn-mini" data-hftask="text-to-speech" onclick="selectHfTask('text-to-speech')">Voice &amp; TTS</button>
+        </div>
+        <div id="hf-action-status" style="font-family:var(--font-mono); font-size:11px; color:var(--muted);"></div>
+        <div id="hf-models-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:10px;"></div>
+      </div>
+
+      <div class="cc-card">
+        <div class="cc-card-head">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="cc-title">Already Downloaded in Local Hugging Face Cache ($0.00)</span>
+            <span class="branch-pill" id="hf-disk-total-pill">0.0 MB on Disk</span>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="cc-table">
+            <thead>
+              <tr><th>Repository</th><th>Format</th><th>Size</th><th>8GB RTX 3070 Fit</th><th>Cache Location</th><th>Action ($0.00)</th></tr>
+            </thead>
+            <tbody id="hf-local-cache-body"></tbody>
           </table>
         </div>
       </div>
@@ -2483,18 +2711,744 @@ function initQuantumCanvas() {
 }
 
 /* ── STAGE SWITCH, CRASH RECOVERY & CONTROL CENTRE ──────── */
+let currentVideoFileObj = null;
+let currentVideoBlobUrl = null;
+
+let activeHfTask = "8gb-gguf";
+
 function switchStageView(view) {
-  activeStageView = view === "control" ? "control" : "ops";
+  activeStageView = view === "control" ? "control" : (view === "video" ? "video" : (view === "hf" ? "hf" : "ops"));
+  const isOps = activeStageView === "ops";
+  const isVideo = activeStageView === "video";
+  const isHf = activeStageView === "hf";
   const isCC = activeStageView === "control";
   const chatEl = document.getElementById("chat-log");
   const compEl = document.getElementById("composer-region");
+  const vidEl = document.getElementById("cloud-video-stage");
+  const hfEl = document.getElementById("hf-hub-stage");
   const ccEl = document.getElementById("control-centre-stage");
-  if (chatEl) chatEl.style.display = isCC ? "none" : "flex";
-  if (compEl) compEl.style.display = isCC ? "none" : "block";
+  if (chatEl) chatEl.style.display = isOps ? "flex" : "none";
+  if (compEl) compEl.style.display = isOps ? "block" : "none";
+  if (vidEl) vidEl.style.display = isVideo ? "flex" : "none";
+  if (hfEl) hfEl.style.display = isHf ? "flex" : "none";
   if (ccEl) ccEl.style.display = isCC ? "flex" : "none";
-  document.getElementById("stage-btn-ops")?.classList.toggle("active", !isCC);
+  document.getElementById("stage-btn-ops")?.classList.toggle("active", isOps);
+  document.getElementById("stage-btn-video")?.classList.toggle("active", isVideo);
+  document.getElementById("stage-btn-hf")?.classList.toggle("active", isHf);
   document.getElementById("stage-btn-cc")?.classList.toggle("active", isCC);
   if (isCC) loadControlCentre();
+  if (isVideo) loadCloudVideoStage();
+  if (isHf) loadHfHubStage();
+}
+
+function selectHfTask(task) {
+  activeHfTask = task || "8gb-gguf";
+  document.querySelectorAll("#hf-task-pills button[data-hftask]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-hftask") === activeHfTask);
+  });
+  searchHfHubModels();
+}
+
+function routeHfModelToChat(targetVal, labelText) {
+  const sel = document.getElementById("target-selector");
+  if (!sel || !targetVal) return;
+  let existing = Array.from(sel.options).find((o) => o.value === targetVal);
+  if (!existing) {
+    const grpId = targetVal.startsWith("ollama:") ? "opt-ollama" : "opt-hf";
+    const grp = document.getElementById(grpId) || sel;
+    const opt = document.createElement("option");
+    opt.value = targetVal;
+    opt.textContent = labelText || targetVal;
+    grp.appendChild(opt);
+  }
+  sel.value = targetVal;
+  onTargetChange();
+  switchStageView("ops");
+}
+
+function routeHfModelToVideo(targetVal, labelText, isAnalyzer) {
+  if (isAnalyzer) {
+    const anSel = document.getElementById("vid-analyze-model");
+    if (anSel && targetVal) {
+      if (!Array.from(anSel.options).some((o) => o.value === targetVal)) {
+        const opt = document.createElement("option");
+        opt.value = targetVal;
+        opt.textContent = labelText || targetVal;
+        anSel.appendChild(opt);
+      }
+      anSel.value = targetVal;
+    }
+    switchStageView("video");
+    return;
+  }
+  switchStageView("video");
+  setTimeout(() => {
+    const genSel = document.getElementById("vid-gen-target");
+    if (genSel && targetVal) {
+      if (!Array.from(genSel.options).some((o) => o.value === targetVal)) {
+        const opt = document.createElement("option");
+        opt.value = targetVal;
+        opt.textContent = labelText || targetVal;
+        genSel.appendChild(opt);
+      }
+      genSel.value = targetVal;
+      onVideoGenTargetChange();
+    }
+  }, 180);
+}
+
+async function pullAndSelectHfGguf(btnEl) {
+  const repoId = btnEl?.getAttribute("data-repo") || "";
+  const statusEl = document.getElementById("hf-action-status");
+  if (!repoId) return;
+  const origTxt = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = "Pulling $0 GGUF...";
+  if (statusEl) {
+    statusEl.style.color = "var(--text-soft)";
+    statusEl.textContent = `Pulling hf.co/${repoId} into Local Ollama (127.0.0.1:11434 · $0.00)...`;
+  }
+  try {
+    const res = await fetch("/api/hf/ollama-pull", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_id: repoId }),
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) {
+      if (statusEl) {
+        statusEl.style.color = "var(--warning, #d97706)";
+        statusEl.textContent = d.error || `Could not pull ${repoId}. Run in terminal: ollama run hf.co/${repoId}`;
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.style.color = "var(--success, #16a34a)";
+      statusEl.textContent = `Pulled ${d.ollama_model} ($0.00) -> routed into Chat selector!`;
+    }
+    routeHfModelToChat(d.studio_target, `${d.ollama_model} (HF Local GGUF · $0)`);
+  } catch (err) {
+    if (statusEl) {
+      statusEl.style.color = "var(--warning, #d97706)";
+      statusEl.textContent = `Ollama pull error: ${err.message || err}`;
+    }
+  } finally {
+    btnEl.disabled = false;
+    btnEl.textContent = origTxt;
+  }
+}
+
+function renderHfModelsGrid(models) {
+  const grid = document.getElementById("hf-models-grid");
+  if (!grid) return;
+  if (!Array.isArray(models) || !models.length) {
+    grid.innerHTML = `<div style="font-size:12px; color:var(--muted);">No Hugging Face models matched this filter.</div>`;
+    return;
+  }
+  grid.innerHTML = models.map((m) => {
+    const fit = m.hardware_fit || {};
+    const fitColor = fit.tier === "fits_8gb_local" ? "var(--success, #16a34a)" : (fit.tier === "hybrid_cpu_gpu" ? "var(--warning, #d97706)" : "var(--text-soft)");
+    const provList = Array.isArray(m.live_providers) && m.live_providers.length
+      ? `Providers: ${m.live_providers.join(", ")}`
+      : "Weights on HF Hub";
+    const diskBadge = m.cached_locally
+      ? `<span class="branch-pill" style="border-color:var(--success, #16a34a); color:var(--success, #16a34a);">ON DISK · $0</span>`
+      : "";
+
+    let actionsHtml = "";
+    if (m.is_gguf && m.ollama_target) {
+      const chatLbl = `${m.id} (HF Local GGUF · $0)`;
+      actionsHtml += `<button class="btn-mini" data-target="${escapeHtml(m.ollama_target)}" data-label="${escapeHtml(chatLbl)}" onclick="routeHfModelToChat(this.dataset.target, this.dataset.label)">Select in Chat ($0)</button>`;
+      actionsHtml += `<button class="btn-mini" data-repo="${escapeHtml(m.id)}" onclick="pullAndSelectHfGguf(this)">Ollama Pull ($0)</button>`;
+      if (m.is_vision) {
+        actionsHtml += `<button class="btn-mini" data-target="${escapeHtml(m.ollama_target)}" data-label="${escapeHtml(chatLbl)}" onclick="routeHfModelToVideo(this.dataset.target, this.dataset.label, true)">Video VLM ($0)</button>`;
+      }
+    } else if (m.is_video && m.video_target) {
+      const vidLbl = `${m.id} (HF Open-Weight Video)`;
+      actionsHtml += `<button class="btn-mini" data-target="${escapeHtml(m.video_target)}" data-label="${escapeHtml(vidLbl)}" onclick="routeHfModelToVideo(this.dataset.target, this.dataset.label, false)">Open in Video Stage</button>`;
+    } else {
+      const hfLbl = `${m.id} (HF Router)`;
+      actionsHtml += `<button class="btn-mini" data-target="${escapeHtml(m.hf_router_target)}" data-label="${escapeHtml(hfLbl)}" onclick="routeHfModelToChat(this.dataset.target, this.dataset.label)">Route via HF</button>`;
+      if (m.is_vision) {
+        actionsHtml += `<button class="btn-mini" data-target="${escapeHtml(m.hf_router_target)}" data-label="${escapeHtml(hfLbl)}" onclick="routeHfModelToVideo(this.dataset.target, this.dataset.label, true)">Use as Video VLM</button>`;
+      }
+    }
+    if (m.url && String(m.url).startsWith("https://huggingface.co/")) {
+      actionsHtml += `<a class="btn-mini" href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-flex; align-items:center;">HF Card</a>`;
+    }
+
+    return `
+      <div style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+          <div style="font-family:var(--font-mono); font-size:11.5px; font-weight:600; color:var(--text); word-break:break-all;">${escapeHtml(m.id)}</div>
+          ${diskBadge}
+        </div>
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:${fitColor};">${escapeHtml(fit.label || "")}</div>
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">
+          ${escapeHtml(m.pipeline_tag || "model")} · DL ${Number(m.downloads || 0).toLocaleString()} · Likes ${Number(m.likes || 0).toLocaleString()}
+        </div>
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-soft);">${escapeHtml(provList)}</div>
+        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:auto; padding-top:4px;">${actionsHtml}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function searchHfHubModels() {
+  const q = (document.getElementById("hf-search-input")?.value || "").trim();
+  const sort = document.getElementById("hf-sort-select")?.value || "trendingScore";
+  const warm = document.getElementById("hf-warm-only")?.checked ? "1" : "0";
+  const grid = document.getElementById("hf-models-grid");
+  if (grid) grid.innerHTML = `<div style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">Querying huggingface.co/models ($0.00 public Hub API)...</div>`;
+  try {
+    const params = new URLSearchParams({ q, task: activeHfTask, sort, warm_only: warm, limit: "12" });
+    const res = await fetch(`/api/hf/models?${params.toString()}`);
+    if (res.ok) {
+      const d = await res.json();
+      renderHfModelsGrid(d.models || []);
+    }
+  } catch (err) {
+    if (grid) grid.innerHTML = `<div style="font-size:11.5px; color:var(--muted);">Hub search error: ${escapeHtml(String(err))}</div>`;
+  }
+}
+
+async function loadHfHubStage() {
+  searchHfHubModels();
+  try {
+    const res = await fetch("/api/hf/status");
+    if (!res.ok) return;
+    const d = await res.json();
+    const s = d.safety || {};
+    const billPill = document.getElementById("hf-billing-pill");
+    const lockPill = document.getElementById("hf-lock-pill");
+    const cachePill = document.getElementById("hf-cache-pill");
+    const olPill = document.getElementById("hf-ollama-pill");
+    const banner = document.getElementById("hf-safety-banner");
+    const diskPill = document.getElementById("hf-disk-total-pill");
+    const tbody = document.getElementById("hf-local-cache-body");
+
+    if (billPill) {
+      billPill.textContent = !s.can_pay ? "HF Card: NONE ($0.00 SAFE)" : "HF Card: ATTACHED";
+    }
+    if (lockPill) {
+      lockPill.textContent = s.zero_spend_locked ? "Spend Lock: HARD $0.00" : "Spend Lock: Custom";
+    }
+    const cacheCount = Number(d.local_cache?.count || 0);
+    const cacheMb = Number(d.local_cache?.total_size_mb || 0);
+    if (cachePill) cachePill.textContent = `On Disk: ${cacheCount} repos ($0.00)`;
+    if (diskPill) diskPill.textContent = `${cacheMb.toFixed(1)} MB on Disk`;
+    if (olPill) olPill.textContent = d.ollama?.live ? `Local Ollama: LIVE (${(d.ollama.models || []).length})` : "Local Ollama: OFFLINE";
+    if (banner && s.billing_summary) {
+      banner.textContent = `${s.billing_summary} · RTX 3070 (8 GB VRAM) Hardware-Fit Active.`;
+    }
+    if (tbody) {
+      const localList = Array.isArray(d.local_cache?.models) ? d.local_cache.models : [];
+      if (!localList.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted);">No local Hugging Face repositories found in cache.</td></tr>`;
+      } else {
+        tbody.innerHTML = localList.map((item) => {
+          const fmt = item.is_gguf ? "GGUF ($0 Ollama)" : (item.has_safetensors ? "Safetensors" : "Hub Snapshot");
+          const actBtn = item.ollama_target
+            ? `<button class="btn-mini" data-target="${escapeHtml(item.ollama_target)}" data-label="${escapeHtml(item.id + ' (Local Disk · $0)')}" onclick="routeHfModelToChat(this.dataset.target, this.dataset.label)">Use in Chat ($0)</button>`
+            : `<span style="font-family:var(--font-mono); font-size:10.5px; color:var(--muted);">Local Cache</span>`;
+          return `
+            <tr>
+              <td style="font-family:var(--font-mono); font-size:11px;">${escapeHtml(item.id)}</td>
+              <td>${escapeHtml(fmt)}</td>
+              <td style="font-family:var(--font-mono);">${Number(item.size_mb || 0).toFixed(1)} MB</td>
+              <td style="font-family:var(--font-mono); font-size:10.5px;">${escapeHtml(item.hardware_fit?.label || "")}</td>
+              <td style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">${escapeHtml(item.cache_dir || "")}</td>
+              <td>${actBtn}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+  } catch (_) {}
+}
+
+function readImageInputAsDataUri(fileInputEl) {
+  return new Promise((resolve, reject) => {
+    const f = fileInputEl && fileInputEl.files && fileInputEl.files[0];
+    if (!f) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => reject(new Error("Could not read image frame"));
+    reader.readAsDataURL(f);
+  });
+}
+
+function onVideoFileChosen(file) {
+  if (!file) return;
+  currentVideoFileObj = file;
+  if (currentVideoBlobUrl) {
+    try { URL.revokeObjectURL(currentVideoBlobUrl); } catch (_) {}
+  }
+  currentVideoBlobUrl = URL.createObjectURL(file);
+  const player = document.getElementById("vid-preview-player");
+  const st = document.getElementById("vid-analyze-status");
+  if (player) {
+    player.src = currentVideoBlobUrl;
+    player.style.display = "block";
+  }
+  if (st) st.textContent = `Loaded '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB). Ready to CPU-gate & analyze in cloud.`;
+}
+
+function seekVideoPreview(sec) {
+  const player = document.getElementById("vid-preview-player");
+  if (player && player.src) {
+    try {
+      player.currentTime = Math.max(0, Number(sec) || 0);
+      player.play().catch(() => {});
+    } catch (_) {}
+  }
+}
+
+async function extractFramesFromVideoFile(file, intervalSec = 4, maxSampled = 24) {
+  const player = document.getElementById("vid-preview-player");
+  const canvas = document.getElementById("vid-sample-canvas");
+  if (!player || !canvas || !canvas.getContext) throw new Error("Canvas video sampler unavailable");
+  if (!currentVideoBlobUrl) {
+    currentVideoBlobUrl = URL.createObjectURL(file);
+    player.src = currentVideoBlobUrl;
+    player.style.display = "block";
+  }
+
+  await new Promise((resolve, reject) => {
+    if (player.readyState >= 1 && Number.isFinite(player.duration) && player.duration > 0) {
+      resolve();
+      return;
+    }
+    const onMeta = () => { player.removeEventListener("error", onErr); resolve(); };
+    const onErr = () => { player.removeEventListener("loadedmetadata", onMeta); reject(new Error("Browser could not decode video metadata")); };
+    player.addEventListener("loadedmetadata", onMeta, { once: true });
+    player.addEventListener("error", onErr, { once: true });
+  });
+
+  const duration = Number.isFinite(player.duration) && player.duration > 0 ? player.duration : 10;
+  const step = Math.max(1, Number(intervalSec) || 4);
+  const timestamps = [];
+  for (let t = 0; t < duration && timestamps.length < maxSampled; t += step) {
+    timestamps.push(Math.min(duration - 0.05, Math.max(0, Number(t.toFixed(2)))));
+  }
+  if (!timestamps.length) timestamps.push(0);
+
+  const srcW = player.videoWidth || 640;
+  const srcH = player.videoHeight || 360;
+  const targetW = Math.min(480, Math.max(240, srcW));
+  const targetH = Math.max(135, Math.round(targetW * (srcH / Math.max(1, srcW))));
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  const tiny = document.createElement("canvas");
+  tiny.width = 64;
+  tiny.height = 36;
+  const tinyCtx = tiny.getContext("2d", { willReadFrequently: true });
+
+  const frames = [];
+  let prevTinyData = null;
+
+  for (const ts of timestamps) {
+    await new Promise((resolve) => {
+      const doneSeek = () => resolve();
+      player.addEventListener("seeked", doneSeek, { once: true });
+      player.currentTime = ts;
+    });
+    ctx.drawImage(player, 0, 0, targetW, targetH);
+    tinyCtx.drawImage(player, 0, 0, 64, 36);
+    const imgData = tinyCtx.getImageData(0, 0, 64, 36).data;
+
+    let mseSum = 0;
+    let lumaSum = 0;
+    let lumaMax = 0;
+    const nPx = 64 * 36;
+    const lumaVals = new Float32Array(nPx);
+    for (let i = 0; i < nPx; i++) {
+      const idx = i * 4;
+      const luma = 0.299 * imgData[idx] + 0.587 * imgData[idx + 1] + 0.114 * imgData[idx + 2];
+      lumaVals[i] = luma;
+      lumaSum += luma;
+      if (luma > lumaMax) lumaMax = luma;
+      if (prevTinyData) {
+        const dR = imgData[idx] - prevTinyData[idx];
+        const dG = imgData[idx + 1] - prevTinyData[idx + 1];
+        const dB = imgData[idx + 2] - prevTinyData[idx + 2];
+        mseSum += (dR * dR + dG * dG + dB * dB) / 3.0;
+      }
+    }
+    const meanLuma = lumaSum / nPx;
+    let varSum = 0;
+    for (let i = 0; i < nPx; i++) {
+      const diff = lumaVals[i] - meanLuma;
+      varSum += diff * diff;
+    }
+    const mseDelta = prevTinyData ? Number((mseSum / nPx).toFixed(3)) : 255.0;
+    prevTinyData = new Uint8ClampedArray(imgData);
+
+    frames.push({
+      timestamp_s: ts,
+      data_uri: canvas.toDataURL("image/jpeg", 0.78),
+      mse_delta: mseDelta,
+      metrics: {
+        brightness: Number((meanLuma / 255.0).toFixed(4)),
+        contrast: Number(Math.min(1.0, Math.sqrt(varSum / nPx) / 128.0).toFixed(4)),
+        intensity: Number((lumaMax / 255.0).toFixed(4)),
+      },
+    });
+  }
+  return frames;
+}
+
+function getStoredVideoInteractionMap() {
+  try {
+    const raw = localStorage.getItem("jupiter_video_interaction_ids");
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function storeVideoInteractionId(filename, interactionId) {
+  if (!filename || !interactionId) return;
+  try {
+    const map = getStoredVideoInteractionMap();
+    map[String(filename)] = String(interactionId);
+    localStorage.setItem("jupiter_video_interaction_ids", JSON.stringify(map));
+  } catch (_) {}
+}
+
+function useVideoInteractionId(btn) {
+  const iid = btn?.dataset?.iid || "";
+  const prevEl = document.getElementById("vid-gen-prev-id");
+  if (prevEl && iid) {
+    prevEl.value = iid;
+    prevEl.focus();
+    showToast("Loaded previous_interaction_id for cloud edit/extend");
+  }
+}
+
+function renderVideoSceneList(targetEl, scenes, clickable = true) {
+  if (!targetEl) return;
+  if (!Array.isArray(scenes) || !scenes.length) {
+    targetEl.innerHTML = `<div style="font-size:11.5px; color:var(--muted);">No indexed scenes matched yet.</div>`;
+    return;
+  }
+  targetEl.innerHTML = scenes.map((s) => {
+    const rawTs = Number(s.timestamp_s);
+    const safeTs = Number.isFinite(rawTs) ? rawTs : 0;
+    return `
+    <div style="padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); ${clickable ? "cursor:pointer;" : ""}" ${clickable ? `onclick="seekVideoPreview(${safeTs})"` : ""}>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+        <span class="mem-topic-pill" style="margin:0;">${escapeHtml(s.timestamp_label || "00:00")} · ${escapeHtml(s.video_name || s.video_slug || "clip")}</span>
+        <span style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">${s.mood ? escapeHtml(s.mood) : ""}</span>
+      </div>
+      <div style="font-weight:600; font-size:12px; color:var(--text);">${escapeHtml(s.label || "Scene Marker")}</div>
+      <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${escapeHtml(s.summary || "")}</div>
+    </div>
+  `;
+  }).join("");
+}
+
+let cachedVideoCatalog = [];
+
+function syncVideoGenSetupBanner() {
+  const sel = document.getElementById("vid-gen-target");
+  const setupBox = document.getElementById("vid-gen-setup-note");
+  if (!sel || !setupBox) return;
+  const targetVal = sel.value || "gemini:gemini-omni-1.2-flash";
+  const match = cachedVideoCatalog.find((c) => c.target === targetVal);
+  if (match && !match.ready) {
+    setupBox.style.display = "block";
+    setupBox.textContent = `Add ${match.env_var}=your_key to .env and restart Jupiter Studio to run ${match.label} (0 MB VRAM).`;
+  } else if (!cachedVideoCatalog.length) {
+    setupBox.style.display = "none";
+  } else {
+    setupBox.style.display = "none";
+  }
+}
+
+function onVideoGenTargetChange() {
+  syncVideoGenSetupBanner();
+  updateVideoCostEstimate();
+}
+
+function applyVideoPreset(kind) {
+  const sel = document.getElementById("vid-gen-target");
+  const resEl = document.getElementById("vid-gen-res");
+  const durEl = document.getElementById("vid-gen-duration");
+  if (kind === "draft") {
+    if (resEl) resEl.value = "360p";
+    if (durEl) durEl.value = "5";
+    const draftPref = cachedVideoCatalog.find((c) => c.tier === "draft" && c.ready)
+      || cachedVideoCatalog.find((c) => c.ready)
+      || cachedVideoCatalog.find((c) => c.tier === "draft");
+    if (sel && draftPref) sel.value = draftPref.target;
+    showToast("Applied Draft preset (360p · 5s · low cost)");
+  } else {
+    if (resEl) resEl.value = "1080p";
+    if (durEl) durEl.value = "10";
+    const heroPref = cachedVideoCatalog.find((c) => c.tier === "hero" && c.ready)
+      || cachedVideoCatalog.find((c) => c.ready)
+      || cachedVideoCatalog.find((c) => c.target === "gemini:gemini-omni-1.2-flash");
+    if (sel && heroPref) sel.value = heroPref.target;
+    showToast("Applied Hero preset (1080p · 10s · flagship)");
+  }
+  onVideoGenTargetChange();
+}
+
+async function updateVideoCostEstimate() {
+  const bar = document.getElementById("vid-gen-cost-bar");
+  const target = document.getElementById("vid-gen-target")?.value || "gemini:gemini-omni-1.2-flash";
+  const resolution = document.getElementById("vid-gen-res")?.value || "720p";
+  const duration = Number(document.getElementById("vid-gen-duration")?.value || 5);
+  const rawCap = (document.getElementById("vid-gen-max-usd")?.value || "").trim();
+  if (!bar) return;
+  try {
+    const qs = new URLSearchParams({ target, duration: String(duration), resolution });
+    if (rawCap !== "") qs.set("max_budget_usd", rawCap);
+    const res = await fetch(`/api/video/estimate?${qs.toString()}`);
+    if (!res.ok) return;
+    const est = await res.json();
+    const estUsd = Number(est.estimated_cost_usd || 0).toFixed(2);
+    const rateUsd = Number(est.rate_per_sec_usd || 0).toFixed(2);
+    const capTxt = est.max_budget_usd != null ? `Cap $${Number(est.max_budget_usd).toFixed(2)}` : "No Cap";
+    const statusTxt = est.within_budget ? "WITHIN CAP" : "OVER CAP (BLOCKED)";
+    bar.style.borderColor = est.within_budget ? "var(--border)" : "var(--red)";
+    bar.style.color = est.within_budget ? "var(--text-soft)" : "var(--red)";
+    bar.textContent = `Pre-Flight Estimate: $${estUsd} USD (${est.duration_s}s ${est.resolution} x $${rateUsd}/s · ${est.provider}) | ${capTxt} · ${statusTxt}`;
+  } catch (_) {}
+}
+
+function renderVideoSpendLedger(data) {
+  const spendPill = document.getElementById("vid-ledger-spend-pill");
+  const gatedPill = document.getElementById("vid-ledger-gated-pill");
+  const chainPill = document.getElementById("vid-ledger-chain-pill");
+  const body = document.getElementById("vid-ledger-body");
+  const s = data?.summary || {};
+  if (spendPill) spendPill.textContent = `Est. Spend: $${Number(s.total_est_spend_usd || 0).toFixed(2)}`;
+  if (gatedPill) gatedPill.textContent = `Frames Gated: ${Number(s.total_frames_skipped || 0)}`;
+  if (chainPill) chainPill.textContent = data?.ledger_valid === false ? "SHA-256 ALERT" : `SHA-256 Valid (${Number(data?.event_count || 0)})`;
+  if (!body) return;
+  const entries = Array.isArray(data?.entries) ? data.entries : [];
+  if (!entries.length) {
+    body.innerHTML = `<tr><td colspan="6" style="color:var(--muted);">No cloud video jobs recorded in control_plane_ledger yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = entries.map((e) => {
+    const isGen = e.event === "cloud_video_generate";
+    const kind = isGen ? "GENERATE" : "ANALYZE";
+    const scope = isGen
+      ? `${Number(e.duration_s || 0)}s · ${e.resolution || "720p"}`
+      : `Skipped ${Number(e.frames_skipped || 0)}/${Number(e.frames_total || 0)}`;
+    const costStr = isGen ? `$${Number(e.est_cost_usd || 0).toFixed(2)}` : "$0.00 (Gated)";
+    return `
+      <tr>
+        <td>${escapeHtml(kind)}</td>
+        <td>${escapeHtml(e.provider || "")} · ${escapeHtml(e.model || "")}</td>
+        <td>${escapeHtml(scope)}</td>
+        <td>${escapeHtml(costStr)}</td>
+        <td>${Number(e.local_vram_mb || 0)} MB</td>
+        <td>${escapeHtml(e.event_id || "")}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function loadVideoSpendLedger() {
+  try {
+    const res = await fetch("/api/video/ledger");
+    if (res.ok) renderVideoSpendLedger(await res.json());
+  } catch (_) {}
+}
+
+async function loadCloudVideoStage() {
+  try {
+    const [stRes, scRes, ldRes] = await Promise.all([
+      fetch("/api/video/status"),
+      fetch("/api/video/scenes"),
+      fetch("/api/video/ledger"),
+    ]);
+    if (stRes.ok) {
+      const d = await stRes.json();
+      const anPill = document.getElementById("vid-analyzer-pill");
+      const genPill = document.getElementById("vid-generator-pill");
+      const storPill = document.getElementById("vid-storage-pill");
+      const destPill = document.getElementById("vid-gen-dest-pill");
+      const outGrid = document.getElementById("vid-outputs-grid");
+      const targetSel = document.getElementById("vid-gen-target");
+      const anReady = Boolean(d.analyzer?.ready);
+      const genReady = Boolean(d.generator?.ready);
+      if (anPill) anPill.textContent = `Analyzer: ${anReady ? "READY (Cloud)" : "OFFLINE"}`;
+      if (genPill) genPill.textContent = `Video Gen: ${genReady ? "READY (Cloud)" : "SET API KEY"}`;
+      if (storPill) storPill.textContent = `Output: ${d.generator?.output_dir || "./outputs/video"}`;
+      if (destPill) destPill.textContent = `0 MB VRAM -> ${d.generator?.output_dir || "./outputs/video"}`;
+
+      cachedVideoCatalog = Array.isArray(d.generator?.catalog) ? d.generator.catalog : [];
+      if (targetSel && cachedVideoCatalog.length) {
+        const prevVal = targetSel.value;
+        targetSel.innerHTML = cachedVideoCatalog.map((item) => {
+          const badge = item.ready ? "READY" : `SET ${item.env_var}`;
+          return `<option value="${escapeHtml(item.target)}">${escapeHtml(item.label)} [${escapeHtml(badge)}]</option>`;
+        }).join("");
+        if (cachedVideoCatalog.some((c) => c.target === prevVal)) targetSel.value = prevVal;
+      }
+      syncVideoGenSetupBanner();
+      updateVideoCostEstimate();
+
+      if (outGrid) {
+        const vids = Array.isArray(d.outputs) ? d.outputs : [];
+        const iidMap = getStoredVideoInteractionMap();
+        if (!vids.length) {
+          outGrid.innerHTML = `<div style="font-size:11.5px; color:var(--muted);">No cloud-generated .mp4 clips saved yet.</div>`;
+        } else {
+          outGrid.innerHTML = vids.map((v) => {
+            const safeUrl = String(v.video_url || "").startsWith("/api/video/outputs/") ? v.video_url : "";
+            const storedIid = v.interaction_id || iidMap[String(v.filename || "")] || "";
+            const iidBtn = storedIid
+              ? `<button class="btn-mini" data-iid="${escapeHtml(storedIid)}" onclick="useVideoInteractionId(this)" style="margin-top:2px;">Use Interaction ID</button>`
+              : "";
+            return `
+              <div style="padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); display:flex; flex-direction:column; gap:6px;">
+                ${safeUrl ? `<video controls preload="metadata" src="${escapeHtml(safeUrl)}" style="width:100%; max-height:160px; border-radius:6px; background:#000;"></video>` : ""}
+                <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text); word-break:break-all;">${escapeHtml(v.filename || "clip.mp4")}</div>
+                <div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">${Number(v.size_mb || 0)} MB · 0 MB Local VRAM</div>
+                ${iidBtn}
+              </div>
+            `;
+          }).join("");
+        }
+      }
+    }
+    if (scRes.ok) {
+      const sd = await scRes.json();
+      renderVideoSceneList(document.getElementById("vid-vault-scenes"), sd.scenes || [], false);
+    }
+    if (ldRes.ok) {
+      renderVideoSpendLedger(await ldRes.json());
+    }
+  } catch (_) {}
+}
+
+async function runCloudVideoAnalyze() {
+  const btn = document.getElementById("btn-vid-analyze");
+  const st = document.getElementById("vid-analyze-status");
+  const met = document.getElementById("vid-analyze-metrics");
+  const listEl = document.getElementById("vid-scene-results");
+  if (!currentVideoFileObj) {
+    showToast("Choose a video file first");
+    return;
+  }
+  const target = document.getElementById("vid-analyze-model")?.value || "cloud:MiniCPM-V-4.7-35B-A3B";
+  const intervalSec = Number(document.getElementById("vid-sample-interval")?.value || 4);
+  const maxCloud = Number(document.getElementById("vid-max-frames")?.value || 8);
+  const promptHint = document.getElementById("vid-prompt-hint")?.value || "";
+  const saveVault = Boolean(document.getElementById("vid-save-vault")?.checked);
+
+  if (btn) btn.disabled = true;
+  if (st) st.textContent = "Sampling keyframes on CPU & computing pixel MSE deltas...";
+  try {
+    const frames = await extractFramesFromVideoFile(currentVideoFileObj, intervalSec, 24);
+    if (st) st.textContent = `Sending ${frames.length} sampled frames through CPU gate -> ${target} (0 MB VRAM)...`;
+    const res = await fetch("/api/video/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        video_name: currentVideoFileObj.name,
+        target,
+        prompt_hint: promptHint,
+        max_cloud_frames: maxCloud,
+        save_to_vault: saveVault,
+        frames,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    if (st) st.textContent = `Indexed ${d.scenes?.length || 0} scene(s) via ${d.model} [${d.provider}] in ${Math.round(d.total_ms || 0)} ms.`;
+    if (met) {
+      met.style.display = "block";
+      met.textContent = `Sampled: ${d.frames_total} | CPU Gate Skipped: ${d.frames_skipped} (${d.frames_skipped_pct}%) | Cloud Offloaded: ${d.frames_offloaded} | Gate Latency: ${d.gate_ms} ms | Local VRAM: ${d.local_vram_mb} MB`;
+    }
+    renderVideoSceneList(listEl, d.scenes || [], true);
+    loadCloudVideoStage();
+    loadMemoryVault();
+    showToast(`Cloud video indexed (${d.frames_skipped_pct}% static frames skipped)`);
+  } catch (err) {
+    if (st) st.textContent = `Analyze failed: ${err.message || err}`;
+    showToast(err.message || "Cloud video analysis failed");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function searchIndexedScenes() {
+  const q = (document.getElementById("vid-scene-search")?.value || "").trim();
+  try {
+    const res = await fetch(`/api/video/scenes?q=${encodeURIComponent(q)}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    renderVideoSceneList(document.getElementById("vid-vault-scenes"), d.scenes || [], false);
+  } catch (_) {}
+}
+
+async function runCloudVideoGenerate() {
+  const btn = document.getElementById("btn-vid-generate");
+  const st = document.getElementById("vid-gen-status");
+  const prompt = (document.getElementById("vid-gen-prompt")?.value || "").trim();
+  if (!prompt) {
+    showToast("Enter a video generation prompt");
+    return;
+  }
+  const target = document.getElementById("vid-gen-target")?.value || "gemini:gemini-omni-1.2-flash";
+  const aspect_ratio = document.getElementById("vid-gen-aspect")?.value || "16:9";
+  const resolution = document.getElementById("vid-gen-res")?.value || "720p";
+  const duration = Number(document.getElementById("vid-gen-duration")?.value || 5);
+  const previous_interaction_id = (document.getElementById("vid-gen-prev-id")?.value || "").trim() || null;
+  const rawCap = (document.getElementById("vid-gen-max-usd")?.value || "").trim();
+  const max_budget_usd = rawCap !== "" ? Number(rawCap) : null;
+
+  if (btn) btn.disabled = true;
+  if (st) st.textContent = `Dispatching ${target} job to cloud (0 MB Local VRAM)...`;
+  try {
+    const first_frame_data_uri = await readImageInputAsDataUri(document.getElementById("vid-gen-first-frame"));
+    const last_frame_data_uri = await readImageInputAsDataUri(document.getElementById("vid-gen-last-frame"));
+    const res = await fetch("/api/video/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target,
+        prompt,
+        aspect_ratio,
+        resolution,
+        duration,
+        max_budget_usd,
+        first_frame_data_uri,
+        last_frame_data_uri,
+        previous_interaction_id,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) throw new Error(d.error || d.setup_hint || `HTTP ${res.status}`);
+    if (st) {
+      const iid = d.interaction_id ? ` · ID: ${d.interaction_id}` : "";
+      const est = d.estimated_cost_usd != null ? ` · Est. $${Number(d.estimated_cost_usd).toFixed(2)}` : "";
+      st.textContent = `Saved ${d.filename} (${(Number(d.size_bytes || 0) / (1024 * 1024)).toFixed(2)} MB${est}) · 0 MB Local VRAM${iid}`;
+    }
+    if (d.interaction_id) {
+      storeVideoInteractionId(d.filename, d.interaction_id);
+      const prevEl = document.getElementById("vid-gen-prev-id");
+      if (prevEl) prevEl.value = d.interaction_id;
+    }
+    loadCloudVideoStage();
+    loadMemoryVault();
+    showToast(`Cloud video saved: ${d.filename}`);
+  } catch (err) {
+    if (st) st.textContent = `Generate notice: ${err.message || err}`;
+    showToast(err.message || "Cloud video generation unavailable");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadRecoveryBanner() {
@@ -3196,7 +4150,10 @@ function appendAssistantMessageEl(metaLabel, metaClass = "meta-cloud") {
   aMsg.innerHTML = `
     <div class="msg-head">
       <span class="meta-tag ${metaClass}" data-role="meta">${escapeHtml(metaLabel)}</span>
-      <button class="msg-copy-btn" data-role="copy" style="display:none;">Copy</button>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="msg-copy-btn" data-role="speak" onclick="speakAssistantEl(this)">Speak</button>
+        <button class="msg-copy-btn" data-role="copy" style="display:none;">Copy</button>
+      </div>
     </div>
     <details class="reasoning-box" data-role="reasoning-box" style="display:none;">
       <summary>Reasoning Trace</summary>
@@ -3207,6 +4164,40 @@ function appendAssistantMessageEl(metaLabel, metaClass = "meta-cloud") {
   inner.appendChild(aMsg);
   scrollThreadBottom();
   return aMsg;
+}
+
+async function speakAssistantEl(btn) {
+  const msgEl = btn?.closest(".msg");
+  const text = (msgEl?.querySelector('[data-role="content"]')?.innerText || "").trim();
+  if (!text) return;
+  const orig = btn.textContent;
+  btn.textContent = "CUDA...";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/voice/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "custom_voice", speaker: "Ryan", text: text.slice(0, 1200) }),
+    });
+    const d = await res.json();
+    if (d && d.audio_url) {
+      const a = new Audio(d.audio_url);
+      a.play();
+      showToast(`Speaking via CUDA (${d.latency_ms || 0} ms)`);
+    } else if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.slice(0, 800)));
+      showToast("Voice Studio (:7870) offline — using browser speech");
+    }
+  } catch {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.slice(0, 800)));
+    }
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
 }
 
 function scrollThreadBottom() {
@@ -3819,6 +4810,8 @@ function getPaletteEntries() {
     });
   }
   entries.push({ label: "View: Operations Console", group: "Stage", action: () => switchStageView("ops") });
+  entries.push({ label: "View: Cloud Video Studio (Analyze & Generate · 0 MB VRAM)", group: "Stage", action: () => switchStageView("video") });
+  entries.push({ label: "View: Hugging Face Open-Weight Hub (8GB Fit & $0.00 GGUF)", group: "Stage", action: () => switchStageView("hf") });
   entries.push({ label: "View: Control Centre (Ledger, Breakers, Plugins)", group: "Stage", action: () => switchStageView("control") });
   entries.push({ label: "New Persistent Session", group: "Action", action: () => newSession() });
   entries.push({ label: "Toggle Dual Arena Mode", group: "Action", action: () => toggleDualArena() });

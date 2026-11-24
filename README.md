@@ -56,6 +56,8 @@ For planned work vs experimental helpers (NPU execution, static UI split, brand 
 
 ## Quick Start
 
+> **New here?** Follow the 5-minute zero-spend walkthrough in **[`QUICKSTART.md`](QUICKSTART.md)** (`git clone` -> live Frank routing, Hugging Face 8 GB GGUF models, and browser video scene indexing at `$0.00`).
+
 ### Option 1 — Run From Source (Recommended, Zero Third-Party Runtime Deps)
 
 ```bash

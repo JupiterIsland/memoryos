@@ -3,9 +3,9 @@
 > Canonical AI Context & Identity Record (`llms.txt`) for Richard John Murray (Carlisle, England) — creator of MemoryOS, Jupiter One Hardware Reality, The Quiet Advisor, and the RJMedia / Paul Draper & Mansun Digital Archive.
 
 ## Identity Summary
-- **Name:** Richard John Murray
-- **Location:** Carlisle, England, UK
-- **Role:** Technical Systems Builder, AI Infrastructure Architect, & Digital Archivist
+- **Name:** Richard J Murray
+- **Location:** England, UK
+- **Role:** Technical Systems Builder, AI Infrastructure & Digital 
 - **GitHub Organization:** https://github.com/JupiterIsland
 - **Live Sites:**
   - https://jupiterisland.github.io/rjmedia/
@@ -25,7 +25,7 @@
    - Preserves and showcases rare music documentaries, broadcast recordings, interviews, restored footage, and cultural archives, bringing context, discovery, and community to independent music history.
 
 ## Unified AI Infrastructure (Three Core Systems)
-Richard John Murray designs and runs a unified, local-first AI infrastructure built around consumer GPUs, Docker, WSL2, Linux, and Windows automation:
+Richard designs and runs a unified, local-first AI infrastructure built around consumer GPUs, Docker, WSL2, Linux, and Windows automation:
 
 1. **MemoryOS (Memory Engine & Routing Layer)**
    - Handles GPU-aware memory routing, hierarchical tier management, and checkpoint persistence.
