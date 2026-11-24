@@ -1853,7 +1853,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <div class="brand-lockup">
         <span class="brand-title">Jupiter Studio</span>
       </div>
-      <span class="brand-ver">v2.1.2</span>
+      <span class="brand-ver">v2.2.0</span>
     </div>
 
     <div class="rail-actions">

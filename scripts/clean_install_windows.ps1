@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Hardened transactional clean-install audit script for MemoryOS / Jupiter Studio v2.1.2 on Windows.
+    Hardened transactional clean-install audit script for MemoryOS / Jupiter Studio v2.2.0 on Windows.
 .DESCRIPTION
     Validates OS, Git, non-Store Python >= 3.11, creates an isolated .venv with rollback on failure,
     installs dependencies, bootstraps .env if absent, runs the 14-module CI test suite + NEON Control Plane validation + EWC anti-forgetting audit,
@@ -91,7 +91,7 @@ if ($SelfTestNegativeChecks) {
 
 Write-Host ""
 Write-Host "=====================================================" -ForegroundColor Cyan
-Write-Host " Jupiter Studio v2.1.2 - Windows Clean Install Audit " -ForegroundColor Cyan
+Write-Host " Jupiter Studio v2.2.0 - Windows Clean Install Audit " -ForegroundColor Cyan
 Write-Host "=====================================================" -ForegroundColor Cyan
 
 try {
@@ -154,7 +154,7 @@ try {
         Pass ".env configuration present"
     }
 
-    Write-Host "`nRunning MemoryOS & Jupiter Studio v2.1.2 test suite..." -ForegroundColor Cyan
+    Write-Host "`nRunning MemoryOS & Jupiter Studio v2.2.0 test suite..." -ForegroundColor Cyan
     $env:PYTHONPATH = "."
     & $venvPy -B -W error::DeprecationWarning -m unittest `
         tests/test_quiet_advisor_detectors.py `
@@ -223,7 +223,7 @@ try {
 
     Write-Host ""
     Write-Host "=====================================================" -ForegroundColor Green
-    Write-Host " CLEAN INSTALL AUDIT PASSED (v2.1.2)                 " -ForegroundColor Green
+    Write-Host " CLEAN INSTALL AUDIT PASSED (v2.2.0)                 " -ForegroundColor Green
     Write-Host "=====================================================" -ForegroundColor Green
 } catch {
     Write-Host "`nINSTALL AUDIT FAILED: $_" -ForegroundColor Red

@@ -1,8 +1,8 @@
-# Installing MemoryOS // Jupiter Studio (`v2.1.2`)
+# Installing MemoryOS // Jupiter Studio (`v2.2.0`)
 
 > Looking for the fastest path? Read **[`QUICKSTART.md`](QUICKSTART.md)** to go from `git clone` to a live workstation in **under 5 minutes at $0.00**.
 
-MemoryOS // Jupiter Studio (`v2.1.2`) runs on the **Python 3.11+ standard library** with **zero third-party runtime `pip` dependencies** — no 15 GB PyTorch install, no Docker daemon, and no manual `ffmpeg` setup required.
+MemoryOS // Jupiter Studio (`v2.2.0`) runs on the **Python 3.11+ standard library** with **zero third-party runtime `pip` dependencies** — no 15 GB PyTorch install, no Docker daemon, and no manual `ffmpeg` setup required.
 
 ---
 

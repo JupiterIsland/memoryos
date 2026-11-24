@@ -1772,7 +1772,7 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 return
 
             if route == "/api/health":
-                self._send_json({"status": "ok", "version": "2.1.2"})
+                self._send_json({"status": "ok", "version": "2.2.0"})
                 return
 
             if route == "/api/sessions":

@@ -1,6 +1,6 @@
 # QUICKSTART — Zero to First Result in Under 5 Minutes ($0.00)
 
-**MemoryOS // Jupiter Studio (`v2.1.2`)** runs on the **Python 3.11+ standard library** (`0` third-party `pip` packages, `0` `ffmpeg` install required, `0` Docker containers, and a hard **`$0.00` spend lock** enabled by default).
+**MemoryOS // Jupiter Studio (`v2.2.0`)** runs on the **Python 3.11+ standard library** (`0` third-party `pip` packages, `0` `ffmpeg` install required, `0` Docker containers, and a hard **`$0.00` spend lock** enabled by default).
 
 ---
 

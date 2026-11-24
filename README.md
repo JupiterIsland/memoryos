@@ -4,11 +4,13 @@
 
 # MemoryOS // Jupiter Studio
 
-> **A pure-Python continual-learning AI router (`EWC + Replay + A-GEM`), SQLite Memory Vault, and Dual Arena workstation — runs locally with zero PyTorch or Docker, and keeps local VRAM free when offloading to cloud or local runners.**
+> **See the model. See the cost. See the route.**
+>
+> *An AI Control Plane built for operators who value control over convenience — a pure-Python continual-learning router (`EWC + Replay + A-GEM`), SQLite Memory Vault, 8 GB Hardware-Fit Advisor, and `$0.00`-locked multi-cloud workstation with zero PyTorch or Docker.*
 
 [![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
 [![Windows Clean Install](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/windows-clean-install.yml?branch=main&style=for-the-badge&label=Windows%20Audit)](https://github.com/JupiterIsland/memoryos/actions/workflows/windows-clean-install.yml)
-[![Release](https://img.shields.io/badge/Release-v2.1.2-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v2.2.0-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Python 3.11+ Stdlib](https://img.shields.io/badge/Core-Pure_Python_Stdlib-38BDF8?style=for-the-badge)](verify.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
@@ -25,7 +27,7 @@ Don't trust pre-recorded claims — clone the repository and run the single-comm
 ```bash
 git clone https://github.com/JupiterIsland/memoryos.git
 cd memoryos
-python3 -B verify.py          # Full 19-module check, NEON 5/5, 148 CI tests & live EWC benchmarks
+python3 -B verify.py          # Full 21-module check, NEON 5/5, 164 CI tests & live EWC benchmarks
 python3 -B verify.py --quick  # ~3s smoke check (skips full unittest suite)
 python3 -B verify.py --json   # Machine-readable hardware + benchmark output
 ```
