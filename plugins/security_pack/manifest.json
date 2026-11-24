@@ -1,0 +1,12 @@
+{
+  "id": "security_pack",
+  "name": "Security Operations Pack",
+  "version": "1.0.0",
+  "sdk_version": "1.0",
+  "permissions": [
+    "memory.read",
+    "ledger.write",
+    "ops.execute"
+  ],
+  "checksum_sha256": "sha256:befc3874e4bf41ddec35763538b0e19691ce7c32532f2198775675beb4a54a97"
+}

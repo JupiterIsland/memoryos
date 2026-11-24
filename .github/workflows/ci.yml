@@ -1,0 +1,70 @@
+name: MemoryOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Syntax check core modules
+        run: |
+          python3 -m py_compile \
+            quiet_advisor_detectors.py \
+            quiet_advisor_scheduler.py \
+            apps/jupiter_studio.py \
+            apps/jupiter_studio_ui.py \
+            src/memoryos/quiet_advisor_db.py \
+            src/memoryos/speculative_offload.py \
+            src/memoryos/memory_keeper.py \
+            src/memoryos/frank.py \
+            src/memoryos/ops_console.py \
+            src/memoryos/control_plane.py \
+            src/memoryos/gpu_backends.py \
+            src/memoryos/workspace_pack.py \
+            src/memoryos/router.py \
+            src/memoryos/browser_app.py \
+            src/memoryos/server.py \
+            src/memoryos/core/neural_memory_graph.py \
+            src/memoryos/grant_ledger.py \
+            apps/quiet_advisor_ui/server.py \
+            apps/quiet_advisor_ui/api.py
+
+      - name: Run NEON Control Plane certification gate
+        run: python3 -B NEON_SINGLE_FILE.py
+
+      - name: Run unit test suite
+        env:
+          PYTHONPATH: .
+        run: |
+          python3 -B -m unittest \
+            tests/test_quiet_advisor_detectors.py \
+            tests/test_jupiter_studio.py \
+            tests/test_speculative_offload.py \
+            tests/test_memory_keeper.py \
+            tests/test_frank.py \
+            tests/test_cross_silicon_profiles.py \
+            tests/test_ops_console.py \
+            tests/test_control_plane.py \
+            tests/test_nvidia_telemetry_safety.py \
+            tests/test_workspace_pack.py \
+            tests/test_nvidia_brev_router.py \
+            tests/test_heatstream.py \
+            tests/test_grant_ledger_reconciliation.py \
+            tests/test_offload_integrity.py \
+            -v

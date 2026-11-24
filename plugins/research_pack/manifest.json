@@ -1,0 +1,13 @@
+{
+  "id": "research_pack",
+  "name": "Research & Telemetry Pack",
+  "version": "1.0.0",
+  "sdk_version": "1.0",
+  "permissions": [
+    "memory.read",
+    "telemetry.read",
+    "ledger.write",
+    "ops.execute"
+  ],
+  "checksum_sha256": "sha256:2d5f62be832113b337121fbb8a7142f64a0b6228dce68922b2b32b622dd15b49"
+}

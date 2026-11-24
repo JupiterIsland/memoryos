@@ -1,0 +1,67 @@
+[
+  {
+    "id": "mem_core_001",
+    "title": "MemoryOS Architecture Overview",
+    "content": "MemoryOS is a tiered memory engine with TLB Hot Cache (volatile fast access), Temporal Graph (relationships), and NVMe Checkpoints (persistent storage). No cloud dependency - fully local-first.",
+    "timestamp": 1786660712,
+    "heat_score": 0.95,
+    "access_count": 12,
+    "category": "architecture",
+    "metadata": {
+      "source": "system_init",
+      "confidence": 98
+    }
+  },
+  {
+    "id": "mem_core_002",
+    "title": "Heat Stream Engine Purpose",
+    "content": "The Heat Stream monitors TLB Hot Cache for memory blocks with high access frequency and auto-formats them into Markdown snippets ready for LLM injection into system prompts.",
+    "timestamp": 1786660712,
+    "heat_score": 0.88,
+    "access_count": 8,
+    "category": "heat_stream",
+    "metadata": {
+      "source": "system_init",
+      "confidence": 95
+    }
+  },
+  {
+    "id": "mem_core_003",
+    "title": "Browser App Context Sync",
+    "content": "ContextSyncBridge provides one-click sync from CLI heat cache to browser context window. Supports auto-injection into LLM prompts via {HOT_CONTEXT} placeholder.",
+    "timestamp": 1786660712,
+    "heat_score": 0.82,
+    "access_count": 6,
+    "category": "browser_integration",
+    "metadata": {
+      "source": "system_init",
+      "confidence": 92
+    }
+  },
+  {
+    "id": "mem_user_001",
+    "title": "User Preferences",
+    "content": "User prefers alpine-based Docker images, efficient resource usage, and local-first approaches. Works with NVIDIA RTX 4090 on Windows PowerShell environment.",
+    "timestamp": 1786660712,
+    "heat_score": 0.75,
+    "access_count": 3,
+    "category": "user_context",
+    "metadata": {
+      "source": "conversation",
+      "confidence": 88
+    }
+  },
+  {
+    "id": "mem_workflow_001",
+    "title": "Development Workflow - MemoryOS",
+    "content": "Initialize with 'memoryos init', build index with 'memoryos index', scan hot cache with 'memoryos tlb scan', export to markdown, inject into browser app LLM context.",
+    "timestamp": 1786660712,
+    "heat_score": 0.70,
+    "access_count": 2,
+    "category": "workflow",
+    "metadata": {
+      "source": "documentation",
+      "confidence": 90
+    }
+  }
+]

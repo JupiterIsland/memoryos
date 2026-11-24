@@ -1,0 +1,25 @@
+{
+  "operations": [
+    {
+      "id": "secret_scan",
+      "executor": "builtin.secret_scan",
+      "timeout_seconds": 30,
+      "memory_limit_mb": 256,
+      "cpu_limit_seconds": 15,
+      "permissions": [
+        "memory.read",
+        "ledger.write"
+      ]
+    },
+    {
+      "id": "dependency_audit",
+      "executor": "builtin.dependency_audit",
+      "timeout_seconds": 60,
+      "memory_limit_mb": 512,
+      "cpu_limit_seconds": 30,
+      "permissions": [
+        "ledger.write"
+      ]
+    }
+  ]
+}

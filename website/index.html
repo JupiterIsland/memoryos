@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FrankHub — Where Frank Learns | Jupiter Studio</title>
+  <meta name="description" content="FrankHub is the continual learning, persistent SQLite Memory Vault, and EWC anti-forgetting audit center inside Jupiter Studio. Zero GPU VRAM required." />
+  <meta name="theme-color" content="#07090d" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07090d;
+      --surface: #0e121a;
+      --surface-2: #141a24;
+      --border: rgba(255, 255, 255, 0.10);
+      --border-accent: rgba(56, 189, 248, 0.35);
+      --text: #f3f6fb;
+      --body: #c5cedd;
+      --muted: #8492a6;
+      --cyan: #38bdf8;
+      --crimson: #ef4444;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --max: 1120px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background:
+        radial-gradient(ellipse 60% 45% at 85% 5%, rgba(56, 189, 248, 0.10), transparent 65%),
+        radial-gradient(ellipse 45% 40% at 12% 85%, rgba(239, 68, 68, 0.08), transparent 65%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.88em;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: #e2e8f0;
+    }
+    .wrap { width: min(var(--max), calc(100% - 2.5rem)); margin-inline: auto; }
+
+    /* Header */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(7, 9, 13, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      font-size: 1.05rem;
+    }
+    .brand-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid var(--border-accent);
+      color: var(--cyan);
+    }
+    nav { display: flex; gap: 1.5rem; align-items: center; font-size: 0.9rem; color: var(--muted); }
+    nav a:hover { color: var(--text); }
+
+    /* Hero */
+    .hero {
+      padding: 4.5rem 0 3.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .kicker {
+      display: inline-block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 1rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.1rem;
+    }
+    .hero p.lead {
+      font-size: 1.15rem;
+      color: var(--body);
+      max-width: 720px;
+      margin-bottom: 2rem;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 2.5rem; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.78rem 1.35rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      border: 1px solid var(--border);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: var(--text);
+      color: #07090d;
+      border-color: var(--text);
+    }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+    }
+    .btn-secondary:hover { border-color: var(--cyan); }
+
+    /* Metrics Strip */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+    }
+    .metric-val {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .metric-lbl {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Sections */
+    .section { padding: 3.8rem 0; border-bottom: 1px solid var(--border); }
+    .section-head { margin-bottom: 2rem; max-width: 720px; }
+    .section-head h2 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+    .section-head p { color: var(--muted); }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+    }
+    .card-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--cyan);
+      margin-bottom: 0.65rem;
+      display: block;
+    }
+    .card h3 { font-size: 1.15rem; margin-bottom: 0.55rem; }
+    .card p, .card li { font-size: 0.92rem; color: var(--body); }
+    .card ul { list-style: none; display: grid; gap: 0.45rem; margin-top: 0.65rem; }
+    .card li::before { content: "→ "; color: var(--cyan); font-family: "JetBrains Mono", monospace; }
+
+    /* Screenshot frame */
+    .shot-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .shot-card img {
+      width: 100%;
+      display: block;
+      border-bottom: 1px solid var(--border);
+    }
+    .shot-cap {
+      padding: 0.9rem 1.15rem;
+      font-size: 0.85rem;
+      color: var(--body);
+    }
+
+    /* Lineage Flow & Convergence Box */
+    .lineage-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 1.75rem 0 2.25rem;
+    }
+    .lineage-step {
+      width: min(560px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .lineage-step.is-frank {
+      border-color: var(--border-accent);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), var(--surface));
+    }
+    .lineage-name {
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: var(--text);
+    }
+    .lineage-role {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    .lineage-step.is-frank .lineage-role { color: var(--cyan); }
+    .lineage-arrow {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1;
+      user-select: none;
+    }
+    .lineage-finale {
+      width: min(720px, 100%);
+      margin-top: 0.35rem;
+      background: linear-gradient(145deg, rgba(56, 189, 248, 0.12), rgba(239, 68, 68, 0.08) 60%, var(--surface));
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 16px;
+      padding: 1.75rem 1.9rem;
+      text-align: center;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .lineage-finale-kicker {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 0.45rem;
+      display: block;
+    }
+    .lineage-finale h3 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.65rem;
+    }
+    .lineage-finale p {
+      font-size: 0.98rem;
+      color: var(--body);
+      max-width: 60ch;
+      margin: 0 auto;
+    }
+
+    footer {
+      padding: 3rem 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="./frankhub.html">
+        <img src="./assets/jupiter_studio_logo.svg" alt="Jupiter Studio" width="24" height="24" />
+        <span>FrankHub</span>
+        <span class="brand-tag">v2.0.0 · 0 MB VRAM</span>
+      </a>
+      <nav>
+        <a href="#inside">Inside FrankHub</a>
+        <a href="#screenshots">Studio UI</a>
+        <a href="#story">Origin Story</a>
+        <a href="./jupiter-island.html">Jupiter Island</a>
+        <a href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <span class="kicker">Learning · Memory · Continual Audit Center</span>
+      <h1>FrankHub is where Frank learns.</h1>
+      <p class="lead">
+        Most AI tools start every conversation from zero. <strong>Frank</strong> (<code>Frank-v1</code>) is the lightweight local neural helper built into <strong>Jupiter Studio</strong> — helping it learn your routing preferences, guard your VRAM, persist workspace rules, and retain prior knowledge without needing a datacentre GPU.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/JupiterIsland/memoryos/releases/latest" target="_blank" rel="noopener">Download Jupiter Studio v2.0.0 ↗</a>
+        <a class="btn btn-secondary" href="https://github.com/JupiterIsland/memoryos/blob/main/FRANKHUB.md" target="_blank" rel="noopener">Read FRANKHUB.md</a>
+        <a class="btn btn-secondary" href="https://github.com/JupiterIsland/memoryos" target="_blank" rel="noopener">Source Repository</a>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-card">
+          <div class="metric-val">0 MB</div>
+          <div class="metric-lbl">GPU VRAM used by Frank-v1</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">241–335 μs</div>
+          <div class="metric-lbl">Pure-Python CPU inference latency</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">100% vs 0%</div>
+          <div class="metric-lbl">EWC + Replay vs Naive SGD A→B→C</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">128 / 128</div>
+          <div class="metric-lbl">CI tests passing (Linux + Windows 3.11–3.13)</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="inside">
+      <div class="section-head">
+        <span class="kicker">Architecture &amp; Honest Boundaries</span>
+        <h2>What lives inside FrankHub today</h2>
+        <p>Frank does not try to replace DeepSeek, Qwen, Gemma, or GPT. Those models do heavy generation; Frank helps Jupiter Studio decide what should happen next and preserves state across sessions.</p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card">
+          <span class="card-tag">01 // Persistent Memory Vault</span>
+          <h3>Remember across restarts</h3>
+          <p>Backed by SQLite WAL mode inside <code>QuietAdvisorDB.sqlite</code> so pinned rules and hardware budgets stay available across threads.</p>
+          <ul>
+            <li>Pinned facts, hardware limits &amp; workspace rules</li>
+            <li>One-click <code>Free VRAM &amp; RAM</code> idle model unload</li>
+            <li>Energy avoidance ledger (0.15 Wh per offloaded turn)</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="card-tag">02 // EWC + Experience Replay</span>
+          <h3>Teach without overwriting</h3>
+          <p><code>Teach Frank</code> (<code>POST /api/frank/teach</code>) reinforces routing phrasing on CPU using Elastic Weight Consolidation and replay memory.</p>
+          <ul>
+            <li>6 live routing intents (<code>fast_code</code>, <code>architecture</code>, <code>large_design</code>, <code>cheap_bg</code>, <code>vram_reclaim</code>, <code>memory_pin</code>)</li>
+            <li>Fisher diagonal anchoring (<code>MAX_FISHER_VALUE</code> clamp)</li>
+            <li>Optional Ollama companion <code>Modelfile.frank</code></li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="card-tag">03 // Audit &amp; Quarantine</span>
+          <h3>Catch drift before it ships</h3>
+          <p>If a checkpoint corrupts or confidence goes out-of-distribution, FrankHub abstains or quarantines instead of silently misrouting.</p>
+          <ul>
+            <li>Live <code>Audit Frank</code> sequential A → B → C self-test</li>
+            <li>SHA-256 <code>checksum_sha256</code> verification</li>
+            <li>Automatic <code>.json.corrupt</code> quarantine &amp; fallback</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="screenshots">
+      <div class="section-head">
+        <span class="kicker">Precision Obsidian Workstation</span>
+        <h2>Inside Jupiter Studio</h2>
+        <p>Three themes (<strong>QUANTUM</strong>, <strong>RADEON</strong>, <strong>ATARI B&amp;W</strong>), multi-provider routing across Groq, AMD Token Lab, OpenRouter, Cerebras, Lemonade Server, and Ollama — anchored by FrankHub in the left rail.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="shot-card">
+          <img src="./assets/screenshots/jupiter_studio_quantum.png" alt="Jupiter Studio Quantum theme with continual memory vault and anti-forgetting audit" />
+          <div class="shot-cap"><strong>FrankHub &amp; QUANTUM Theme:</strong> Persistent Memory Vault, VRAM reclaim, live Frank teaching, and EWC anti-forgetting audit inside the workstation rail.</div>
+        </div>
+        <div class="shot-card">
+          <img src="./assets/screenshots/jupiter_studio_palette.png" alt="Jupiter Studio Ctrl+K Command Palette and multi-provider routing" />
+          <div class="shot-cap"><strong>Ctrl+K Palette &amp; Smart Routing:</strong> Switch instantly between built-in <code>studio:frank</code>, AMD Token Lab, Groq, OpenRouter, Cerebras, and local runtimes.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="story">
+      <div class="section-head">
+        <span class="kicker">Project Lineage · 2025 → 2026</span>
+        <h2>How FrankHub &amp; Jupiter Studio happened</h2>
+        <p>Jupiter Studio wasn't built in one step. It emerged from multiple independent experiments that gradually merged together — the ideas that survived.</p>
+      </div>
+
+      <div class="lineage-stack" aria-label="Project Lineage Flow">
+        <div class="lineage-step">
+          <span class="lineage-name">Order 66</span>
+          <span class="lineage-role">Knowledge Capture</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">MemoryOS</span>
+          <span class="lineage-role">Persistent Memory</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">The Quiet Advisor</span>
+          <span class="lineage-role">Telemetry &amp; Guidance</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">Gordon</span>
+          <span class="lineage-role">Local AI Automation</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">AI Engine Master</span>
+          <span class="lineage-role">Model Routing</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">AI Media Ops &amp; Adaptive Engine</span>
+          <span class="lineage-role">Content &amp; Behaviour Ops</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step">
+          <span class="lineage-name">JupiterOne</span>
+          <span class="lineage-role">Unified Workstation Concept</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step is-frank">
+          <span class="lineage-name">Frank</span>
+          <span class="lineage-role">Continual Learning Assistant</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-step is-frank">
+          <span class="lineage-name">FrankHub</span>
+          <span class="lineage-role">Learning &amp; Memory Centre</span>
+        </div>
+        <div class="lineage-arrow">↓</div>
+
+        <div class="lineage-finale">
+          <span class="lineage-finale-kicker">The Ideas That Survived</span>
+          <h3>Jupiter Studio</h3>
+          <p>Unified AI workstation combining workspace awareness, persistent memory, continual learning, model routing, telemetry, and local/cloud AI orchestration.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Philosophy</h3>
+          <p><code>Be useful. Don't get in the way.</code></p>
+          <ul>
+            <li>If Frank can help route or answer from local state, it should.</li>
+            <li>If confidence is out of distribution, it abstains safely.</li>
+            <li>If Frank learns something wrong, checkpoints and audit history remain inspectable.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Verified Multi-Platform CI</h3>
+          <p>Tested natively on Linux and Windows (<code>Python 3.11 / 3.12 / 3.13</code>) via transactional clean-install verification (<code>clean_install_windows.ps1</code>) with zero third-party PyTorch dependency.</p>
+          <ul>
+            <li>Single-process localhost server (<code>127.0.0.1</code>)</li>
+            <li>MIT Licensed open-source repository</li>
+            <li>Pre-built standalone binaries for Windows, Linux, and macOS</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="footer-inner">
+        <div>FrankHub &amp; Jupiter Studio · Built independently by <strong>Richard John Murray</strong> (<a href="https://github.com/JupiterIsland" target="_blank" rel="noopener">JupiterIsland</a>) · MIT License</div>
+        <div><a href="./jupiter-island.html">← Jupiter Island Hub</a></div>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

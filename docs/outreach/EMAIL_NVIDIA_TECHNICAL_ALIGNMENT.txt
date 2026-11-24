@@ -1,0 +1,47 @@
+Subject: Technical Review — MemoryOS GPU Efficiency Layer
+
+Hi,
+
+I've built a memory management layer for consumer RTX GPUs (24-48GB range) that extends their usable lifespan through intelligent tiering and scheduling. I'm looking for a technical alignment check with someone familiar with TensorRT-LLM and CUDA scheduling.
+
+What exists:
+
+MemoryOS — tiered memory system (GPU/CPU/NVMe) that:
+- Routes models between tiers based on access patterns
+- Offloads KV cache to CPU RAM (extends context 2-4x)
+- Stagger-schedules multi-model pipelines (reduces peak VRAM 40-85%)
+- Keeps multiple models warm without thrashing
+
+Jupiter One — optimization layer that:
+- Analyzes VRAM usage in real-time
+- Recommends quantization and context limits
+- Calculates ROI on GPU upgrades (most users don't need them)
+- Extends existing GPU capability via software
+
+The Quiet Advisor — learns from user patterns:
+- Logs every inference automatically
+- Detects inefficiencies (context waste, model thrashing, etc)
+- Surfaces one optimization per day
+- Teaches users how to use their GPU efficiently
+
+Current state:
+- MemoryOS: Production (tested on real workloads)
+- Jupiter One: Design complete, implementation-ready (6 weeks)
+- Quiet Advisor: Design complete, implementation-ready (8 weeks)
+
+Where I need input:
+
+I'm using TensorRT-LLM, CUDA graphs, unified memory, and multi-stream scheduling. Before I scale this, I want to verify I'm hitting NVIDIA's intended usage patterns correctly. Specifically:
+
+1. KV cache offload to pinned CPU memory — is this the right approach for sustained multi-model inference?
+2. CUDA graph streaming for pipeline staggering — am I sequencing this efficiently?
+3. Riva model routing through MemoryOS tiers — any integration gaps I should know about?
+
+This isn't a support request. I just don't want to discover in production that I'm fighting NVIDIA's architecture instead of working with it.
+
+If there's a contact in DevRel or Inference Engineering who could do a 20-minute technical review, that would be valuable.
+
+Thanks,
+Richard Murray
+MemoryOS / Jupiter One
+Carlisle, UK

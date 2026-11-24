@@ -1,0 +1,3 @@
+# MemoryOS // Jupiter Studio v2.1.2 — Core Runtime Requirements
+# Pure Python 3.11+ standard library: zero third-party pip packages required.
+# Run directly with: python -B apps/jupiter_studio.py  (or: python -B verify.py)
