@@ -1,0 +1,36 @@
+name: Windows Clean Install
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  clean-install:
+    name: Windows Clean Install (Python ${{ matrix.python-version }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }} (with pip cache)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "requirements*.txt"
+
+      - name: Test negative preflight checks (missing Git, Store Python, old Python)
+        shell: pwsh
+        run: pwsh -File scripts/clean_install_windows.ps1 -SelfTestNegativeChecks
+
+      - name: Run full transactional Windows Clean Install audit
+        shell: pwsh
+        run: pwsh -File scripts/clean_install_windows.ps1 -NonInteractive -TestPort 17861

@@ -1,0 +1,5 @@
+{
+  "mem_core_001": "gpu_vram",
+  "mem_core_002": "gpu_vram",
+  "mem_core_003": "cpu_cache"
+}

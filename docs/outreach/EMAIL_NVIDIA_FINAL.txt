@@ -1,0 +1,52 @@
+Subject: MemoryOS — Helping Everyday RTX Users Get Into AI (And Eventually Upgrade)
+
+Hi,
+
+I've built something that helps ordinary PC users get into AI without feeling overwhelmed, and I think it lines up with NVIDIA's customer acquisition goals.
+
+The problem I'm solving:
+
+Most people don't buy GPUs for AI. They buy them for gaming or work. When they try AI, they hit a wall — models don't fit, inference is slow, it all feels broken. They assume they need a new GPU, so they either give up or buy something they don't actually need.
+
+What I've built:
+
+MemoryOS + Jupiter One makes entry-level RTX cards (24–48GB) feel much bigger through tiered memory, intelligent scheduling, and optimization tips.
+
+Users get:
+- Their existing GPU suddenly works for modern models
+- Daily tips that teach them how AI workloads behave
+- Clear visibility into what hardware would actually help
+- Confidence instead of fear
+
+Why this matters for NVIDIA:
+
+Right now, RTX 3070/4070 owners assume they can't run AI. With this layer, they realize they can. They learn. They get comfortable. And eventually, they upgrade — not out of panic, but because they finally understand what they need.
+
+It's a customer funnel: Free → Pro → Hardware upgrade.
+
+The users you'd never capture become long-term customers who buy bigger GPUs intentionally.
+
+Current state:
+
+- MemoryOS: Production (tested and running)
+- Jupiter One: Ready to implement (6 weeks)
+- Quiet Advisor: Ready to implement (8 weeks)
+
+What I need:
+
+A 20-minute technical review to make sure I'm using NVIDIA's stack correctly:
+- KV-cache offload to pinned CPU memory (right approach?)
+- CUDA graphs for inference patterns (efficient?)
+- TensorRT-LLM integration (any gotchas?)
+
+This is good for NVIDIA because:
+- Gets GPUs into hands that wouldn't buy them otherwise
+- Builds early loyalty and reduces frustration churn
+- Creates natural, intentional upgrade cycles
+
+If someone in DevRel or Inference Engineering can point me to the right contact, I'd appreciate it.
+
+Thanks,
+Richard Murray
+MemoryOS / Jupiter One
+Carlisle, UK

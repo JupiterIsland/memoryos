@@ -1,0 +1,25 @@
+{
+  "operations": [
+    {
+      "id": "architecture_audit",
+      "executor": "builtin.architecture_audit",
+      "timeout_seconds": 45,
+      "memory_limit_mb": 512,
+      "cpu_limit_seconds": 20,
+      "permissions": [
+        "memory.read",
+        "telemetry.read"
+      ]
+    },
+    {
+      "id": "silicon_health_check",
+      "executor": "builtin.silicon_health_check",
+      "timeout_seconds": 15,
+      "memory_limit_mb": 128,
+      "cpu_limit_seconds": 10,
+      "permissions": [
+        "telemetry.read"
+      ]
+    }
+  ]
+}

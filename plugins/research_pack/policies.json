@@ -1,0 +1,5 @@
+{
+  "require_human_approval": false,
+  "allow_network": false,
+  "max_retries": 2
+}

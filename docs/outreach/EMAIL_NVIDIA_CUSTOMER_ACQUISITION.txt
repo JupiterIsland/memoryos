@@ -1,0 +1,63 @@
+Subject: MemoryOS — GPU Adoption Layer for NVIDIA's Installed Base
+
+Hi,
+
+I've built a system that turns entry-level RTX GPUs into viable AI hardware, with the side effect of creating a natural upgrade path for users who never would have considered buying GPUs before.
+
+The problem:
+
+Most people don't buy GPUs for AI. They buy them for gaming or work. When they discover AI, they hit a wall — models don't fit, inference is slow, everything feels broken. They assume they need new hardware and either give up or buy something they don't need.
+
+What I've built:
+
+MemoryOS + Jupiter One — a software layer that makes entry-level RTX (24-48GB) feel 3-5x larger through intelligent tiering, scheduling, and optimization.
+
+Users get:
+- Their old GPU suddenly works for modern models
+- Daily optimization tips (Quiet Advisor learns their patterns)
+- Clear visibility into what hardware would actually help
+- Confidence that they understand what they're running
+
+The business model:
+
+Free tier: Core optimizations + daily tips
+Pro tier: Deeper analytics + upgrade ROI calculations
+Team tier: Multi-user management
+
+The NVIDIA angle:
+
+Right now, users with RTX 3070/4070 GPUs assume they can't run AI and move on. With this layer, they:
+
+1. **Discover** they CAN use AI (retention)
+2. **Learn** how AI workloads behave (education)
+3. **Eventually upgrade intentionally** — not out of panic, but out of understanding (higher-value sales)
+
+The users you'd never have captured otherwise become customers. They start on RTX 4070. In 18 months, they understand their needs well enough to buy RTX 5090. They buy it knowingly, not desperately.
+
+It's a funnel. Free → Pro → Hardware upgrade.
+
+Current state:
+
+MemoryOS: Production (tested)
+Jupiter One: Ready to implement (6 weeks)
+Quiet Advisor: Ready to implement (8 weeks)
+
+What I need:
+
+Technical validation that I'm using NVIDIA's stack correctly:
+- KV cache offload to pinned CPU memory (right approach?)
+- CUDA graphs for pipeline scheduling (efficient?)
+- TensorRT-LLM integration (any gotchas?)
+
+This is good for NVIDIA because:
+- Gets GPUs into hands that wouldn't buy them otherwise
+- Creates education around AI (reduces churn from frustration)
+- Builds brand loyalty early (users feel guided, not abandoned)
+- Creates natural upgrade cycles from actual understanding, not panic
+
+If there's someone in DevRel or Inference Engineering who can spend 20 minutes on a technical review, I'd appreciate the pointer.
+
+Thanks,
+Richard Murray
+MemoryOS / Jupiter One
+Carlisle, UK

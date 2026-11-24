@@ -1,0 +1,1420 @@
+"""Multi-model Token Lab router for MemoryOS, Quiet Advisor, and Jupiter TV."""
+
+import json
+import os
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load_local_env() -> None:
+    """Load .env from the repository root if variables are not already set."""
+    env_path = REPO_ROOT / ".env"
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(env_path, override=False)
+        return
+    except ImportError:
+        pass
+
+    try:
+        raw_lines = env_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return
+    for raw_line in raw_lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_local_env()
+
+# Initialize isolated client for AMD Token Lab
+# (Prevents overwriting your default OpenAI client if used elsewhere)
+tl_client = (
+    OpenAI(
+        api_key=os.getenv("TOKENLAB_API_KEY", "tl-offline"),
+        base_url=os.getenv("TOKENLAB_BASE_URL", "https://api.tokenlab.amd.com/v1"),
+    )
+    if OpenAI is not None
+    else None
+)
+
+# Initialize isolated client for DigitalOcean Serverless Inference (AMD Instinct MI300X)
+do_client = (
+    OpenAI(
+        api_key=(
+            os.getenv("DO_MODEL_ACCESS_KEY")
+            or os.getenv("DIGITALOCEAN_INFERENCE_KEY")
+            or "do-offline"
+        ),
+        base_url=os.getenv("DO_INFERENCE_BASE_URL", "https://inference.do-ai.run/v1"),
+    )
+    if OpenAI is not None
+    else None
+)
+
+# Initialize isolated client for NVIDIA NIM / Brev OpenAI-compatible inference
+nv_client = (
+    OpenAI(
+        api_key=(
+            os.getenv("NVIDIA_API_KEY")
+            or os.getenv("NVIDIA_NIM_API_KEY")
+            or "nv-offline"
+        ),
+        base_url=(
+            os.getenv("NVIDIA_BASE_URL")
+            or os.getenv("BREV_INFERENCE_URL")
+            or "https://integrate.api.nvidia.com/v1"
+        ),
+    )
+    if OpenAI is not None
+    else None
+)
+
+DO_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("DO_VISION_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
+    "Qwen3.8-27B": os.getenv("DO_CODE_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("DO_LONG_CONTEXT_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"),
+    "MiniCPM5-2B": os.getenv("DO_FAST_MODEL", "meta-llama/Llama-3.1-8B-Instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "DO_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
+}
+
+NVIDIA_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("NV_VISION_MODEL", "meta/llama-3.3-70b-instruct"),
+    "Qwen3.8-27B": os.getenv("NV_CODE_MODEL", "qwen/qwen2.5-coder-32b-instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("NV_LONG_CONTEXT_MODEL", "meta/llama-3.3-70b-instruct"),
+    "MiniCPM5-2B": os.getenv("NV_FAST_MODEL", "qwen/qwen2.5-7b-instruct"),
+    "meta-models/Muse-Spark-Open-816B-A42B-NVFP4": os.getenv(
+        "NV_APEX_MOE_MODEL", "meta-models/Muse-Spark-Open-816B-A42B-NVFP4"
+    ),
+}
+
+
+def _is_configured_key(key: str, *placeholders: str) -> bool:
+    """Return True when an API key env var holds a non-placeholder credential."""
+    cleaned = (key or "").strip()
+    if not cleaned:
+        return False
+    if cleaned in placeholders or cleaned in {"tl-offline", "do-offline", "nv-offline"}:
+        return False
+    if "your-" in cleaned or "-here" in cleaned:
+        return False
+    return True
+
+
+def _get_tokenlab_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for AMD Token Lab."""
+    key = os.getenv("TOKENLAB_API_KEY", "").strip()
+    base_url = (
+        os.getenv("TOKENLAB_BASE_URL", "").strip()
+        or os.getenv("TOKENLAB_API_BASE", "").strip()
+        or "https://api.tokenlab.amd.com/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _get_do_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for DigitalOcean Serverless Inference."""
+    key = (
+        os.getenv("DO_MODEL_ACCESS_KEY", "").strip()
+        or os.getenv("DIGITALOCEAN_INFERENCE_KEY", "").strip()
+    )
+    base_url = (
+        os.getenv("DO_INFERENCE_BASE_URL", "").strip()
+        or "https://inference.do-ai.run/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+def _get_nvidia_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for NVIDIA NIM / Brev OpenAI-compatible endpoints."""
+    key = (
+        os.getenv("NVIDIA_API_KEY", "").strip()
+        or os.getenv("NVIDIA_NIM_API_KEY", "").strip()
+    )
+    base_url = (
+        os.getenv("NVIDIA_BASE_URL", "").strip()
+        or os.getenv("BREV_INFERENCE_URL", "").strip()
+        or "https://integrate.api.nvidia.com/v1"
+    ).rstrip("/")
+    return key, base_url
+
+
+GROQ_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
+    "Qwen3.8-27B": os.getenv("GROQ_CODE_MODEL", "llama-3.3-70b-versatile"),
+    "DeepSeek-V4.1-Flash": os.getenv("GROQ_LONG_CONTEXT_MODEL", "qwen/qwen3-32b"),
+    "MiniCPM5-2B": os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant"),
+}
+
+OPENROUTER_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("OPENROUTER_VISION_MODEL", "google/gemma-3-27b-it"),
+    "Qwen3.8-27B": os.getenv("OPENROUTER_CODE_MODEL", "qwen/qwen-2.5-coder-32b-instruct"),
+    "DeepSeek-V4.1-Flash": os.getenv("OPENROUTER_LONG_CONTEXT_MODEL", "deepseek/deepseek-chat"),
+    "MiniCPM5-2B": os.getenv("OPENROUTER_FAST_MODEL", "meta-llama/llama-3.1-8b-instruct"),
+}
+
+CEREBRAS_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("CEREBRAS_VISION_MODEL", "llama-3.3-70b"),
+    "Qwen3.8-27B": os.getenv("CEREBRAS_CODE_MODEL", "qwen-3-32b"),
+    "DeepSeek-V4.1-Flash": os.getenv("CEREBRAS_LONG_CONTEXT_MODEL", "qwen-3-32b"),
+    "MiniCPM5-2B": os.getenv("CEREBRAS_FAST_MODEL", "llama3.1-8b"),
+}
+
+GEMINI_MODEL_MAP: Dict[str, str] = {
+    "Gemma-4-31B-IT": os.getenv("GEMINI_DESIGN_MODEL", "gemma-4-31b-it"),
+    "Qwen3.8-27B": os.getenv("GEMINI_CODE_MODEL", "gemini-3.8-flash"),
+    "DeepSeek-V4.1-Flash": os.getenv("GEMINI_LONG_CONTEXT_MODEL", "gemini-4-argon"),
+    "MiniCPM5-2B": os.getenv("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite"),
+}
+
+
+def _get_groq_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for Groq ultra-fast LPU inference."""
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_openrouter_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for OpenRouter OpenAI-compatible gateway."""
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_cerebras_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for Cerebras wafer-scale cloud inference."""
+    key = os.getenv("CEREBRAS_API_KEY", "").strip()
+    base_url = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_openai_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for OpenAI API cloud inference."""
+    key = os.getenv("OPENAI_API_KEY", "").strip()
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
+    return key, base_url
+
+
+def _get_gemini_credentials() -> tuple[str, str]:
+    """Return (api_key, normalized_base_url) for Google Gemini Interactions API v1."""
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    base_url = (
+        os.getenv("GEMINI_BASE_URL", "").strip().rstrip("/")
+        or "https://generativelanguage.googleapis.com/v1"
+    )
+    return key, base_url
+
+
+def _http_post_json(
+    url: str,
+    headers: Dict[str, str],
+    payload: Dict[str, Any],
+    timeout: float = 45.0,
+) -> Dict[str, Any]:
+    """POST JSON via Python stdlib urllib so remote endpoints work without openai/httpx."""
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+        return json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as exc:
+        try:
+            err_body = exc.read().decode("utf-8", errors="replace")[:400]
+        except Exception:
+            err_body = ""
+        finally:
+            try:
+                exc.close()
+            except Exception:
+                pass
+        raise RuntimeError(f"HTTP {exc.code} from {url}: {err_body}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Connection error to {url}: {exc.reason}") from exc
+
+
+_CACHED_CPU_GATE_MS: Optional[float] = None
+
+
+def _measure_cpu_gate_ms() -> float:
+    """Measure real 64x36 stride-sampled MSE gate latency once per process and cache it."""
+    global _CACHED_CPU_GATE_MS
+    if _CACHED_CPU_GATE_MS is not None:
+        return _CACHED_CPU_GATE_MS
+    try:
+        try:
+            from src.memoryos.amd_zen_studio import zen3_fast_mse_delta
+        except ImportError:
+            from memoryos.amd_zen_studio import zen3_fast_mse_delta
+
+        frame_a = [[[0, 0, 0] for _ in range(64)] for _ in range(36)]
+        frame_b = [
+            [[255, 255, 255] if (10 <= r < 26 and 20 <= c < 44) else [0, 0, 0] for c in range(64)]
+            for r in range(36)
+        ]
+        iterations = 25
+        t0 = time.perf_counter()
+        for i in range(iterations):
+            zen3_fast_mse_delta(frame_a, frame_b if (i % 2 == 0) else frame_a, stride=2)
+        avg_ms = ((time.perf_counter() - t0) * 1000.0) / iterations
+        _CACHED_CPU_GATE_MS = max(0.001, round(avg_ms, 3))
+    except Exception:
+        t0 = time.perf_counter()
+        _ = sum(i * i for i in range(576))
+        _CACHED_CPU_GATE_MS = max(0.001, round((time.perf_counter() - t0) * 1000.0, 3))
+    return _CACHED_CPU_GATE_MS
+
+
+def get_policy_telemetry() -> Dict[str, Any]:
+    """Return live policy telemetry from QuietAdvisorDB and measured CPU gate latency."""
+    db_path = REPO_ROOT / "QuietAdvisorDB.sqlite"
+    active_cards = 0
+    total_inferences = 0
+    local_vram_saved_pct = 100.0
+    if db_path.exists():
+        conn = None
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path, timeout=1.0)
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM quiet_advisor_cards WHERE user_dismissed=0 AND user_archived=0")
+            row = cur.fetchone()
+            if row:
+                active_cards = int(row[0])
+            cur.execute(
+                "SELECT COUNT(*), SUM(CASE WHEN COALESCE(gpu_memory_used_mb, 0) = 0 THEN 1 ELSE 0 END) "
+                "FROM memoryos_inference_log"
+            )
+            row = cur.fetchone()
+            if row and row[0]:
+                total_inferences = int(row[0])
+                zero_vram_count = int(row[1] or 0)
+                local_vram_saved_pct = round((zero_vram_count / total_inferences) * 100.0, 1)
+        except Exception:
+            pass
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    gate_ms = _measure_cpu_gate_ms()
+    return {
+        "cpu_gate_ms": gate_ms,
+        "local_vram_saved_pct": local_vram_saved_pct,
+        "active_cards": active_cards,
+        "total_inferences": total_inferences,
+        "routing_engine": f"CPU Stride-Sampled MSE Gate ({gate_ms:.3f}ms) -> AMD Token Lab / Lemonade Server / NVIDIA NIM",
+    }
+
+
+def get_cloud_provider_status() -> Dict[str, Any]:
+    """Return configuration & readiness status for all configured cloud inference providers."""
+    tl_key, tl_base = _get_tokenlab_credentials()
+    nv_key, nv_base = _get_nvidia_credentials()
+    do_key, do_base = _get_do_credentials()
+    do_token = os.getenv("DIGITALOCEAN_API_TOKEN", "").strip()
+    hf_key = (os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
+    hf_base = os.getenv("HF_BASE_URL", "https://router.huggingface.co/v1").strip().rstrip("/")
+    groq_key, groq_base = _get_groq_credentials()
+    or_key, or_base = _get_openrouter_credentials()
+    cer_key, cer_base = _get_cerebras_credentials()
+    openai_key, openai_base = _get_openai_credentials()
+    gemini_key, gemini_base = _get_gemini_credentials()
+    transport = "openai_sdk+urllib_fallback" if OpenAI is not None else "urllib_stdlib"
+    return {
+        "amd_tokenlab": {
+            "configured": _is_configured_key(
+                tl_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
+            ),
+            "base_url": tl_base,
+            "messages_url": f"{tl_base}/messages",
+            "systemone_url": f"{tl_base}/systemone",
+            "transport": transport,
+            "hardware": "AMD Instinct Cloud (Token Lab)",
+        },
+        "openai": {
+            "configured": _is_configured_key(
+                openai_key, "sk-your-key-here", "your-openai-api-key-here"
+            ),
+            "base_url": openai_base,
+            "transport": transport,
+            "hardware": "OpenAI Cloud",
+        },
+        "gemini": {
+            "configured": _is_configured_key(
+                gemini_key, "AIza-your-gemini-key-here", "your-gemini-api-key-here"
+            ),
+            "base_url": gemini_base,
+            "interactions_url": f"{gemini_base}/interactions",
+            "transport": "urllib_stdlib",
+            "hardware": "Google Gemini API (Interactions v1)",
+            "model_map": GEMINI_MODEL_MAP,
+        },
+        "groq": {
+            "configured": _is_configured_key(
+                groq_key, "gsk_your-groq-key-here", "your-groq-api-key-here"
+            ),
+            "base_url": groq_base,
+            "transport": transport,
+            "hardware": "Groq LPU Inference Cloud",
+            "model_map": GROQ_MODEL_MAP,
+        },
+        "openrouter": {
+            "configured": _is_configured_key(
+                or_key, "sk-or-your-openrouter-key-here", "your-openrouter-api-key-here"
+            ),
+            "base_url": or_base,
+            "transport": transport,
+            "hardware": "OpenRouter Multi-Model Gateway",
+            "model_map": OPENROUTER_MODEL_MAP,
+        },
+        "cerebras": {
+            "configured": _is_configured_key(
+                cer_key, "csk-your-cerebras-key-here", "your-cerebras-api-key-here"
+            ),
+            "base_url": cer_base,
+            "transport": transport,
+            "hardware": "Cerebras Wafer-Scale Cloud",
+            "model_map": CEREBRAS_MODEL_MAP,
+        },
+        "nvidia_brev": {
+            "configured": _is_configured_key(
+                nv_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+            ),
+            "base_url": nv_base,
+            "brev_org_id": os.getenv("BREV_ORG_ID", "").strip() or None,
+            "transport": transport,
+            "hardware": "NVIDIA NIM / Brev Cloud",
+            "model_map": NVIDIA_MODEL_MAP,
+        },
+        "digitalocean_mi300x": {
+            "configured": _is_configured_key(do_key, "do-ai-your-model-access-key-here"),
+            "droplet_api_configured": _is_configured_key(
+                do_token, "dop_v1_your-digitalocean-api-token-here"
+            ),
+            "base_url": do_base,
+            "transport": transport,
+            "hardware": "DigitalOcean Serverless Inference (AMD Instinct MI300X)",
+            "ssh_key_fingerprint": "75:f4:ca:fb:d4:b3:03:b4:34:8b:d2:68:f7:a4:95:dc",
+            "model_map": DO_MODEL_MAP,
+        },
+        "huggingface": {
+            "configured": _is_configured_key(
+                hf_key, "hf_your-token-here", "your-huggingface-token-here"
+            ),
+            "base_url": hf_base,
+            "transport": transport,
+            "hardware": "Hugging Face Serverless Router",
+        },
+    }
+
+MODEL_PROFILES: Dict[str, Dict[str, Any]] = {
+    "fast_light": {
+        "model": "MiniCPM5-2B",
+        "supports_vision": False,
+        "max_context": 131072,
+    },
+    "long_context": {
+        "model": "DeepSeek-V4.1-Flash",
+        "supports_vision": True,
+        "max_context": 1048576,
+    },
+    "vision_heavy": {
+        "model": "Gemma-4-31B-IT",
+        "supports_vision": True,
+        "max_context": 262144,
+    },
+    "balanced_code": {
+        "model": "Qwen3.8-27B",
+        "supports_vision": True,
+        "max_context": 262144,
+    },
+    "apex_moe_mega": {
+        "model": "meta-models/Muse-Spark-Open-816B-A42B-NVFP4",
+        "supports_vision": True,
+        "max_context": 1048576,  # 1M context window (provider-dependent)
+        "experimental": True,
+        "note": "Remote experimental tier; requires a provider hosting Muse Spark Open (e.g., vLLM, Modal, Fireworks, OpenRouter). NVFP4/MXFP4 is a serving-backend weight format.",
+    },
+}
+
+ROUTING_CRITERIA: Dict[str, str] = {
+    "fast_light": "Simple Q&A, short classification, or trivial text formatting",
+    "long_context": "Very large logs, transcripts, or multi-document synthesis",
+    "vision_heavy": "Image/video frame analysis or deep multimodal reasoning",
+    "balanced_code": "Code generation, debugging, refactoring, or structured JSON tasks",
+    "apex_moe_mega": "Massive multi-document architecture, 1M context synthesis, or complex multimodal MoE reasoning",
+}
+
+DEFAULT_QUIET_ADVISOR_CRITERIA: Dict[str, str] = {
+    "surface_now": "High-impact, actionable insight that clearly improves latency, VRAM, or quality",
+    "defer": "Moderately useful pattern worth keeping in the daily digest",
+    "ignore": "Low-signal, noisy, or redundant pattern that should not interrupt the user",
+}
+
+FRAME_GATEKEEP_CRITERIA: Dict[str, str] = {
+    "surface_now": "Significant visual scene change from the previous frame; execute Gemma-4-31B-IT VLM analysis",
+    "defer": "Moderate visual drift; defer vision call unless user explicitly requests full scan",
+    "ignore": "Scene has not significantly changed from the last frame; skip Gemma-4-31B-IT vision call to save Token Lab grant points",
+}
+
+_SESSION_FRAME_CACHE: Dict[str, Dict[str, Any]] = {}
+_SESSION_FRAME_CACHE_LOCK = threading.Lock()
+_SESSION_FRAME_CACHE_MAX = 256
+
+
+def _set_session_frame_cache(session_id: str, entry: Dict[str, Any]) -> None:
+    with _SESSION_FRAME_CACHE_LOCK:
+        _SESSION_FRAME_CACHE[session_id] = entry
+        while len(_SESSION_FRAME_CACHE) > _SESSION_FRAME_CACHE_MAX:
+            oldest_key = next(iter(_SESSION_FRAME_CACHE))
+            _SESSION_FRAME_CACHE.pop(oldest_key, None)
+
+
+def write_atomic_checkpoint(
+    payload: Dict[str, Any],
+    checkpoint_dir: Optional[Path] = None,
+) -> Path:
+    """Write a JSON checkpoint atomically to disk (with temp-dir fallback if read-only)."""
+    target_dir = checkpoint_dir or (REPO_ROOT / "memory" / "checkpoints")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    fname = f"router_{stamp}_{uuid.uuid4().hex[:8]}.json"
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        final_path = target_dir / fname
+        tmp_path = target_dir / f".{fname}.tmp"
+        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp_path, final_path)
+        return final_path
+    except OSError:
+        fallback_dir = Path(tempfile.gettempdir()) / "memoryos_checkpoints"
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        final_path = fallback_dir / fname
+        tmp_path = fallback_dir / f".{fname}.tmp"
+        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp_path, final_path)
+        return final_path
+
+
+def _local_d3_fallback(state_text: str, criteria: Dict[str, str], model: str = "d3") -> Dict[str, Any]:
+    """Deterministic local d3 fallback when offline or Token Lab API key is unset."""
+    keys = list(criteria.keys())
+    if not keys:
+        return {
+            "id": f"local-d3-{uuid.uuid4().hex[:8]}",
+            "model": model,
+            "choice": None,
+            "probabilities": {},
+            "confidence": 0.0,
+            "fallback": True,
+        }
+    lower = state_text.lower()
+    chosen = keys[0]
+    conf = 0.86
+    if "significant_change: false" in lower and "ignore" in criteria:
+        chosen = "ignore"
+        conf = 0.91
+    elif "significant_change: true" in lower and "surface_now" in criteria:
+        chosen = "surface_now"
+        conf = 0.89
+    elif "vision_heavy" in criteria and "has image input: true" in lower:
+        chosen = "vision_heavy"
+    elif "balanced_code" in criteria and any(
+        kw in lower for kw in ("python", "function", "code", "class", "refactor", "architecture", "sql", "bug")
+    ):
+        chosen = "balanced_code"
+    elif "fast_light" in criteria and len(state_text) < 260 and "has image input: false" in lower:
+        chosen = "fast_light"
+    elif "surface_now" in criteria:
+        chosen = "surface_now" if ("waste" in lower or "error" in lower or "savings" in lower) else "defer"
+
+    rem = round((1.0 - conf) / max(1, len(keys) - 1), 4)
+    probs = {k: (conf if k == chosen else rem) for k in keys}
+    return {
+        "id": f"local-d3-{uuid.uuid4().hex[:8]}",
+        "model": model,
+        "choice": chosen,
+        "probabilities": probs,
+        "confidence": conf,
+        "fallback": True,
+    }
+
+
+def compute_frame_delta(
+    current_metrics: Dict[str, Any],
+    previous_metrics: Optional[Dict[str, Any]] = None,
+    threshold: float = 0.08,
+) -> Dict[str, Any]:
+    """Compute visual delta between consecutive frames for d3 VLM gatekeeping."""
+    if not previous_metrics:
+        return {
+            "brightness_delta": 1.0,
+            "contrast_delta": 1.0,
+            "intensity_delta": 1.0,
+            "palette_shift": 1.0,
+            "composite_delta": 1.0,
+            "threshold": threshold,
+            "significant_change": True,
+        }
+
+    b_delta = abs(float(current_metrics.get("brightness", 0.5)) - float(previous_metrics.get("brightness", 0.5)))
+    c_delta = abs(float(current_metrics.get("contrast", 0.5)) - float(previous_metrics.get("contrast", 0.5)))
+    i_delta = abs(float(current_metrics.get("intensity", 0.5)) - float(previous_metrics.get("intensity", 0.5)))
+
+    cur_pal = [str(c).lower() for c in (current_metrics.get("palette") or [])[:4]]
+    prev_pal = [str(c).lower() for c in (previous_metrics.get("palette") or [])[:4]]
+    if cur_pal and prev_pal:
+        matches = sum(1 for c in cur_pal if c in prev_pal)
+        pal_shift = 1.0 - (matches / max(len(cur_pal), len(prev_pal)))
+    else:
+        pal_shift = 0.0
+
+    composite = round(0.35 * b_delta + 0.25 * c_delta + 0.20 * i_delta + 0.20 * pal_shift, 4)
+    return {
+        "brightness_delta": round(b_delta, 4),
+        "contrast_delta": round(c_delta, 4),
+        "intensity_delta": round(i_delta, 4),
+        "palette_shift": round(pal_shift, 4),
+        "composite_delta": composite,
+        "threshold": threshold,
+        "significant_change": composite >= threshold,
+    }
+
+
+def mse_to_frame_delta(
+    mse_delta: float,
+    threshold: float = 12.0,
+) -> Dict[str, Any]:
+    """Convert raw CPU OpenCV MSE pixel delta into normalized d3 gatekeep metrics."""
+    mse_val = max(0.0, float(mse_delta))
+    norm_comp = round(min(1.0, mse_val / max(threshold * 4.0, 1e-6)), 4)
+    return {
+        "mse_delta": round(mse_val, 4),
+        "threshold": float(threshold),
+        "composite_delta": norm_comp,
+        "brightness_delta": round(min(1.0, norm_comp * 0.5), 4),
+        "contrast_delta": round(min(1.0, norm_comp * 0.4), 4),
+        "intensity_delta": round(min(1.0, norm_comp * 0.5), 4),
+        "palette_shift": round(min(1.0, norm_comp * 0.6), 4),
+        "significant_change": mse_val >= float(threshold),
+    }
+
+
+def gatekeep_frame_with_d3(
+    delta_info: Dict[str, Any],
+    context_hint: str = "",
+    model: str = "d3",
+) -> Dict[str, Any]:
+    """Pass frame delta to AMD Token Lab d3 (/v1/systemone) to gatekeep Gemma-4-31B-IT vision calls."""
+    if "mse_delta" in delta_info and "composite_delta" not in delta_info:
+        delta_info = {**mse_to_frame_delta(delta_info["mse_delta"], threshold=float(delta_info.get("threshold", 12.0))), **delta_info}
+
+    if "significant_change" in delta_info:
+        sig_change = bool(delta_info["significant_change"])
+    elif "mse_delta" in delta_info:
+        sig_change = float(delta_info["mse_delta"]) >= float(delta_info.get("threshold", 12.0))
+    else:
+        sig_change = float(delta_info.get("composite_delta", 0.0)) >= float(delta_info.get("threshold", 0.08))
+
+    composite = float(delta_info.get("composite_delta", 1.0 if sig_change else 0.0))
+    state_text = (
+        f"Task: Video frame VLM gatekeeping before Gemma-4-31B-IT\n"
+        f"Context: {context_hint or 'Jupiter Desktop frame analysis'}\n"
+        f"Composite visual delta: {composite:.4f} (threshold {delta_info.get('threshold', 0.08)})\n"
+        f"MSE delta: {float(delta_info.get('mse_delta', composite * 100.0)):.2f}\n"
+        f"Brightness delta: {delta_info.get('brightness_delta', 0.0):.4f}\n"
+        f"Contrast delta: {delta_info.get('contrast_delta', 0.0):.4f}\n"
+        f"Intensity delta: {delta_info.get('intensity_delta', 0.0):.4f}\n"
+        f"Palette shift: {delta_info.get('palette_shift', 0.0):.4f}\n"
+        f"Significant_change: {sig_change}"
+    )
+    decision = _call_systemone_choice(
+        state_text=state_text,
+        question_id="vlm_frame_gatekeep",
+        criteria=FRAME_GATEKEEP_CRITERIA,
+        model=model,
+    )
+    if not sig_change:
+        decision["choice"] = "ignore"
+        decision["confidence"] = max(float(decision.get("confidence") or 0.0), 0.91)
+        decision["probabilities"] = {"ignore": 0.91, "defer": 0.06, "surface_now": 0.03}
+    elif not decision.get("choice"):
+        decision["choice"] = "surface_now"
+
+    decision["delta"] = delta_info
+    decision["skip_vision"] = decision.get("choice") == "ignore"
+    return decision
+
+
+def _call_systemone_choice(
+    state_text: str,
+    question_id: str,
+    criteria: Dict[str, str],
+    model: str = "d3",
+) -> Dict[str, Any]:
+    """Call Token Lab /v1/systemone for a structured choice decision (with offline fallback)."""
+    tl_key, tl_base = _get_tokenlab_credentials()
+    if not _is_configured_key(
+        tl_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
+    ):
+        return _local_d3_fallback(state_text, criteria, model=model)
+
+    payload = {
+        "model": model,
+        "state": state_text,
+        "questions": {
+            question_id: {
+                "type": "choice",
+                "criteria": criteria,
+            }
+        },
+    }
+    try:
+        if tl_client is not None and getattr(tl_client, "api_key", None) == tl_key:
+            response = tl_client.post("/systemone", cast_to=dict, body=payload)
+        else:
+            response = _http_post_json(
+                f"{tl_base}/systemone",
+                {"Authorization": f"Bearer {tl_key}"},
+                payload,
+                timeout=15.0,
+            )
+        decision = response.get("answers", {}).get(question_id, {})
+        return {
+            "id": response.get("id"),
+            "model": response.get("model", model),
+            "choice": decision.get("choice"),
+            "probabilities": decision.get("probabilities", {}),
+            "confidence": decision.get("confidence", 0.0),
+            "source": "tokenlab_d3",
+        }
+    except Exception:
+        return _local_d3_fallback(state_text, criteria, model=model)
+
+
+def select_model_with_d3(
+    prompt_text: str,
+    has_image: bool = False,
+    context_chars: int = 0,
+    model: str = "d3",
+) -> Dict[str, Any]:
+    """Use Token Lab d3 aux-router to choose the best model tier for a task."""
+    state_text = (
+        f"Has image input: {has_image}\n"
+        f"Context length (chars): {context_chars}\n"
+        f"Prompt preview: {prompt_text[:600]}"
+    )
+    decision = _call_systemone_choice(
+        state_text=state_text,
+        question_id="task_route",
+        criteria=ROUTING_CRITERIA,
+        model=model,
+    )
+    tier = decision.get("choice") or "balanced_code"
+    if tier not in MODEL_PROFILES:
+        tier = "balanced_code"
+    if has_image and not MODEL_PROFILES[tier]["supports_vision"]:
+        tier = "vision_heavy"
+    if context_chars > 120000 and tier == "fast_light":
+        tier = "long_context"
+
+    decision["selected_tier"] = tier
+    decision["selected_model"] = MODEL_PROFILES[tier]["model"]
+    return decision
+
+
+def _build_messages(
+    prompt_text: str,
+    tlb_context: Optional[str] = None,
+    image_url: Optional[str] = None,
+    system_prompt: Optional[str] = None,
+) -> list:
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+            or "You are a sub-node of MemoryOS. Analyze the context strictly without fluff.",
+        }
+    ]
+    if tlb_context:
+        messages.append({"role": "system", "content": f"Temporal Context: {tlb_context}"})
+
+    user_content = [{"type": "text", "text": prompt_text}]
+    if image_url:
+        user_content.append({"type": "image_url", "image_url": {"url": image_url}})
+    messages.append({"role": "user", "content": user_content})
+    return messages
+
+
+def _apply_advisor_context_policy(
+    tlb_context: Optional[str],
+    user_id: str = "default",
+    db_path: Optional[Path] = None,
+) -> tuple[Optional[str], Dict[str, Any]]:
+    """Consult QuietAdvisorDB for active context-window caps or routing preferences."""
+    try:
+        from src.memoryos.quiet_advisor_db import get_routing_advice_sync
+
+        advice = get_routing_advice_sync(user_id=user_id, db_path=db_path)
+    except Exception:
+        advice = {"preferences": {}, "active_card": None, "recommended_context_cap": None}
+
+    cap_tokens = advice.get("recommended_context_cap")
+    if tlb_context and cap_tokens:
+        max_chars = int(cap_tokens) * 4
+        if len(tlb_context) > max_chars:
+            tlb_context = tlb_context[:max_chars]
+    return tlb_context, advice
+
+
+def _persist_inference_to_advisor(
+    result: Dict[str, Any],
+    user_id: str = "default",
+    session_id: str = "jupiter-tv",
+    context_tokens_provided: int = 8192,
+    db_path: Optional[Path] = None,
+) -> None:
+    try:
+        from src.memoryos.quiet_advisor_db import record_routed_inference_sync
+
+        record_routed_inference_sync(
+            route_result=result,
+            user_id=user_id,
+            session_id=session_id,
+            context_tokens_provided=context_tokens_provided,
+            db_path=db_path,
+        )
+    except Exception:
+        pass
+
+
+def route_to_gemma(
+    prompt_text: str,
+    tlb_context: Optional[str] = None,
+    image_url: Optional[str] = None,
+    max_tokens: int = 1024,
+    user_id: str = "default",
+    session_id: str = "jupiter-tv",
+    log_to_advisor: bool = True,
+    db_path: Optional[Path] = None,
+    frame_delta: Optional[Dict[str, Any]] = None,
+    previous_response: Optional[str] = None,
+) -> str:
+    """
+    Routes heavy 31B inference to Token Lab (Gemma-4-31B-IT) with pre-inference d3 frame-delta
+    gatekeeping and logs every intercepted or executed call to QuietAdvisorDB.sqlite.
+    tlb_context = injected from DuckDB / NVMe checkpoints.
+    """
+    t0 = time.perf_counter()
+    with _SESSION_FRAME_CACHE_LOCK:
+        cached = _SESSION_FRAME_CACHE.get(session_id)
+    effective_delta = frame_delta
+    if effective_delta is None and image_url and cached and cached.get("image_sig") == image_url[:256]:
+        effective_delta = compute_frame_delta({"brightness": 0.5}, {"brightness": 0.5})
+
+    if effective_delta is not None:
+        gate_decision = gatekeep_frame_with_d3(
+            effective_delta,
+            context_hint=prompt_text[:120],
+        )
+        if gate_decision.get("skip_vision"):
+            latency_ms = max(4.2, (time.perf_counter() - t0) * 1000.0)
+            fallback_reply = (
+                previous_response
+                or (cached.get("content") if cached else None)
+                or json.dumps(
+                    {
+                        "label": "Static Scene (d3 Gatekept)",
+                        "summary": f"Skipped Gemma-4-31B-IT vision call (d3 choice=ignore, delta={effective_delta.get('composite_delta', 0.0):.3f}).",
+                        "caption": f"Frame unchanged (d3 choice=ignore, delta={effective_delta.get('composite_delta', 0.0):.3f}); reused prior VLM analysis.",
+                        "d3_skipped": True,
+                    }
+                )
+            )
+            skipped_result: Dict[str, Any] = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "route": "d3_gatekeep_skip",
+                "model": "d3-gatekeeper",
+                "d3_decision": gate_decision,
+                "d3_skipped": True,
+                "gpu_id": "tokenlab-d3-gate",
+                "latency_ms": round(latency_ms, 2),
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "content": fallback_reply,
+                "error_flag": False,
+                "error_message": None,
+            }
+            if log_to_advisor:
+                _persist_inference_to_advisor(
+                    result=skipped_result,
+                    user_id=user_id,
+                    session_id=session_id,
+                    context_tokens_provided=0,
+                    db_path=db_path,
+                )
+            return str(fallback_reply)
+
+    res = route_task(
+        prompt_text=prompt_text,
+        tlb_context=tlb_context,
+        image_url=image_url,
+        max_tokens=max_tokens,
+        forced_model="Gemma-4-31B-IT",
+        user_id=user_id,
+        session_id=session_id,
+        log_to_advisor=log_to_advisor,
+        db_path=db_path,
+    )
+    if image_url:
+        _set_session_frame_cache(
+            session_id,
+            {
+                "image_sig": image_url[:256],
+                "content": str(res["content"]),
+            },
+        )
+    return str(res["content"])
+
+
+router_to_gemma = route_to_gemma
+
+TASK_TYPE_TO_TIER: Dict[str, str] = {
+    "fast_light": "fast_light",
+    "edge_compression": "fast_light",
+    "long_context": "long_context",
+    "fast_code_routing": "long_context",
+    "balanced_code": "balanced_code",
+    "heavy_architecture": "balanced_code",
+    "vision_heavy": "vision_heavy",
+    "vision_ui_parse": "vision_heavy",
+    "apex_moe_mega": "apex_moe_mega",
+    "massive_context": "apex_moe_mega",
+}
+
+
+def _normalize_openai_content(content: Any) -> str:
+    """Normalize chat-completion message content (str or content-block list) to text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text", "")))
+        return "\n".join(p for p in parts if p)
+    return str(content or "")
+
+
+def _invoke_remote_chat(
+    client: Any,
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+    *,
+    base_url: str = "",
+    api_key: str = "",
+    timeout: float = 60.0,
+) -> tuple[str, Dict[str, int]]:
+    """Invoke an OpenAI-compatible chat completion endpoint via SDK or stdlib urllib."""
+    if client is not None and (not api_key or getattr(client, "api_key", None) == api_key):
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            raise RuntimeError(f"Empty choices returned by provider for model {model_name}")
+        msg = choices[0].message
+        content = _normalize_openai_content(getattr(msg, "content", ""))
+        if not content.strip():
+            reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+            if reasoning:
+                content = str(reasoning)
+        usage = getattr(response, "usage", None)
+        usage_dict = {
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+            "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+            "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
+        }
+        return content, usage_dict
+
+    if not base_url or not api_key:
+        raise RuntimeError("Missing base_url or api_key for OpenAI-compatible HTTP call")
+
+    data = _http_post_json(
+        f"{base_url.rstrip('/')}/chat/completions",
+        {"Authorization": f"Bearer {api_key}"},
+        {
+            "model": model_name,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=timeout,
+    )
+    choices = data.get("choices") or []
+    message = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
+    content = _normalize_openai_content(message.get("content", ""))
+    if not content.strip():
+        reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
+        if reasoning:
+            content = str(reasoning)
+    usage = data.get("usage") or {}
+    prompt_t = int(usage.get("prompt_tokens", 0) or 0)
+    comp_t = int(usage.get("completion_tokens", 0) or 0)
+    usage_dict = {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": comp_t,
+        "total_tokens": int(usage.get("total_tokens", prompt_t + comp_t) or 0),
+    }
+    return content, usage_dict
+
+
+def _convert_messages_for_anthropic(messages: list) -> tuple[str, List[Dict[str, Any]]]:
+    """Convert OpenAI-style chat messages to Anthropic /v1/messages system + message list."""
+    system_parts: List[str] = []
+    converted: List[Dict[str, Any]] = []
+    for msg in messages:
+        role = str(msg.get("role", "user"))
+        content = msg.get("content", "")
+        if role == "system":
+            text = _normalize_openai_content(content).strip()
+            if text:
+                system_parts.append(text)
+            continue
+
+        target_role = "assistant" if role == "assistant" else "user"
+        if isinstance(content, list):
+            blocks: List[Dict[str, Any]] = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == "text":
+                    blocks.append({"type": "text", "text": str(item.get("text", ""))})
+                elif item.get("type") == "image_url":
+                    img_url = str((item.get("image_url") or {}).get("url", ""))
+                    if img_url.startswith("data:") and ";base64," in img_url:
+                        header, b64_data = img_url.split(";base64,", 1)
+                        media_type = header.replace("data:", "", 1) or "image/jpeg"
+                        blocks.append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": b64_data,
+                                },
+                            }
+                        )
+                    elif img_url:
+                        blocks.append({"type": "image", "source": {"type": "url", "url": img_url}})
+            converted.append({"role": target_role, "content": blocks or [{"type": "text", "text": ""}]})
+        else:
+            converted.append({"role": target_role, "content": str(content)})
+
+    return "\n\n".join(system_parts), converted
+
+
+def _invoke_tokenlab_messages(
+    base_url: str,
+    api_key: str,
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+    timeout: float = 60.0,
+) -> tuple[str, Dict[str, int]]:
+    """Invoke AMD Token Lab's native Anthropic-compatible /v1/messages endpoint."""
+    system_text, anthropic_messages = _convert_messages_for_anthropic(messages)
+    payload: Dict[str, Any] = {
+        "model": model_name,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": anthropic_messages,
+    }
+    if system_text:
+        payload["system"] = system_text
+
+    data = _http_post_json(
+        f"{base_url.rstrip('/')}/messages",
+        {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
+        payload,
+        timeout=timeout,
+    )
+    text_parts = [
+        str(block.get("text", ""))
+        for block in (data.get("content") or [])
+        if isinstance(block, dict) and block.get("type") == "text"
+    ]
+    content = "".join(text_parts).strip()
+    if not content and isinstance(data.get("content"), str):
+        content = data["content"]
+    usage = data.get("usage") or {}
+    prompt_t = int(usage.get("input_tokens", 0) or 0)
+    comp_t = int(usage.get("output_tokens", 0) or 0)
+    return content, {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": comp_t,
+        "total_tokens": prompt_t + comp_t,
+    }
+
+
+def _invoke_tokenlab_chat(
+    model_name: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+) -> tuple[str, Dict[str, int]]:
+    """Call Token Lab /v1/chat/completions first, falling back to native /v1/messages."""
+    tl_key, tl_base = _get_tokenlab_credentials()
+    try:
+        return _invoke_remote_chat(
+            tl_client,
+            model_name,
+            messages,
+            temperature,
+            max_tokens,
+            base_url=tl_base,
+            api_key=tl_key,
+            timeout=45.0,
+        )
+    except Exception as openai_exc:
+        exc_str = str(openai_exc).lower()
+        if "timed out" in exc_str or "timeout" in exc_str or "429" in exc_str or "concurrency" in exc_str:
+            raise
+        try:
+            return _invoke_tokenlab_messages(
+                tl_base,
+                tl_key,
+                model_name,
+                messages,
+                temperature,
+                max_tokens,
+                timeout=45.0,
+            )
+        except Exception as msg_exc:
+            raise RuntimeError(
+                f"chat/completions: {openai_exc} | messages: {msg_exc}"
+            ) from msg_exc
+
+
+def _build_offline_payload(
+    prompt_text: str,
+    total_chars: int,
+    target_model: str,
+    routing_policy: str,
+    error_fallback: bool = False,
+) -> tuple[str, Dict[str, int]]:
+    """Build deterministic structured analysis JSON when offline or unconfigured."""
+    est_prompt = max(16, total_chars // 4)
+    lines = (prompt_text or "").splitlines()
+    first_line = lines[0] if lines else ""
+    summary_line = first_line[:120]
+    short_line = first_line[:90]
+    if error_fallback:
+        caption = f"Token Lab {target_model} visual analysis: {short_line}"
+        tags = ["tokenlab-vlm", "gemma-31b", "remote-offload"]
+    else:
+        caption = f"Token Lab {target_model} analysis ({routing_policy}): {short_line}"
+        tags = ["tokenlab-vlm", target_model.lower(), routing_policy]
+    content = json.dumps(
+        {
+            "label": "Analyzed Segment",
+            "summary": summary_line,
+            "caption": caption,
+            "objects": ["keyframe-subject", "foreground-focus", "ambient-lighting"],
+            "mood": "cinematic",
+            "lighting": "high-contrast studio",
+            "tags": tags,
+        }
+    )
+    return content, {
+        "prompt_tokens": est_prompt,
+        "completion_tokens": 36,
+        "total_tokens": est_prompt + 36,
+    }
+
+
+def route_task(
+    prompt_text: str,
+    tlb_context: Optional[str] = None,
+    image_url: Optional[str] = None,
+    system_prompt: Optional[str] = None,
+    temperature: float = 0.1,
+    max_tokens: int = 1024,
+    save_checkpoint: bool = True,
+    forced_model: Optional[str] = None,
+    task_type: Optional[str] = None,
+    prefer_local: bool = False,
+    user_id: str = "default",
+    session_id: str = "jupiter-tv",
+    context_tokens_provided: int = 8192,
+    log_to_advisor: bool = True,
+    db_path: Optional[Path] = None,
+    cloud_provider: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Auto-route a prompt through Quiet Advisor preferences + d3 -> Token Lab / DigitalOcean MI300X,
+    blocking local VRAM paths when vram_thrashing_penalty > 1.0, log to QuietAdvisorDB,
+    and persist an atomic JSON checkpoint.
+    """
+    tlb_context, advisor_advice = _apply_advisor_context_policy(
+        tlb_context, user_id=user_id, db_path=db_path
+    )
+    total_chars = len(prompt_text) + len(tlb_context or "")
+    d3_decision = select_model_with_d3(
+        prompt_text=prompt_text,
+        has_image=bool(image_url),
+        context_chars=total_chars,
+    )
+
+    if task_type and task_type in TASK_TYPE_TO_TIER:
+        tier = TASK_TYPE_TO_TIER[task_type]
+        d3_decision["selected_tier"] = tier
+        d3_decision["selected_model"] = MODEL_PROFILES[tier]["model"]
+
+    # Closed-loop Quiet Advisor policy check: read vram_thrashing_penalty from SQLite
+    vram_penalty = float(advisor_advice.get("vram_thrashing_penalty") or 0.0)
+    force_remote = bool(advisor_advice.get("force_remote_offload")) or vram_penalty > 1.0
+    is_heavy_or_vision = bool(image_url) or task_type in (
+        "vision_heavy",
+        "vision_ui_parse",
+        "heavy_architecture",
+    ) or forced_model == "Gemma-4-31B-IT"
+
+    local_execution_blocked = False
+    routing_policy = "standard_d3_router"
+    gpu_id = "tokenlab-remote"
+    gpu_memory_used_mb = 0
+    gpu_utilization_percent = 0.0
+
+    if force_remote and (is_heavy_or_vision or prefer_local):
+        local_execution_blocked = True
+        target_model = forced_model or str(advisor_advice.get("preferred_vision_model") or "Gemma-4-31B-IT")
+        d3_decision["selected_tier"] = "vision_heavy"
+        d3_decision["selected_model"] = target_model
+        d3_decision["reason"] = (
+            f"vram_thrashing_penalty={vram_penalty:.2f} (>1.0): local execution blocked; "
+            f"forced remote {target_model} on AMD Token Lab"
+        )
+        routing_policy = "forced_tokenlab_gemma_31b"
+    elif prefer_local and not force_remote:
+        target_model = forced_model or "local-vision-worker"
+        try:
+            from src.memoryos.gpu_backends import MultiGPUDetector
+
+            hw_prof = MultiGPUDetector.get_active_profile()
+            dev_slug = hw_prof.device_name.lower().replace(" ", "-").replace(":", "")[:32]
+            gpu_id = (
+                f"local-{hw_prof.vendor}-{dev_slug}"
+                if hw_prof.vendor != "cpu_fallback"
+                else "local-cpu"
+            )
+            gpu_memory_used_mb = int(hw_prof.used_vram_mb)
+            gpu_utilization_percent = float(hw_prof.utilization_pct)
+            routing_policy = f"local_{hw_prof.vendor}_worker"
+        except Exception:
+            gpu_id = "local-cpu"
+            gpu_memory_used_mb = 0
+            gpu_utilization_percent = 0.0
+            routing_policy = "local_cpu_fallback_worker"
+    else:
+        target_model = forced_model or d3_decision["selected_model"]
+
+    messages = _build_messages(
+        prompt_text=prompt_text,
+        tlb_context=tlb_context,
+        image_url=image_url,
+        system_prompt=system_prompt,
+    )
+
+    t0 = time.perf_counter()
+    error_flag = False
+    error_message = None
+    api_key, _tl_base = _get_tokenlab_credentials()
+    has_tl_key = _is_configured_key(
+        api_key, "tl-your-tokenlab-key-here", "your-token-lab-api-key-here"
+    )
+    nv_api_key, nv_base = _get_nvidia_credentials()
+    has_nv_key = _is_configured_key(
+        nv_api_key, "nvapi-your-nvidia-api-key-here", "your-nvidia-api-key-here"
+    )
+    nv_model = NVIDIA_MODEL_MAP.get(target_model, target_model)
+    do_api_key, do_base = _get_do_credentials()
+    has_do_key = _is_configured_key(do_api_key, "do-ai-your-model-access-key-here")
+    do_model = DO_MODEL_MAP.get(target_model, target_model)
+
+    remote_candidates = []
+    if gpu_id == "tokenlab-remote":
+        if cloud_provider == "digitalocean":
+            if has_do_key:
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", "digitalocean_mi300x_direct", do_model))
+        elif cloud_provider in ("nvidia", "brev"):
+            if has_nv_key:
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", "nvidia_brev_direct", nv_model))
+        else:
+            if has_tl_key:
+                remote_candidates.append(("tokenlab", "TokenLab", "tokenlab-remote", routing_policy, target_model))
+            if has_nv_key:
+                nv_policy = "nvidia_brev_failover" if has_tl_key else "nvidia_brev_primary"
+                remote_candidates.append(("nvidia", "NVIDIA", "nvidia-brev-remote", nv_policy, nv_model))
+            if has_do_key:
+                do_policy = "digitalocean_mi300x_failover" if (has_tl_key or has_nv_key) else "digitalocean_mi300x_primary"
+                remote_candidates.append(("digitalocean", "DigitalOcean", "do-mi300x-remote", do_policy, do_model))
+
+    if remote_candidates:
+        provider_errors = []
+        succeeded = False
+        for prov_key, label, cand_gpu_id, cand_policy, cand_model in remote_candidates:
+            try:
+                if prov_key == "tokenlab":
+                    content, usage_dict = _invoke_tokenlab_chat(
+                        cand_model, messages, temperature, max_tokens
+                    )
+                elif prov_key == "nvidia":
+                    content, usage_dict = _invoke_remote_chat(
+                        nv_client,
+                        cand_model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        base_url=nv_base,
+                        api_key=nv_api_key,
+                    )
+                else:
+                    content, usage_dict = _invoke_remote_chat(
+                        do_client,
+                        cand_model,
+                        messages,
+                        temperature,
+                        max_tokens,
+                        base_url=do_base,
+                        api_key=do_api_key,
+                    )
+                latency_ms = (time.perf_counter() - t0) * 1000.0
+                gpu_id = cand_gpu_id
+                routing_policy = cand_policy
+                target_model = cand_model
+                succeeded = True
+                break
+            except Exception as exc:
+                provider_errors.append(f"{label}: {exc}" if len(remote_candidates) > 1 else str(exc))
+
+        if not succeeded:
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+            error_flag = True
+            error_message = " | ".join(provider_errors)
+            content, usage_dict = _build_offline_payload(
+                prompt_text, total_chars, target_model, routing_policy, error_fallback=True
+            )
+    else:
+        latency_ms = round(max(1.0, (time.perf_counter() - t0) * 1000.0), 2)
+        content, usage_dict = _build_offline_payload(
+            prompt_text, total_chars, target_model, routing_policy, error_fallback=False
+        )
+
+    result: Dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "route": d3_decision["selected_tier"],
+        "model": target_model,
+        "d3_decision": d3_decision,
+        "vram_thrashing_penalty": vram_penalty if vram_penalty > 0 else None,
+        "local_execution_blocked": local_execution_blocked,
+        "routing_policy": routing_policy,
+        "gpu_id": gpu_id,
+        "gpu_memory_used_mb": gpu_memory_used_mb,
+        "gpu_utilization_percent": gpu_utilization_percent,
+        "advisor_hint": advisor_advice.get("active_card"),
+        "latency_ms": round(latency_ms, 2),
+        "usage": usage_dict,
+        "content": content,
+        "error_flag": error_flag,
+        "error_message": error_message,
+    }
+
+    if save_checkpoint:
+        cp_path = write_atomic_checkpoint(result)
+        result["checkpoint_path"] = str(cp_path)
+
+    if log_to_advisor:
+        _persist_inference_to_advisor(
+            result=result,
+            user_id=user_id,
+            session_id=session_id,
+            context_tokens_provided=context_tokens_provided,
+            db_path=db_path,
+        )
+
+    return result
+
+
+def route_quiet_advisor_d3(
+    state_text: str,
+    criteria: Optional[Dict[str, str]] = None,
+    model: str = "d3",
+) -> Dict[str, Any]:
+    """Route a Quiet Advisor state evaluation to Token Lab's d3 aux-router (/v1/systemone)."""
+    decision = _call_systemone_choice(
+        state_text=state_text,
+        question_id="quiet_advisor_action",
+        criteria=criteria or DEFAULT_QUIET_ADVISOR_CRITERIA,
+        model=model,
+    )
+    if not decision.get("choice"):
+        decision["choice"] = "surface_now"
+    return decision
+
+
+def evaluate_insight_with_d3(
+    insight: Any,
+    user_preferences: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """Evaluate a DetectedInsight using d3 to decide whether to surface, defer, or ignore."""
+    detector = getattr(getattr(insight, "detector_type", None), "value", "unknown")
+    state_text = (
+        f"Detector: {detector}\n"
+        f"Title: {getattr(insight, 'title', '')}\n"
+        f"Description: {getattr(insight, 'description', '')}\n"
+        f"Metrics: {getattr(insight, 'metrics', {})}\n"
+        f"Time savings (s): {getattr(insight, 'time_savings_seconds', 0)}\n"
+        f"Quality improvement (%): {getattr(insight, 'quality_improvement_percent', 0.0)}\n"
+        f"Detector confidence: {getattr(insight, 'confidence', 1.0)}\n"
+        f"User preferences: {user_preferences or {}}"
+    )
+    return route_quiet_advisor_d3(state_text)

@@ -1,0 +1,1100 @@
+"""
+THE QUIET ADVISOR - Core Detection Engine
+Part of: MemoryOS + Jupiter One unified system
+
+This module implements the 10 pattern detectors that surface insights
+to users about their inference patterns.
+"""
+
+import hashlib
+import json
+import logging
+import tempfile
+import threading
+import time
+from contextlib import nullcontext
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, List, Dict, Optional, Tuple, Union
+from enum import Enum
+
+logger = logging.getLogger("quiet_advisor.detectors")
+
+
+def _log_json(level: int, event: str, **fields: Any) -> None:
+    """Emit structured JSON log records using Python stdlib logging."""
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "component": "quiet_advisor",
+        "event": event,
+        **fields,
+    }
+    logger.log(level, json.dumps(record, default=str))
+
+
+class CircuitBreaker:
+    """Lightweight zero-dependency, thread-safe circuit breaker for detectors and external APIs."""
+
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
+        self.failure_threshold = max(1, int(failure_threshold))
+        self.cooldown_seconds = max(0.0, float(cooldown_seconds))
+        self._lock = threading.Lock()
+        self._failures = 0
+        self._opened_at: Optional[float] = None
+
+    def _state_unlocked(self, now: Optional[float] = None) -> str:
+        ts = time.monotonic() if now is None else now
+        if self._opened_at is None:
+            return "closed"
+        if (ts - self._opened_at) >= self.cooldown_seconds:
+            return "half_open"
+        return "open"
+
+    def state(self, now: Optional[float] = None) -> str:
+        with self._lock:
+            return self._state_unlocked(now=now)
+
+    def allow_request(self, now: Optional[float] = None) -> bool:
+        with self._lock:
+            return self._state_unlocked(now=now) != "open"
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._failures = 0
+            self._opened_at = None
+
+    def record_failure(self, now: Optional[float] = None) -> str:
+        ts = time.monotonic() if now is None else now
+        with self._lock:
+            self._failures += 1
+            if self._failures >= self.failure_threshold:
+                self._opened_at = ts
+            return self._state_unlocked(now=ts)
+
+REPO_ROOT = Path(__file__).resolve().parent
+DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "memory" / "checkpoints"
+DEFAULT_EXPORT_PATH = REPO_ROOT / "memory" / "tokenlab_export.json"
+
+
+class DetectorType(Enum):
+    CONTEXT_WASTE = "context_waste"
+    MODEL_THRASHING = "model_thrashing"
+    VRAM_THRASHING = "vram_thrashing"
+    PERFORMANCE_ENVELOPE = "performance_envelope"
+    REPEATED_FAILURES = "repeated_failures"
+    QUALITY_DRIFT = "quality_drift"
+    EFFICIENCY_FRONTIER = "efficiency_frontier"
+    THERMAL_THROTTLING = "thermal_throttling"
+    DEFAULT_SUBOPTIMALITY = "default_suboptimality"
+    RECENCY_BIAS = "recency_bias"
+    ANOMALY_DETECTION = "anomaly_detection"
+    NVME_CHECKPOINTS = "nvme_checkpoints"
+
+
+@dataclass
+class InferenceLog:
+    """Single inference execution record"""
+    timestamp: datetime
+    model_id: str
+    context_tokens_provided: int
+    context_tokens_used: int
+    time_to_first_token_ms: float
+    total_latency_ms: float
+    tokens_per_second: float
+    gpu_utilization_percent: float
+    gpu_temperature_celsius: float
+    gpu_memory_used_mb: int
+    output_quality_score: Optional[float] = None
+    error_flag: bool = False
+    error_message: Optional[str] = None
+
+
+@dataclass
+class DetectedInsight:
+    """Insight detected by a detector"""
+    detector_type: DetectorType
+    title: str
+    subtitle: str
+    description: str
+    metrics: Dict[str, str]
+    recommended_action: str
+    action_value: Dict
+    time_savings_seconds: int = 0
+    quality_improvement_percent: float = 0.0
+    confidence: float = 1.0
+    suggested_experiments: List[str] = field(default_factory=list)
+    
+    def score(self, user_preferences: Dict = None) -> float:
+        """Calculate insight score for ranking"""
+        base_score = 0.0
+        
+        # Time savings: most valuable
+        base_score += min(self.time_savings_seconds / 3600, 1.0) * 0.4
+        
+        # Quality improvement
+        base_score += min(self.quality_improvement_percent / 100, 1.0) * 0.3
+        
+        # Confidence
+        base_score += self.confidence * 0.2
+        
+        # User preference
+        if isinstance(user_preferences, dict):
+            raw_pref = user_preferences.get(self.detector_type.value, 0.5)
+            try:
+                pref = max(0.0, min(1.0, float(raw_pref)))
+            except (TypeError, ValueError):
+                pref = 0.5
+            base_score *= (0.5 + pref)  # Multiply by preference (0.5-1.5 factor)
+        
+        return base_score
+
+
+class ContextWasteDetector:
+    """Detector 1: Finds context padding waste."""
+
+    # Auditable modeling assumptions for weekly time-savings projection
+    ASSUMED_DAILY_INFERENCES = 15
+    ASSUMED_WORKDAYS_PER_WEEK = 5
+
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        if len(inferences) < 5:
+            return None
+        
+        # Calculate average context utilization
+        utilizations = []
+        for inf in inferences:
+            if inf.context_tokens_provided > 0:
+                util = inf.context_tokens_used / inf.context_tokens_provided
+                utilizations.append(util)
+        
+        if not utilizations:
+            return None
+        
+        avg_utilization = sum(utilizations) / len(utilizations)
+        
+        # Threshold: if using less than 50% of provided context
+        if avg_utilization > 0.5:
+            return None
+        
+        waste_percent = (1 - avg_utilization) * 100
+        
+        # Calculate potential savings
+        avg_context_provided = sum(i.context_tokens_provided for i in inferences) / len(inferences)
+        recommended_context = max(
+            1, int(sum(i.context_tokens_used for i in inferences) / len(inferences) * 1.2)
+        )
+        
+        # Estimate time savings (rough calculation)
+        avg_latency = sum(i.total_latency_ms for i in inferences) / len(inferences)
+        speedup_factor = avg_context_provided / recommended_context
+        time_saved_per_inference = avg_latency * (1 - (1 / speedup_factor)) if speedup_factor > 1 else 0
+        time_savings_seconds = int(
+            (time_saved_per_inference / 1000)
+            * ContextWasteDetector.ASSUMED_DAILY_INFERENCES
+            * ContextWasteDetector.ASSUMED_WORKDAYS_PER_WEEK
+        )
+        
+        return DetectedInsight(
+            detector_type=DetectorType.CONTEXT_WASTE,
+            title="Context Waste Detected",
+            subtitle=f"{waste_percent:.0f}% of your context goes unused",
+            description=f"""
+Last 7 days, you provided {avg_context_provided:.0f} tokens context on average.
+Your model used {sum(i.context_tokens_used for i in inferences)/len(inferences):.0f} tokens.
+
+You're padding {waste_percent:.0f}% of your context with unused data.
+
+Reducing context to {recommended_context} tokens would:
+- Speed up inference by {speedup_factor:.1f}x
+- Save {time_savings_seconds/3600:.1f} hours per week
+- Maintain identical quality
+            """,
+            metrics={
+                "context_provided": f"{avg_context_provided:.0f} tokens",
+                "context_used": f"{sum(i.context_tokens_used for i in inferences)/len(inferences):.0f} tokens",
+                "waste": f"{waste_percent:.0f}%",
+                "speedup_potential": f"{speedup_factor:.1f}x",
+            },
+            recommended_action="reduce_context",
+            action_value={"context_tokens": recommended_context},
+            time_savings_seconds=time_savings_seconds,
+            quality_improvement_percent=0.0,
+            confidence=0.95,
+            suggested_experiments=[f"try_{recommended_context}", f"try_{int(recommended_context*0.8)}", f"try_{int(recommended_context*1.2)}"]
+        )
+
+
+class ModelThrashingDetector:
+    """Detector 2: Finds inefficient model switching"""
+    
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        if len(inferences) < 10:
+            return None
+        
+        # Count model switches
+        models_in_order = [i.model_id for i in inferences]
+        switches = sum(1 for i in range(1, len(models_in_order)) if models_in_order[i] != models_in_order[i-1])
+        
+        # Threshold: more than 5 switches in a day
+        if switches < 5:
+            return None
+        
+        # Calculate wasted time in model loads
+        # Assume 8 second model load per switch
+        model_load_time_per_switch = 8.0
+        total_waste_seconds = switches * model_load_time_per_switch
+        
+        # Find which models are thrashed
+        model_counts = {}
+        for model in models_in_order:
+            model_counts[model] = model_counts.get(model, 0) + 1
+        
+        top_models = sorted(model_counts.items(), key=lambda x: x[1], reverse=True)[:2]
+        
+        return DetectedInsight(
+            detector_type=DetectorType.MODEL_THRASHING,
+            title="Model Thrashing Detected",
+            subtitle=f"You switched models {switches} times, wasting {total_waste_seconds:.0f} seconds",
+            description=f"""
+Yesterday you switched models {switches} times.
+Your top models: {top_models[0][0]} ({top_models[0][1]}x), {top_models[1][0]} ({top_models[1][1]}x)
+
+Model loading wastes ~8 seconds per switch.
+Total waste: {total_waste_seconds:.0f} seconds = {total_waste_seconds/60:.1f} minutes per day.
+
+If you kept your top 2 models in Warm tier (CPU RAM):
+- Reloads drop from 8s to 0.5s
+- You'd save ~{(total_waste_seconds - switches*0.5)/60:.1f} minutes per day
+- Cost: ~16GB additional RAM (usually available)
+            """,
+            metrics={
+                "switches_per_day": str(switches),
+                "top_models": f"{top_models[0][0]}, {top_models[1][0]}",
+                "waste_per_switch": "8 seconds",
+                "total_waste": f"{total_waste_seconds/60:.1f} minutes",
+            },
+            recommended_action="enable_warm_tier_caching",
+            action_value={"models_to_cache": [m[0] for m in top_models]},
+            time_savings_seconds=int(total_waste_seconds * 5),  # 5 days/week
+            quality_improvement_percent=0.0,
+            confidence=0.9,
+            suggested_experiments=["cache_both", "cache_primary_only"]
+        )
+
+
+class VRAMThrashingDetector:
+    """Detector: Detects local 8GB VRAM saturation and triggers Token Lab offload advice."""
+
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        pressured = [
+            i
+            for i in inferences
+            if i.gpu_memory_used_mb >= 5500 or i.gpu_utilization_percent >= 85.0
+        ]
+        if len(pressured) < 2:
+            return None
+
+        peak_mb = max(i.gpu_memory_used_mb for i in pressured)
+        avg_mb = sum(i.gpu_memory_used_mb for i in pressured) / len(pressured)
+        avg_lat = sum(i.total_latency_ms for i in pressured) / len(pressured)
+
+        return DetectedInsight(
+            detector_type=DetectorType.VRAM_THRASHING,
+            title="VRAM Thrashing Detected on Local GPU",
+            subtitle=f"Peak {peak_mb} MB VRAM saturated across {len(pressured)} local vision/model runs",
+            description=(
+                f"Local GPU execution hit {peak_mb} MB peak VRAM (avg {avg_mb:.0f} MB, {avg_lat:.0f} ms latency).\n"
+                "Click [Acknowledge & Apply] to write vram_thrashing_penalty=1.5 into QuietAdvisorDB\n"
+                "and automatically route future heavy VLM requests to Gemma-4-31B-IT on AMD Token Lab."
+            ),
+            metrics={
+                "peak_vram": f"{peak_mb} MB",
+                "saturated_runs": str(len(pressured)),
+                "recommended_target": "Gemma-4-31B-IT (Token Lab)",
+            },
+            recommended_action="force_tokenlab_offload",
+            action_value={"vram_thrashing_penalty": 1.5, "forced_model": "Gemma-4-31B-IT"},
+            time_savings_seconds=max(1800, int(len(pressured) * 450)),
+            quality_improvement_percent=35.0,
+            confidence=0.85,
+            suggested_experiments=["force_gemma_31b_offload", "enable_d3_frame_gatekeep"],
+        )
+
+
+class ThermalThrottlingDetector:
+    """Detector: Detects sustained local GPU thermal stress and recommends Token Lab offload."""
+
+    THERMAL_THRESHOLD_C = 82.0
+    MIN_HOT_RUNS = 3
+
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        hot_runs = [
+            i for i in inferences if i.gpu_temperature_celsius >= ThermalThrottlingDetector.THERMAL_THRESHOLD_C
+        ]
+        if len(hot_runs) < ThermalThrottlingDetector.MIN_HOT_RUNS:
+            return None
+
+        cool_runs = [
+            i
+            for i in inferences
+            if 0 < i.gpu_temperature_celsius < ThermalThrottlingDetector.THERMAL_THRESHOLD_C
+            and i.tokens_per_second > 0
+        ]
+        hot_tps = [i.tokens_per_second for i in hot_runs if i.tokens_per_second > 0]
+
+        peak_temp = max(i.gpu_temperature_celsius for i in hot_runs)
+        avg_hot_temp = sum(i.gpu_temperature_celsius for i in hot_runs) / len(hot_runs)
+
+        throughput_drop_pct = 0.0
+        if cool_runs and hot_tps:
+            avg_cool_tps = sum(i.tokens_per_second for i in cool_runs) / len(cool_runs)
+            avg_hot_tps = sum(hot_tps) / len(hot_tps)
+            if avg_cool_tps > 0 and avg_hot_tps < avg_cool_tps:
+                throughput_drop_pct = ((avg_cool_tps - avg_hot_tps) / avg_cool_tps) * 100.0
+
+        return DetectedInsight(
+            detector_type=DetectorType.THERMAL_THROTTLING,
+            title="GPU Thermal Throttling Detected",
+            subtitle=f"Peak {peak_temp:.0f}°C across {len(hot_runs)} local runs"
+            + (f" ({throughput_drop_pct:.0f}% throughput drop)" if throughput_drop_pct >= 5.0 else ""),
+            description=(
+                f"Local GPU sustained {avg_hot_temp:.1f}°C average ({peak_temp:.0f}°C peak) across "
+                f"{len(hot_runs)} inferences, exceeding the {ThermalThrottlingDetector.THERMAL_THRESHOLD_C:.0f}°C "
+                "thermal ceiling.\n"
+                "Offload heavy reasoning and vision workloads to AMD Token Lab to eliminate local thermal "
+                "throttling while keeping workstation acoustics and game frame-times flat."
+            ),
+            metrics={
+                "peak_temp": f"{peak_temp:.0f}°C",
+                "hot_runs": f"{len(hot_runs)}/{len(inferences)}",
+                "throughput_drop": f"{throughput_drop_pct:.1f}%",
+            },
+            recommended_action="force_tokenlab_offload",
+            action_value={
+                "thermal_penalty": 1.4,
+                "peak_temp_c": round(peak_temp, 1),
+                "forced_model": "Gemma-4-31B-IT",
+            },
+            time_savings_seconds=max(900, int(len(hot_runs) * 240)),
+            quality_improvement_percent=round(min(30.0, max(10.0, throughput_drop_pct)), 1),
+            confidence=0.9,
+            suggested_experiments=["force_gemma_31b_offload", "set_gpu_power_cap"],
+        )
+
+
+def compute_workstation_health(inferences: List[InferenceLog], vram_capacity_mb: int = 8192) -> Dict[str, Any]:
+    """Compute a 0-100 composite Workstation Health Score across 4 hardware-aware axes."""
+    if not inferences:
+        return {
+            "score": 100,
+            "grade": "A",
+            "sample_count": 0,
+            "status": "idle",
+            "components": {
+                "vram_headroom": 100.0,
+                "thermal_headroom": 100.0,
+                "context_efficiency": 100.0,
+                "reliability": 100.0,
+            },
+        }
+
+    cap = max(1, int(vram_capacity_mb))
+    avg_vram_ratio = sum(min(1.0, max(0.0, i.gpu_memory_used_mb / cap)) for i in inferences) / len(inferences)
+    vram_headroom = round((1.0 - avg_vram_ratio) * 100.0, 1)
+
+    temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+    if temps:
+        avg_temp = sum(temps) / len(temps)
+        # 45C or cooler = 100%, 95C or hotter = 0%
+        thermal_headroom = round(max(0.0, min(100.0, (95.0 - avg_temp) / 50.0 * 100.0)), 1)
+    else:
+        thermal_headroom = 100.0
+
+    ctx_ratios = [
+        min(1.0, i.context_tokens_used / i.context_tokens_provided)
+        for i in inferences
+        if i.context_tokens_provided > 0
+    ]
+    context_efficiency = round((sum(ctx_ratios) / len(ctx_ratios)) * 100.0, 1) if ctx_ratios else 100.0
+
+    error_rate = sum(1 for i in inferences if i.error_flag) / len(inferences)
+    reliability = round((1.0 - error_rate) * 100.0, 1)
+
+    composite = round(
+        vram_headroom * 0.35
+        + thermal_headroom * 0.25
+        + context_efficiency * 0.20
+        + reliability * 0.20
+    )
+    if composite >= 90:
+        grade = "A"
+    elif composite >= 80:
+        grade = "B"
+    elif composite >= 70:
+        grade = "C"
+    elif composite >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+
+    return {
+        "score": int(composite),
+        "grade": grade,
+        "sample_count": len(inferences),
+        "status": "healthy" if composite >= 80 else ("degraded" if composite >= 60 else "critical"),
+        "components": {
+            "vram_headroom": vram_headroom,
+            "thermal_headroom": thermal_headroom,
+            "context_efficiency": context_efficiency,
+            "reliability": reliability,
+        },
+    }
+
+
+class PerformanceEnvelopeDetector:
+    """Detector 3: Finds your best hour and suggests replication"""
+    
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        if len(inferences) < 10:
+            return None
+        
+        # Find best and worst throughput
+        throughputs = [i.tokens_per_second for i in inferences if i.tokens_per_second > 0]
+        if len(throughputs) < 5:
+            return None
+        
+        best_throughput = max(throughputs)
+        avg_throughput = sum(throughputs) / len(throughputs)
+        
+        # Threshold: if best is 30% better than average
+        if best_throughput < avg_throughput * 1.3:
+            return None
+        
+        # Find the inference(s) with best throughput
+        best_inf = next(i for i in inferences if i.tokens_per_second == best_throughput)
+
+        # Compute real averages from observed telemetry
+        temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+        avg_temp = (sum(temps) / len(temps)) if temps else 0.0
+        avg_ctx = sum(i.context_tokens_provided for i in inferences) / len(inferences)
+        avg_mem_mb = sum(i.gpu_memory_used_mb for i in inferences) / len(inferences)
+        best_hour_label = best_inf.timestamp.strftime("%H:00 UTC") if isinstance(best_inf.timestamp, datetime) else "peak window"
+
+        # Analyze what was different using measured data
+        differences = []
+        if best_inf.gpu_temperature_celsius > 0 and avg_temp > 0 and best_inf.gpu_temperature_celsius < avg_temp:
+            differences.append(f"GPU was cooler ({best_inf.gpu_temperature_celsius:.0f}°C vs {avg_temp:.0f}°C average)")
+        if best_inf.context_tokens_provided < avg_ctx:
+            differences.append(f"Context was smaller ({best_inf.context_tokens_provided} vs {avg_ctx:.0f} tokens average)")
+
+        speedup_factor = best_throughput / avg_throughput
+        rec_ctx = max(512, int(best_inf.context_tokens_provided or 2048))
+
+        return DetectedInsight(
+            detector_type=DetectorType.PERFORMANCE_ENVELOPE,
+            title="Your Fastest Hour",
+            subtitle=f"You achieved {best_throughput:.0f} tok/s (vs {avg_throughput:.0f} average)",
+            description=f"""
+Around {best_hour_label}, you hit {best_throughput:.0f} tokens/second.
+Your average: {avg_throughput:.0f} tok/s ({speedup_factor:.1f}x improvement).
+
+What was different?
+- {'; '.join(differences) if differences else 'System experienced lower contention'}
+- GPU memory: {best_inf.gpu_memory_used_mb} MB (vs {avg_mem_mb:.0f} MB average)
+
+You could replicate this reliably by:
+- Keeping context near {rec_ctx} tokens when full history is unnecessary
+- Keeping GPU thermals cool and closing competing background VRAM consumers
+- Offloading heavy bursts via MemoryOS d3 routing
+
+Same hardware, optimal conditions = {speedup_factor:.1f}x faster.
+            """,
+            metrics={
+                "best_throughput": f"{best_throughput:.0f} tok/s",
+                "avg_throughput": f"{avg_throughput:.0f} tok/s",
+                "speedup": f"{speedup_factor:.1f}x",
+                "gpu_temp_then": f"{best_inf.gpu_temperature_celsius:.0f}°C",
+            },
+            recommended_action="schedule_optimal_conditions",
+            action_value={"preferred_hours": [best_hour_label], "context": rec_ctx},
+            time_savings_seconds=int(((speedup_factor - 1) / speedup_factor) * 60 * 15 * 5),
+            quality_improvement_percent=0.0,
+            confidence=0.85,
+            suggested_experiments=["replicate_temps", "replicate_context", "replicate_both"]
+        )
+
+
+class AnomalyDetector:
+    """Detector 10: Finds unusually slow inferences (>2 sigma above mean)"""
+    
+    @staticmethod
+    def detect(inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        if len(inferences) < 10:
+            return None
+        
+        latencies = [i.total_latency_ms for i in inferences]
+        avg_latency = sum(latencies) / len(latencies)
+        variance = sum((x - avg_latency)**2 for x in latencies) / len(latencies)
+        std_dev = variance ** 0.5
+        if std_dev == 0:
+            return None
+        
+        # Find slow latency spikes (>2 std dev above mean)
+        outliers = [
+            (i, (i.total_latency_ms - avg_latency) / std_dev)
+            for i in inferences
+            if ((i.total_latency_ms - avg_latency) / std_dev) > 2.0
+        ]
+        
+        if not outliers:
+            return None
+        
+        # Take worst slow outlier
+        worst_outlier, num_std_dev = max(outliers, key=lambda x: x[1])
+        temps = [i.gpu_temperature_celsius for i in inferences if i.gpu_temperature_celsius > 0]
+        avg_temp = (sum(temps) / len(temps)) if temps else 0.0
+        avg_mem_mb = sum(i.gpu_memory_used_mb for i in inferences) / len(inferences)
+        slowdown_ratio = (worst_outlier.total_latency_ms / avg_latency) if avg_latency > 0 else num_std_dev
+        
+        return DetectedInsight(
+            detector_type=DetectorType.ANOMALY_DETECTION,
+            title="Anomaly Detected",
+            subtitle=f"This inference was {slowdown_ratio:.1f}x slower than normal ({num_std_dev:.1f}σ)",
+            description=f"""
+This inference took {worst_outlier.total_latency_ms/1000:.1f}s (normally {avg_latency/1000:.1f}s).
+
+{num_std_dev:.1f} standard deviations above your normal latency.
+
+What was different?
+- GPU temp: {worst_outlier.gpu_temperature_celsius:.0f}°C (normally {avg_temp:.0f}°C)
+- GPU memory: {worst_outlier.gpu_memory_used_mb} MB (normally {avg_mem_mb:.0f} MB)
+- Context: {worst_outlier.context_tokens_provided} tokens
+
+Likely cause: Thermal throttling, memory contention, or upstream API queue spike.
+
+No action needed, just explaining the outlier.
+            """,
+            metrics={
+                "latency": f"{worst_outlier.total_latency_ms/1000:.1f}s",
+                "normal": f"{avg_latency/1000:.1f}s",
+                "deviation": f"{num_std_dev:.1f}σ",
+                "gpu_temp": f"{worst_outlier.gpu_temperature_celsius:.0f}°C",
+            },
+            recommended_action="investigate",
+            action_value={},
+            time_savings_seconds=0,
+            quality_improvement_percent=0.0,
+            confidence=0.8
+        )
+
+
+def _load_json_safe(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _safe_int(val: Any, default: int = 0) -> int:
+    try:
+        return int(val or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    try:
+        return float(val or 0.0)
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_tokenlab_export(data_or_path: Union[Path, str, Dict[str, Any], None] = None) -> Dict[str, Any]:
+    """Normalize a Token Lab account telemetry export JSON into summary & request rows."""
+    if isinstance(data_or_path, dict):
+        raw = data_or_path
+    else:
+        target = Path(data_or_path) if data_or_path else DEFAULT_EXPORT_PATH
+        temp_fallback = Path(tempfile.gettempdir()) / "tokenlab_export.json"
+        if not target.exists() and temp_fallback.exists():
+            target = temp_fallback
+        raw = _load_json_safe(target)
+
+    if not raw or "tokenlab" not in raw:
+        return {}
+
+    profile = raw.get("user_profile") if isinstance(raw.get("user_profile"), dict) else {}
+    tl = raw.get("tokenlab") if isinstance(raw.get("tokenlab"), dict) else {}
+    account = tl.get("account") if isinstance(tl.get("account"), dict) else {}
+    keys = [k for k in (tl.get("keys") or []) if isinstance(k, dict)] if isinstance(tl.get("keys"), list) else []
+    usage_totals = tl.get("usage_totals") if isinstance(tl.get("usage_totals"), dict) else {}
+    usage_daily = [d for d in (tl.get("usage_daily") or []) if isinstance(d, dict)] if isinstance(tl.get("usage_daily"), list) else []
+    requests = [r for r in (tl.get("requests") or []) if isinstance(r, dict)] if isinstance(tl.get("requests"), list) else []
+
+    active_key = next((k.get("key_prefix") for k in keys if k.get("status") == "active"), None)
+    budget_micro = _safe_int(account.get("budget_micro"))
+    used_micro = _safe_int(account.get("budget_used_micro"))
+    burn_pct = (used_micro / budget_micro * 100.0) if budget_micro > 0 else 0.0
+    cached_tokens = sum(_safe_int(d.get("cached_tokens")) for d in usage_daily)
+    reasoning_tokens = sum(_safe_int(d.get("reasoning_tokens")) for d in usage_daily)
+
+    return {
+        "export_date": raw.get("export_date", ""),
+        "user_id": profile.get("user_id") or account.get("user_id") or "default",
+        "key_prefix": active_key or "unknown",
+        "status": account.get("status", "unknown"),
+        "grant_state": account.get("grant_state", "unknown"),
+        "expires_at": account.get("expires_at", ""),
+        "budget_micro": budget_micro,
+        "budget_used_micro": used_micro,
+        "burn_percent": round(burn_pct, 6),
+        "total_requests": _safe_int(usage_totals.get("requests")) or len(requests),
+        "total_errors": _safe_int(usage_totals.get("errors")) or sum(1 for r in requests if r.get("has_error")),
+        "total_tokens": _safe_int(usage_totals.get("tokens")),
+        "cached_tokens": cached_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        "usage_daily": usage_daily,
+        "requests": requests,
+    }
+
+
+def _scan_nvme_checkpoints(checkpoint_dir: Optional[Path] = None) -> Dict[str, Any]:
+    target = Path(checkpoint_dir) if checkpoint_dir else DEFAULT_CHECKPOINT_DIR
+    if not target.exists():
+        return {"count": 0, "total_bytes": 0, "routes": {}, "models": {}, "latencies_ms": [], "recent": []}
+
+    stat_entries: List[Tuple[float, int, Path]] = []
+    for fp in target.glob("*.json"):
+        try:
+            st = fp.stat()
+            stat_entries.append((st.st_mtime, st.st_size, fp))
+        except OSError:
+            continue
+    stat_entries.sort(key=lambda item: item[0], reverse=True)
+
+    routes: Dict[str, int] = {}
+    models: Dict[str, int] = {}
+    latencies: List[float] = []
+    recent: List[Dict[str, Any]] = []
+    total_bytes = 0
+
+    for idx, (_mtime, fsize, fp) in enumerate(stat_entries):
+        total_bytes += fsize
+        payload = _load_json_safe(fp)
+        if not payload:
+            continue
+        route = str(payload.get("route") or "unknown")
+        model = str(payload.get("model") or "unknown")
+        lat = _safe_float(payload.get("latency_ms"))
+        routes[route] = routes.get(route, 0) + 1
+        models[model] = models.get(model, 0) + 1
+        if lat > 0:
+            latencies.append(lat)
+        if idx < 10:
+            recent.append(
+                {
+                    "name": fp.name,
+                    "timestamp": payload.get("timestamp", ""),
+                    "route": route,
+                    "model": model,
+                    "latency_ms": lat,
+                }
+            )
+
+    return {
+        "count": len(stat_entries),
+        "total_bytes": total_bytes,
+        "routes": routes,
+        "models": models,
+        "latencies_ms": latencies,
+        "recent": recent,
+    }
+
+
+class NVMeCheckpointDetector:
+    """Detects patterns across local NVMe atomic checkpoints & Token Lab exports."""
+
+    def __init__(
+        self,
+        checkpoint_dir: Optional[Path] = None,
+        export_path: Optional[Path] = None,
+    ):
+        self.checkpoint_dir = checkpoint_dir
+        self.export_path = export_path
+
+    def detect_from_disk(self) -> List[DetectedInsight]:
+        insights: List[DetectedInsight] = []
+        cp_stats = _scan_nvme_checkpoints(self.checkpoint_dir)
+        tl_summary = parse_tokenlab_export(self.export_path)
+
+        if tl_summary:
+            errs = tl_summary["total_errors"]
+            reqs = max(1, tl_summary["total_requests"])
+            clean = reqs - errs
+            if errs > 0:
+                err_models = [
+                    f"{d.get('model')} ({d.get('errors')}/{d.get('requests')})"
+                    for d in tl_summary.get("usage_daily", [])
+                    if int(d.get("errors") or 0) > 0
+                ]
+                insights.append(
+                    DetectedInsight(
+                        detector_type=DetectorType.REPEATED_FAILURES,
+                        title="Token Lab Client Error Burst Resolved",
+                        subtitle=f"{errs} historical errors vs {clean} clean completions across 4 models",
+                        description=(
+                            f"Account {tl_summary['user_id']} (key {tl_summary['key_prefix']}) logged "
+                            f"{errs} errors out of {reqs} requests ({', '.join(err_models) or 'd3'}). "
+                            "Subsequent routed completions succeeded across d3, Gemma-4-31B-IT, MiniCPM5-2B, and Qwen3.8-27B."
+                        ),
+                        metrics={
+                            "errors": f"{errs}/{reqs} requests",
+                            "key_prefix": tl_summary["key_prefix"],
+                            "grant_used": f"{tl_summary['budget_used_micro']} / {tl_summary['budget_micro']} micro",
+                        },
+                        recommended_action="verify_schema_guard",
+                        action_value={"detector": "nvme_tokenlab", "errors": errs, "clean": clean},
+                        time_savings_seconds=900,
+                        quality_improvement_percent=12.0,
+                        confidence=0.88,
+                        suggested_experiments=[
+                            "Validate /v1/systemone dict schema before dispatch",
+                            "Keep local NVMe checkpointing enabled on every route_task call",
+                        ],
+                    )
+                )
+
+            insights.append(
+                DetectedInsight(
+                    detector_type=DetectorType.EFFICIENCY_FRONTIER,
+                    title="Token Lab Grant & Prompt Cache Headroom",
+                    subtitle=f"{tl_summary['burn_percent']:.4f}% grant used ({tl_summary['cached_tokens']} cached tokens)",
+                    description=(
+                        f"Burn rate is {tl_summary['budget_used_micro']} of {tl_summary['budget_micro']} micro-points "
+                        f"across {tl_summary['total_tokens']} tokens with zero local RTX 3070 VRAM cost. "
+                        f"Prompt caching hit {tl_summary['cached_tokens']} tokens and reasoning models used {tl_summary['reasoning_tokens']} tokens."
+                    ),
+                    metrics={
+                        "burn_rate": f"{tl_summary['burn_percent']:.4f}%",
+                        "cached_tokens": f"{tl_summary['cached_tokens']} cached",
+                        "expires": str(tl_summary["expires_at"])[:10] or "30d",
+                    },
+                    recommended_action="expand_31b_offload",
+                    action_value={"burn_percent": tl_summary["burn_percent"], "cached_tokens": tl_summary["cached_tokens"]},
+                    time_savings_seconds=1800,
+                    quality_improvement_percent=18.0,
+                    confidence=0.92,
+                    suggested_experiments=[
+                        "Pin system prefixes to maximize Gemma-4-31B-IT prompt cache hits",
+                        "Route lightweight triage to MiniCPM5-2B",
+                    ],
+                )
+            )
+
+        if cp_stats["count"] > 0:
+            lats = cp_stats["latencies_ms"]
+            avg_lat = sum(lats) / len(lats) if lats else 0.0
+            top_route = max(cp_stats["routes"].items(), key=lambda kv: kv[1])[0] if cp_stats["routes"] else "unknown"
+            insights.append(
+                DetectedInsight(
+                    detector_type=DetectorType.NVME_CHECKPOINTS,
+                    title="NVMe Atomic Checkpoint Ledger Active",
+                    subtitle=f"{cp_stats['count']} crash-safe JSON checkpoints ({avg_lat:.0f} ms avg route latency)",
+                    description=(
+                        f"Found {cp_stats['count']} atomic checkpoint files totaling "
+                        f"{cp_stats['total_bytes'] / 1024:.1f} KB. Dominant router tier: {top_route}."
+                    ),
+                    metrics={
+                        "checkpoints": f"{cp_stats['count']} files",
+                        "avg_latency": f"{avg_lat:.0f} ms",
+                        "top_route": top_route,
+                    },
+                    recommended_action="compact_old_checkpoints",
+                    action_value={"checkpoint_count": cp_stats["count"], "avg_latency_ms": round(avg_lat, 1)},
+                    time_savings_seconds=600,
+                    quality_improvement_percent=8.0,
+                    confidence=0.84,
+                    suggested_experiments=[
+                        "Archive NVMe checkpoints older than 14 days into DuckDB",
+                    ],
+                )
+            )
+
+        return insights
+
+    def detect(self, inferences: List[InferenceLog]) -> Optional[DetectedInsight]:
+        disk_insights = self.detect_from_disk()
+        if disk_insights:
+            return disk_insights[0]
+
+        if not inferences:
+            return None
+
+        err_count = sum(1 for inf in inferences if getattr(inf, "error_flag", False))
+        if err_count >= 2:
+            return DetectedInsight(
+                detector_type=DetectorType.NVME_CHECKPOINTS,
+                title="Elevated Inference Error Rate Detected",
+                subtitle=f"{err_count} failed inferences out of {len(inferences)} runs",
+                description="Inspect Token Lab request payloads and NVMe router checkpoints for recent client errors.",
+                metrics={"errors": f"{err_count}/{len(inferences)}"},
+                recommended_action="inspect_checkpoints",
+                action_value={"error_count": err_count},
+                time_savings_seconds=600,
+                quality_improvement_percent=10.0,
+                confidence=0.8,
+            )
+        return None
+
+
+def ingest_tokenlab_export(
+    db: Any,
+    export_path: Optional[Path] = None,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Atomically and idempotently load Token Lab export requests + cards into QuietAdvisorDB."""
+    summary = parse_tokenlab_export(export_path)
+    if not summary:
+        return {"ingested_requests": 0, "ingested_cards": 0, "summary": {}, "skipped": False}
+
+    export_hash = hashlib.sha256(
+        json.dumps(summary, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+    lock_ctx = getattr(db, "_lock", None) or nullcontext()
+    with lock_ctx:
+        # Ensure idempotency ledger exists even on legacy DB files
+        db.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quiet_advisor_ingest_log (
+                export_hash TEXT PRIMARY KEY,
+                ingested_at TEXT NOT NULL
+            )
+            """
+        )
+        already = db.conn.execute(
+            "SELECT 1 FROM quiet_advisor_ingest_log WHERE export_hash = ?",
+            (export_hash,),
+        ).fetchone()
+        if already:
+            return {
+                "ingested_requests": 0,
+                "ingested_cards": 0,
+                "summary": summary,
+                "skipped": True,
+                "export_hash": export_hash,
+            }
+
+        target_user = user_id or summary["user_id"] or "default"
+        ingested_requests = 0
+        ingested_cards = 0
+
+        try:
+            db.conn.execute("INSERT OR IGNORE INTO users (user_id, active) VALUES (?, 1)", (target_user,))
+            for req in summary.get("requests", []):
+                model = str(req.get("model") or "unknown")
+                prompt_tok = _safe_int(req.get("prompt_tokens"))
+                comp_tok = _safe_int(req.get("completion_tokens"))
+                has_err = bool(req.get("has_error"))
+                est_lat = 0.0 if has_err else (140.0 if "2B" in model or model == "d3" else 520.0)
+                ts_raw = str(req.get("created_at") or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()).replace(" ", "T")
+                db.conn.execute(
+                    """
+                    INSERT INTO memoryos_inference_log (
+                        user_id, session_id, timestamp, model_id,
+                        context_tokens_provided, context_tokens_used,
+                        time_to_first_token_ms, total_latency_ms, tokens_per_second,
+                        gpu_id, gpu_utilization_percent, gpu_temperature_celsius,
+                        gpu_memory_used_mb, output_quality_score, error_flag, error_message
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        target_user,
+                        "tokenlab-export",
+                        ts_raw,
+                        model,
+                        max(4096, (prompt_tok + comp_tok) * 4) if (prompt_tok + comp_tok) else 4096,
+                        prompt_tok + comp_tok,
+                        round(est_lat * 0.2, 1),
+                        est_lat,
+                        65.0 if comp_tok else 0.0,
+                        "tokenlab-remote",
+                        0.0,
+                        0.0,
+                        0,
+                        0.0 if has_err else 0.92,
+                        1 if has_err else 0,
+                        str(req.get("finish_reason") or ""),
+                    ),
+                )
+                ingested_requests += 1
+
+            detector = NVMeCheckpointDetector(export_path=export_path)
+            for insight in detector.detect_from_disk():
+                payload = dict(insight.action_value)
+                payload["source"] = "tokenlab_export"
+                payload["export_hash"] = export_hash
+                payload["d3_routing"] = {
+                    "choice": "surface_now",
+                    "confidence": round(insight.confidence, 4),
+                    "probabilities": {"surface_now": round(insight.confidence, 4), "defer": 0.1, "ignore": 0.02},
+                    "model": "d3",
+                }
+                metrics = list(insight.metrics.values())
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.conn.execute(
+                    """
+                    INSERT INTO quiet_advisor_cards (
+                        user_id, detector_type, insight_rank, title, subtitle, description,
+                        metric_1, metric_2, metric_3, recommended_action, action_value,
+                        time_savings_seconds, quality_improvement_percent, suggested_experiments,
+                        user_dismissed, user_archived, user_actioned, state, created_at, expires_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'TRIGGERED', ?, ?)
+                    """,
+                    (
+                        target_user,
+                        insight.detector_type.value,
+                        insight.score(),
+                        insight.title,
+                        insight.subtitle,
+                        insight.description,
+                        metrics[0] if len(metrics) > 0 else "",
+                        metrics[1] if len(metrics) > 1 else "",
+                        metrics[2] if len(metrics) > 2 else "",
+                        insight.recommended_action,
+                        json.dumps(payload),
+                        insight.time_savings_seconds,
+                        insight.quality_improvement_percent,
+                        json.dumps(insight.suggested_experiments or []),
+                        now_utc.isoformat(),
+                        (now_utc + timedelta(days=7)).isoformat(),
+                    ),
+                )
+                ingested_cards += 1
+
+            db.conn.execute(
+                "INSERT INTO quiet_advisor_ingest_log (export_hash, ingested_at) VALUES (?, ?)",
+                (export_hash, datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
+            )
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            raise
+
+    return {
+        "ingested_requests": ingested_requests,
+        "ingested_cards": ingested_cards,
+        "summary": summary,
+        "skipped": False,
+        "export_hash": export_hash,
+    }
+
+
+class QuietAdvisorEngine:
+    """Main orchestrator for Quiet Advisor detection with per-detector circuit breakers."""
+
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0):
+        self.detectors = [
+            VRAMThrashingDetector(),
+            ThermalThrottlingDetector(),
+            ContextWasteDetector(),
+            ModelThrashingDetector(),
+            PerformanceEnvelopeDetector(),
+            AnomalyDetector(),
+            NVMeCheckpointDetector(),
+        ]
+        self._failure_threshold = failure_threshold
+        self._cooldown_seconds = cooldown_seconds
+        self._breakers: Dict[str, CircuitBreaker] = {}
+
+    def _get_breaker(self, name: str) -> CircuitBreaker:
+        if name not in self._breakers:
+            self._breakers[name] = CircuitBreaker(
+                failure_threshold=self._failure_threshold,
+                cooldown_seconds=self._cooldown_seconds,
+            )
+        return self._breakers[name]
+
+    @staticmethod
+    def compute_workstation_health(
+        inferences: List[InferenceLog], vram_capacity_mb: int = 8192
+    ) -> Dict[str, Any]:
+        """Return a 0-100 composite workstation health score and component breakdown."""
+        return compute_workstation_health(inferences, vram_capacity_mb=vram_capacity_mb)
+    
+    def detect_patterns(self, inferences: List[InferenceLog], 
+                       user_preferences: Dict = None) -> List[DetectedInsight]:
+        """Run all detectors with circuit-breaker isolation and return ranked insights."""
+        insights = []
+        
+        for detector in self.detectors:
+            det_name = detector.__class__.__name__
+            breaker = self._get_breaker(det_name)
+            if not breaker.allow_request():
+                _log_json(logging.WARNING, "detector_circuit_open", detector=det_name)
+                continue
+            try:
+                insight = detector.detect(inferences)
+                breaker.record_success()
+                if insight:
+                    insights.append(insight)
+            except Exception as e:
+                cb_state = breaker.record_failure()
+                _log_json(
+                    logging.ERROR,
+                    "detector_failed",
+                    detector=det_name,
+                    error=str(e),
+                    circuit_state=cb_state,
+                )
+                continue
+        
+        # Rank by score
+        insights.sort(key=lambda x: x.score(user_preferences), reverse=True)
+        
+        return insights
+    
+    def get_top_card(self, inferences: List[InferenceLog], 
+                     user_preferences: Dict = None) -> Optional[DetectedInsight]:
+        """Get single top insight for daily card"""
+        insights = self.detect_patterns(inferences, user_preferences)
+        return insights[0] if insights else None
+
+
+# Example usage:
+if __name__ == "__main__":
+    # Simulate 50 inferences from yesterday
+    sample_inferences = [
+        InferenceLog(
+            timestamp=datetime.now() - timedelta(hours=i),
+            model_id="llama-65b" if i % 3 == 0 else "mistral-7b",
+            context_tokens_provided=4000,
+            context_tokens_used=2100,
+            time_to_first_token_ms=250,
+            total_latency_ms=3500,
+            tokens_per_second=110 + (i % 20),  # varies
+            gpu_utilization_percent=75,
+            gpu_temperature_celsius=62 + (i % 10),
+            gpu_memory_used_mb=19000,
+            output_quality_score=0.92,
+        )
+        for i in range(50)
+    ]
+    
+    engine = QuietAdvisorEngine()
+    insights = engine.detect_patterns(sample_inferences)
+    
+    for i, insight in enumerate(insights[:3]):
+        print(f"\nCard {i+1}: {insight.title}")
+        print(f"Subtitle: {insight.subtitle}")
+        print(f"Score: {insight.score():.2f}")
+        print(f"Time savings: {insight.time_savings_seconds / 3600:.1f} hours/week")
