@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import ipaddress
 import json
+import math
 import os
 import re
 import sqlite3
@@ -272,12 +273,22 @@ def get_video_output_dir(create: bool = True) -> Path:
     return out_dir
 
 
+_WIN_RESERVED_STEMS = frozenset({
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+})
+
+
 def resolve_safe_video_path(filename: str, output_dir: Optional[Path] = None) -> Optional[Path]:
     """Validate an .mp4 basename and confine resolution strictly within output_dir."""
     raw = str(filename or "").strip()
     if not raw or "/" in raw or "\\" in raw or ".." in raw or "\x00" in raw:
         return None
     if not _SAFE_VIDEO_FILENAME_RE.match(raw):
+        return None
+    stem = raw.rsplit(".", 1)[0].split(".")[0].upper()
+    if stem in _WIN_RESERVED_STEMS:
         return None
     base = Path(output_dir) if output_dir is not None else get_video_output_dir(create=False)
     try:
@@ -389,7 +400,7 @@ def _parse_video_duration_seconds(duration: Any) -> int:
         dur_f = float(raw_dur)
     except ValueError as exc:
         raise ValueError(f"Invalid duration '{duration}': expected integer seconds (3..15).") from exc
-    if not dur_f.is_integer():
+    if not math.isfinite(dur_f) or not dur_f.is_integer():
         raise ValueError(f"Duration must be an integer number of seconds (got {duration}).")
     dur_int = int(dur_f)
     if dur_int < MIN_OMNI_DURATION_S or dur_int > MAX_OMNI_DURATION_S:
@@ -424,15 +435,28 @@ def estimate_video_generation_cost(
         tier = entry["tier"]
         provider_label = entry["provider_label"]
     else:
-        default_rate = 0.05 if provider == "fal" else 0.10
+        default_rate = 0.05 if provider in ("fal", "hf") else 0.10
         rates = {"360p": round(default_rate * 0.6, 4), "720p": default_rate, "1080p": round(default_rate * 1.5, 4)}
-        env_var = {"gemini": "GEMINI_API_KEY", "fal": "FAL_KEY", "replicate": "REPLICATE_API_TOKEN"}[provider]
+        env_var = {
+            "gemini": "GEMINI_API_KEY",
+            "fal": "FAL_KEY",
+            "replicate": "REPLICATE_API_TOKEN",
+            "hf": "HF_TOKEN",
+        }[provider]
         label = f"{model_id} ({provider})"
         tier = "custom"
-        provider_label = {"gemini": "Google Gemini Omni Cloud", "fal": "fal.ai Cloud", "replicate": "Replicate Cloud"}[provider]
+        provider_label = {
+            "gemini": "Google Gemini Omni Cloud",
+            "fal": "fal.ai Cloud",
+            "replicate": "Replicate Cloud",
+            "hf": "Hugging Face Router",
+        }[provider]
 
     if rate_override is not None and not isinstance(rate_override, bool):
-        rate = max(0.0, float(rate_override))
+        r_val = float(rate_override)
+        if not math.isfinite(r_val) or r_val < 0:
+            raise ValueError("rate_override must be a finite non-negative number.")
+        rate = r_val
     else:
         rate = float(rates.get(res, default_rate))
 
@@ -441,17 +465,20 @@ def estimate_video_generation_cost(
     caps: List[float] = []
     if max_budget_usd is not None and not isinstance(max_budget_usd, bool):
         cap_val = float(max_budget_usd)
-        if cap_val < 0:
-            raise ValueError("max_budget_usd cannot be negative.")
+        if not math.isfinite(cap_val) or cap_val < 0:
+            raise ValueError("max_budget_usd must be a finite non-negative USD amount.")
         caps.append(cap_val)
     env_cap_raw = os.getenv("MEMORYOS_VIDEO_MAX_JOB_USD", "").strip()
     if env_cap_raw:
         try:
             env_cap = float(env_cap_raw)
-            if env_cap >= 0:
+            if not math.isfinite(env_cap) or env_cap < 0:
+                caps.append(0.0)
+            else:
                 caps.append(env_cap)
         except ValueError:
-            pass
+            # Fail closed to $0.00 if an operator mistypes MEMORYOS_VIDEO_MAX_JOB_USD
+            caps.append(0.0)
     eff_cap = round(min(caps), 4) if caps else None
     within_budget = True if eff_cap is None else (est_cost <= eff_cap + 1e-9)
 
@@ -753,6 +780,9 @@ def _http_json_request(
     method: str = "POST",
     timeout: float = 45.0,
 ) -> Dict[str, Any]:
+    scheme = (urllib.parse.urlsplit(str(url or "")).scheme or "").lower()
+    if scheme not in {"http", "https"}:
+        raise ValueError(f"Unsupported URL scheme '{scheme}': only http and https are allowed.")
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req_headers = dict(headers)
     if payload is not None and "Content-Type" not in req_headers:
@@ -865,6 +895,8 @@ def _call_vision_provider(
         if "://" not in ollama_root:
             ollama_root = f"http://{ollama_root}"
         parsed_ol = urllib.parse.urlsplit(ollama_root)
+        if (parsed_ol.scheme or "").lower() not in {"http", "https"}:
+            raise ValueError("OLLAMA_HOST must use http or https.")
         ol_host = (parsed_ol.hostname or "").strip().lower()
         if ol_host not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("Refusing non-loopback OLLAMA_HOST for local video analysis.")

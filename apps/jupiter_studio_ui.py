@@ -740,6 +740,8 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     justify-content: space-between;
     gap: 12px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 50;
   }
 
   [data-theme="dark"] .topbar {

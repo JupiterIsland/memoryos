@@ -172,7 +172,8 @@ try {
         tests/test_grant_ledger_reconciliation.py `
         tests/test_offload_integrity.py `
         tests/test_cloud_video.py `
-        tests/test_hf_hub.py
+        tests/test_hf_hub.py `
+        tests/test_studio_adversarial.py
     if ($LASTEXITCODE -ne 0) {
         Fail "Unit test suite failed (exit code $LASTEXITCODE)."
     }

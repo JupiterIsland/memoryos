@@ -1804,6 +1804,27 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
                 self._send_json(_probe_model_availability(force_refresh=verify))
                 return
 
+            if route == "/v1/models":
+                now_ts = int(time.time())
+                entries = [
+                    "auto:d3",
+                    "studio:frank",
+                    "cloud:Qwen3.8-27B",
+                    "cloud:Gemma-4-31B-IT",
+                    "cloud:DeepSeek-V4.1-Flash",
+                    "nv:meta/llama-3.3-70b-instruct",
+                    "ollama:qwen2.5-coder:7b",
+                    "ollama:hf.co/unsloth/Qwen3.5-4B-GGUF",
+                ]
+                self._send_json({
+                    "object": "list",
+                    "data": [
+                        {"id": mid, "object": "model", "created": now_ts, "owned_by": "memoryos"}
+                        for mid in entries
+                    ],
+                })
+                return
+
             if route == "/api/workspace/files":
                 files = scan_workspace_files(REPO_ROOT, max_files=150)
                 branch = get_git_branch(REPO_ROOT)
@@ -1923,6 +1944,10 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
 
         if route == "/api/chat/stream":
             self._handle_chat_stream(body)
+            return
+
+        if route == "/v1/chat/completions":
+            self._handle_openai_v1_chat(body)
             return
 
         try:
@@ -2846,6 +2871,121 @@ class JupiterStudioHandler(BaseHTTPRequestHandler):
             "latency_ms": latency,
             "is_local": is_local_exec,
             "session_id": persisted_sid,
+        })
+
+    def _handle_openai_v1_chat(self, body: Dict[str, Any]) -> None:
+        """OpenAI-compatible /v1/chat/completions failover gateway for CLI/IDE coding tools."""
+        raw_msgs = body.get("messages")
+        if not isinstance(raw_msgs, list) or not raw_msgs:
+            self._send_json({"error": {"message": "'messages' must be a non-empty list", "type": "invalid_request_error"}}, status=400)
+            return
+
+        sys_parts: List[str] = []
+        turns: List[Dict[str, str]] = []
+        for m in raw_msgs:
+            if not isinstance(m, dict):
+                continue
+            role = str(m.get("role") or "user").strip().lower()
+            raw_c = m.get("content")
+            if isinstance(raw_c, list):
+                txt = "\n".join(str(b.get("text") or "") for b in raw_c if isinstance(b, dict) and b.get("text"))
+            else:
+                txt = str(raw_c or "")
+            if not txt.strip():
+                continue
+            if role == "system":
+                sys_parts.append(txt.strip())
+            elif role in {"user", "assistant"}:
+                turns.append({"role": role, "content": txt})
+
+        if not turns:
+            self._send_json({"error": {"message": "No user message content provided", "type": "invalid_request_error"}}, status=400)
+            return
+
+        last_prompt = turns[-1]["content"]
+        if sys_parts:
+            last_prompt = "\n\n".join(sys_parts) + "\n\n" + last_prompt
+        history = _sanitize_history(turns[:-1])
+
+        req_model = str(body.get("model") or "auto:d3").strip() or "auto:d3"
+        if ":" not in req_model and req_model in {"gpt-4o", "gpt-4o-mini", "default", "auto"}:
+            req_model = "auto:d3"
+
+        t0 = time.perf_counter()
+        model_name, provider_key, is_ollama = self._resolve_target(req_model, last_prompt, False)
+        content = ""
+        err = ""
+        try:
+            if req_model == "studio:frank":
+                content = _run_frank_turn(last_prompt)["content"]
+            elif is_ollama:
+                content, err = self._call_ollama_chat(model_name, last_prompt, history=history, image_base64=None)
+            else:
+                content, err = self._call_cloud_direct(provider_key, model_name, last_prompt, history=history, image_base64=None)
+        except Exception as exc:
+            err = str(exc)
+
+        # Automatic quota-exhaustion failover -> Local Ollama -> Built-in Frank-v1 ($0.00)
+        if err or not content:
+            ol_content, ol_err = self._call_ollama_chat("qwen2.5-coder:7b", last_prompt, history=history, image_base64=None)
+            if ol_content and not ol_err:
+                content, err = ol_content, ""
+                provider_key, model_name = "Local Ollama", "qwen2.5-coder:7b"
+            else:
+                content = _run_frank_turn(last_prompt)["content"]
+                err = ""
+                provider_key, model_name = "Jupiter Built-in", "Frank-v1"
+
+        latency = round((time.perf_counter() - t0) * 1000, 2)
+        _record_studio_inference(model_name, provider_key in {"Local Ollama", "Jupiter Built-in"}, len(last_prompt), latency, success=True)
+
+        comp_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
+        created = int(time.time())
+        resolved_id = f"{provider_key}:{model_name}"
+
+        if bool(body.get("stream")):
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self._send_security_headers()
+            self.end_headers()
+            chunk_doc = {
+                "id": comp_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": resolved_id,
+                "choices": [{"index": 0, "delta": {"role": "assistant", "content": content}, "finish_reason": None}],
+            }
+            done_doc = {
+                "id": comp_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": resolved_id,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            }
+            self.wfile.write(f"data: {json.dumps(chunk_doc)}\n\ndata: {json.dumps(done_doc)}\n\ndata: [DONE]\n\n".encode("utf-8"))
+            self.wfile.flush()
+            return
+
+        prompt_toks = max(1, len(last_prompt) // 4)
+        comp_toks = max(1, len(content) // 4)
+        self._send_json({
+            "id": comp_id,
+            "object": "chat.completion",
+            "created": created,
+            "model": resolved_id,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": content},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": prompt_toks,
+                "completion_tokens": comp_toks,
+                "total_tokens": prompt_toks + comp_toks,
+            },
         })
 
     @staticmethod

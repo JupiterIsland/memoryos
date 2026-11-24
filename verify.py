@@ -72,6 +72,7 @@ CI_TEST_MODULES = [
     "tests/test_offload_integrity.py",
     "tests/test_cloud_video.py",
     "tests/test_hf_hub.py",
+    "tests/test_studio_adversarial.py",
 ]
 
 _STATE_FIXTURES = (

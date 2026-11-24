@@ -320,25 +320,35 @@ def scan_local_hf_cache(cache_dirs: Optional[Sequence[Path]] = None) -> List[Dic
                     continue
                 repo_id = f"{org}/{repo}"
                 total_bytes = 0
-                has_gguf = "gguf" in repo.lower()
+                has_gguf = False
                 has_safetensors = False
                 gguf_files: List[str] = []
+                seen_realpaths: set[Path] = set()
                 try:
                     for fp in entry.rglob("*"):
+                        fname_low = fp.name.lower()
+                        if fname_low.endswith(".gguf"):
+                            has_gguf = True
+                            if fp.name not in gguf_files:
+                                gguf_files.append(fp.name)
+                        elif fname_low.endswith(".safetensors"):
+                            has_safetensors = True
                         if fp.is_file():
                             try:
-                                total_bytes += fp.stat().st_size
+                                real_fp = fp.resolve()
+                                if real_fp not in seen_realpaths:
+                                    seen_realpaths.add(real_fp)
+                                    total_bytes += real_fp.stat().st_size
                             except OSError:
                                 pass
-                            fname_low = fp.name.lower()
-                            if fname_low.endswith(".gguf"):
-                                has_gguf = True
-                                if fp.name not in gguf_files:
-                                    gguf_files.append(fp.name)
-                            elif fname_low.endswith(".safetensors"):
-                                has_safetensors = True
                 except OSError:
                     pass
+
+                # Skip empty metadata-only cache stubs (< 1 KB with no weight files)
+                if total_bytes < 1024 and not has_gguf and not has_safetensors:
+                    continue
+                if "gguf" in repo.lower():
+                    has_gguf = True
 
                 size_mb = round(total_bytes / (1024.0 * 1024.0), 1)
                 fit = estimate_8gb_hardware_fit(

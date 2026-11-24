@@ -46,3 +46,8 @@ Richard designs and runs a unified AI infrastructure built from three core syste
   - The built-in zero-VRAM continual helper model is **`Frank`** (`Frank-v1`, `studio:frank`, `memory/models/Modelfile.frank`); its learning, memory, and audit center inside Studio is **`FrankHub`**.
   - Match documentation, UI labels, and benchmarks 1:1 to verified running code; explicitly separate shipped capabilities from roadmap items and avoid startup buzzwords.
 - **Database Isolation in Tests:** Never write test sessions, operations ledger rows, or memory facts into production `QuietAdvisorDB.sqlite`; mock or patch `_get_studio_db_path` to a temporary directory.
+
+## Token & Quota Discipline (Stretch 5-Hour Usage)
+- **Bounded Reads & Batched Edits:** Always use `StartLine`/`EndLine` on large files (`jupiter_studio.py`, `jupiter_studio_ui.py`, `cloud_video.py`), batch independent tool calls in parallel, and avoid re-reading unchanged ranges.
+- **Concise Operator Replies:** Keep responses direct and compact without repeating full code listings; recommend `/compact` whenever conversation history grows large.
+- **Zero-Token Shipping & Failover:** `.\scripts\ship.ps1 "msg"` ships verified commits with `0` AI tokens, and `http://127.0.0.1:7860/v1/chat/completions` exposes an OpenAI-compatible coding gateway (`auto:d3` -> Token Lab -> Local Ollama -> `Frank-v1` at `$0.00`) for external tools (`Cline`, `Roo`, `Aider`, `Continue`) when cloud quotas run out.
