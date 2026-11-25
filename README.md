@@ -14,7 +14,7 @@
 [![Python 3.11+ Stdlib](https://img.shields.io/badge/Core-Pure_Python_Stdlib-38BDF8?style=for-the-badge)](verify.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
-![Jupiter Studio v2.1.2 Router-First Workstation & FrankHub](docs/screenshots/jupiter_studio_live_stream.png)
+![Jupiter Studio v2.2.1 Obsidian Graphite Glass](docs/screenshots/jupiter_studio_obsidian_glass_v2.2.1.jpg)
 
 Most multi-model AI wrappers just forward your API key. **MemoryOS // Jupiter Studio** puts a **3,246-parameter pure-Python continual-learning neural router (`Frank-v1`)** and a **persistent SQLite Memory Vault** in front of your local runtimes (Ollama, Lemonade Server, vLLM/Flare) and cloud providers (OpenAI, Google Gemini Interactions v1, AMD Token Lab, Groq, OpenRouter, Cerebras, NVIDIA NIM, DigitalOcean MI300X, Hugging Face Router) — so you can teach it new routing phrasing, compare models side-by-side in Dual Arena, and keep your GPU free for games and local builds.
 
@@ -108,7 +108,11 @@ Direct cloud selection supports **OpenAI Cloud** (`gpt-4o-mini`, `gpt-4o`) and *
 
 ---
 
-## Screenshots (`v2.1.2` Live Build)
+## Screenshots (`v2.2.1` Glass Edition)
+
+| Obsidian Graphite Glass (`DARK`) | Purple Glass (`PURPLE GLASS`) | Arctic Frosted Glass (`LIGHT`) |
+| :---: | :---: | :---: |
+| ![Obsidian Graphite Glass](docs/screenshots/jupiter_studio_obsidian_glass_v2.2.1.jpg) | ![Purple Glass](docs/screenshots/jupiter_studio_purple_glass_v2.2.1.jpg) | ![Arctic Frosted Glass](docs/screenshots/jupiter_studio_arctic_glass_v2.2.1.jpg) |
 
 | Live Memory Vault Recall (`Frank-v1` · `0 MB` VRAM) | Side-by-Side Dual Arena (`Qwen3.8-27B` vs `Gemma-4-31B-IT`) |
 | :---: | :---: |
