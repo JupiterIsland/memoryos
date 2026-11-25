@@ -1,0 +1,77 @@
+﻿{
+  "environment": {
+    "timestamp_utc": "2026-11-25T00:20:25Z",
+    "os": "Windows-11-10.0.29712-SP0",
+    "python": "3.13.15",
+    "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+    "logical_threads": 16,
+    "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU",
+    "gpu_vendor": "nvidia",
+    "gpu_vram_mb": "1263/8192",
+    "gpu_simulated": false
+  },
+  "checks": {
+    "py_compile": {
+      "passed": true,
+      "module_count": 21,
+      "error": ""
+    },
+    "neon": {
+      "passed": true,
+      "certification": "CERTIFICATION READY",
+      "subchecks": {
+        "plugins": "PASS",
+        "budgets": "PASS",
+        "breaker": "PASS",
+        "recovery": "PASS",
+        "ledger": "PASS"
+      },
+      "error": ""
+    },
+    "unittest": {
+      "skipped": false,
+      "passed": true,
+      "module_count": 17,
+      "tests_run": 171,
+      "duration_s": 44.941,
+      "error": ""
+    },
+    "ewc_audit": {
+      "passed": true,
+      "naive_task_a_after": 0.0,
+      "sparse_replay_only_task_a_after": 0.5,
+      "ewc_sparse_replay_task_a_after": 1.0,
+      "ewc_task_a_after_ab": 1.0,
+      "ewc_task_b_after_ab": 1.0,
+      "ewc_task_a_after_abc": 1.0,
+      "ewc_task_c_after_abc": 1.0,
+      "mlp_mean_us": 10.83
+    },
+    "frank_demo": {
+      "passed": true,
+      "params": 3246,
+      "architecture": "128->24->6",
+      "predict_mean_us": 470.56,
+      "phrase": "purge my GPU cache before launching Cyberpunk",
+      "target_intent": "vram_reclaim",
+      "before_intent": "fast_code",
+      "before_confidence": 0.2861,
+      "after_intent": "vram_reclaim",
+      "after_confidence": 0.9883,
+      "curriculum_before": 1.0,
+      "curriculum_after_ewc_agem": 0.9444,
+      "curriculum_after_naive_sgd": 0.25,
+      "agem_projections": 45
+    },
+    "mse_gate": {
+      "passed": true,
+      "scope": "64x36 stride-sampled MSE",
+      "iterations": 200,
+      "avg_ms": 0.173,
+      "p99_ms": 0.257,
+      "pct_of_144fps_budget": 2.49,
+      "status": "PASS"
+    }
+  },
+  "all_passed": true
+}

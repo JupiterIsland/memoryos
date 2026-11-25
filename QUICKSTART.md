@@ -1,6 +1,6 @@
 # QUICKSTART — Zero to First Result in Under 5 Minutes ($0.00)
 
-**MemoryOS // Jupiter Studio (`v2.2.0`)** runs on the **Python 3.11+ standard library** (`0` third-party `pip` packages, `0` `ffmpeg` install required, `0` Docker containers, and a hard **`$0.00` spend lock** enabled by default).
+**MemoryOS // Jupiter Studio (`v2.2.1`)** runs on the **Python 3.11+ standard library** (`0` third-party `pip` packages, `0` `ffmpeg` install required, `0` Docker containers, and a hard **`$0.00` spend lock** enabled by default).
 
 ---
 
@@ -26,7 +26,7 @@ Your browser opens **[http://127.0.0.1:7860](http://127.0.0.1:7860)** automatica
 
 > **Verify everything on your hardware first (optional, ~45s):**
 > ```bash
-> python -B verify.py          # Full 21-module compile, NEON 5/5, 164 unit tests & EWC benchmarks
+> python -B verify.py          # Full 21-module compile, NEON 5/5, 171 unit tests & EWC benchmarks
 > python -B verify.py --quick  # 3-second smoke check
 > ```
 

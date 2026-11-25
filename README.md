@@ -10,7 +10,7 @@
 
 [![MemoryOS CI](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/ci.yml?branch=main&style=for-the-badge&label=CI%20Tests)](https://github.com/JupiterIsland/memoryos/actions/workflows/ci.yml)
 [![Windows Clean Install](https://img.shields.io/github/actions/workflow/status/JupiterIsland/memoryos/windows-clean-install.yml?branch=main&style=for-the-badge&label=Windows%20Audit)](https://github.com/JupiterIsland/memoryos/actions/workflows/windows-clean-install.yml)
-[![Release](https://img.shields.io/badge/Release-v2.2.0-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v2.2.1-ED1C24?style=for-the-badge&logo=amd&logoColor=white)](https://github.com/JupiterIsland/memoryos/releases/latest)
 [![Python 3.11+ Stdlib](https://img.shields.io/badge/Core-Pure_Python_Stdlib-38BDF8?style=for-the-badge)](verify.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
@@ -27,7 +27,7 @@ Don't trust pre-recorded claims — clone the repository and run the single-comm
 ```bash
 git clone https://github.com/JupiterIsland/memoryos.git
 cd memoryos
-python3 -B verify.py          # Full 21-module check, NEON 5/5, 164 CI tests & live EWC benchmarks
+python3 -B verify.py          # Full 21-module check, NEON 5/5, 171 CI tests & live EWC benchmarks
 python3 -B verify.py --quick  # ~3s smoke check (skips full unittest suite)
 python3 -B verify.py --json   # Machine-readable hardware + benchmark output
 ```
@@ -46,8 +46,9 @@ python3 -B verify.py --json   # Machine-readable hardware + benchmark output
 * **Persistent SQLite Memory Vault & Threads (`src/memoryos/memory_keeper.py`):**
   * Pin rules, hardware limits, and architectural context once into `QuietAdvisorDB.sqlite` (`continual_memory_facts`, WAL mode) so every model recalls them automatically. Full multi-turn thread history with collapsible reasoning traces lives in `/api/sessions`.
   * **Free VRAM (`keep_alive: 0`):** Safely queries localhost Ollama (`/api/ps`) to unload idle weights and runs `gc.collect()` on Studio's own Python process before launching a game or heavy compile (never kills user processes or claims to free arbitrary OS/other-app RAM).
-* **Dual Arena & Multi-Provider Routing (`src/memoryos/router.py`):**
+* **Dual Arena, OpenAI `/v1` Failover Gateway & Multi-Provider Routing (`src/memoryos/router.py`):**
   * Compare any two local or cloud models side-by-side (`OpenAI`, `Google Gemini Interactions v1`, `AMD Token Lab`, `Groq`, `OpenRouter`, `Cerebras`, `NVIDIA NIM`, `DigitalOcean MI300X`, `HF Router`, `AMD Lemonade Server`, `vLLM/Flare`, `Ollama`, or `Frank-v1`) and keep the winner in one click.
+  * Exposes a local OpenAI-compatible failover gateway (`GET /v1/models`, `POST /v1/chat/completions`, sync + SSE) on `http://127.0.0.1:7860/v1` that cascades from primary target -> local Ollama (`qwen2.5-coder:7b`) -> built-in `Frank-v1` (`$0.00`).
   * Works out of the box with **zero `.env` keys and zero Ollama installed** using built-in `Frank-v1` + the local Memory Vault.
 * **NEON Control Plane (`src/memoryos/control_plane.py` + `NEON_SINGLE_FILE.py`):**
   * Circuit breakers (`CLOSED -> OPEN -> HALF_OPEN -> CLOSED`), SHA-256 hash-chained SQLite ops ledger, crash recovery engine, and zero-exec declarative plugin packs (`ALLOWED_EXECUTORS` allowlist + enforced `allow_network: false`).
@@ -137,7 +138,7 @@ Every claim below is live-reproducible via **`python3 -B verify.py`** ([`tests/t
 
 | Verification / Benchmark | Scope & Condition | Observed Result (Run `verify.py` to Reproduce) |
 | :--- | :--- | :--- |
-| **CI Unit & Live HTTP Suite** | 12 CI modules with `-W error::DeprecationWarning` + `NEON_SINGLE_FILE.py` (`5/5`) | **`129 / 129` passed (`OK`)** |
+| **CI Unit & Adversarial HTTP Suite** | 17 CI modules (`tests/test_studio_adversarial.py` SSRF, range, fuzz, 24-thread stress, `/v1` failover) + `NEON_SINGLE_FILE.py` (`5/5`) | **`171 / 171` passed (`OK`)** — see [`docs/BENCHMARK_BASELINE.md`](docs/BENCHMARK_BASELINE.md) |
 | **Naive SGD vs Sparse Replay vs EWC (`4->8->1`)** | Synthetic Task A -> Task B -> Task C & exact 4-sample sparse-replay control arm (`tests/test_memory_keeper.py`) | Naive SGD `0%`; 4-sample Replay-Only `50%`; **EWC + 4-sample Replay `100%`** |
 | **Frank-v1 (`128->24->6`) Live Teaching** | Teaching 1 unseen phrase vs 36 core curriculum intents (`epochs=45`, `lr=0.25`) | **EWC + Replay + A-GEM `94.4%` retained** vs Naive SGD `25.0%` (`~0.2–0.4 ms` CPU predict) |
 | **Speculative MLP Forward Latency** | 500–1,000 pure-Python `4->8->1` forward passes | **`~5–8 us` avg** (`<0.2%` of a `6.94 ms` 144 Hz frame budget) |
@@ -185,6 +186,7 @@ This is a **solo open-source project** — GitHub Issues and PRs are triaged **w
 ## Documentation Index
 
 * **[verify.py](verify.py)** — Reproducible local verification & live forgetting benchmark CLI
+* **[docs/BENCHMARK_BASELINE.md](docs/BENCHMARK_BASELINE.md)** — Reproducible `v2.2.1` hardware & adversarial benchmark baseline (`Ryzen 7 5800H` + `RTX 3070 8 GB`)
 * **[SECURITY.md](SECURITY.md)** — Vulnerability reporting & honest security scope
 * **[CONTRIBUTING.md](CONTRIBUTING.md)** — Maintainer cadence, architecture rules & PR checklist
 * **[RUN_MODELS.md](RUN_MODELS.md)** — Setup cheat sheet for Ollama, Lemonade, OpenAI, Gemini & cloud keys

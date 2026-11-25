@@ -1,9 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Hardened transactional clean-install audit script for MemoryOS / Jupiter Studio v2.2.0 on Windows.
+    Hardened transactional clean-install audit script for MemoryOS / Jupiter Studio v2.2.1 on Windows.
 .DESCRIPTION
     Validates OS, Git, non-Store Python >= 3.11, creates an isolated .venv with rollback on failure,
-    installs dependencies, bootstraps .env if absent, runs the 14-module CI test suite + NEON Control Plane validation + EWC anti-forgetting audit,
+    installs dependencies, bootstraps .env if absent, runs the 17-module CI test suite + NEON Control Plane validation + EWC anti-forgetting audit,
     verifies headless HTTP /api/health startup, and cleans up created artifacts on error.
 #>
 param(

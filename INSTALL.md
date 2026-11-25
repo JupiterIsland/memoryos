@@ -1,8 +1,8 @@
-# Installing MemoryOS // Jupiter Studio (`v2.2.0`)
+# Installing MemoryOS // Jupiter Studio (`v2.2.1`)
 
 > Looking for the fastest path? Read **[`QUICKSTART.md`](QUICKSTART.md)** to go from `git clone` to a live workstation in **under 5 minutes at $0.00**.
 
-MemoryOS // Jupiter Studio (`v2.2.0`) runs on the **Python 3.11+ standard library** with **zero third-party runtime `pip` dependencies** — no 15 GB PyTorch install, no Docker daemon, and no manual `ffmpeg` setup required.
+MemoryOS // Jupiter Studio (`v2.2.1`) runs on the **Python 3.11+ standard library** with **zero third-party runtime `pip` dependencies** — no 15 GB PyTorch install, no Docker daemon, and no manual `ffmpeg` setup required.
 
 ---
 
@@ -38,7 +38,7 @@ python3 -B apps/jupiter_studio.py
 Open **[http://127.0.0.1:7860](http://127.0.0.1:7860)**.
 
 ### Automated Clean-Room Install Audit (Windows)
-To run the same transactional clean-install check executed in CI (validates Git, non-Store Python `3.11+`, isolated `.venv`, full `16`-module unit suite, `NEON_SINGLE_FILE.py`, EWC audit, and headless `/api/health` startup):
+To run the same transactional clean-install check executed in CI (validates Git, non-Store Python `3.11+`, isolated `.venv`, full `17`-module unit suite (`171` tests), `NEON_SINGLE_FILE.py`, EWC audit, and headless `/api/health` startup):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/clean_install_windows.ps1

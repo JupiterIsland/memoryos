@@ -1,4 +1,4 @@
-"""Single-module Precision Obsidian UI for Jupiter Studio (v2.0.0)."""
+"""Single-module Precision Obsidian Glass UI for Jupiter Studio (v2.2.1)."""
 
 STUDIO_HTML = r"""<!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -12,29 +12,29 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 <style>
   :root,
   [data-theme="dark"] {
-    --bg: #000000;
-    --bg-rail: #040404;
-    --bg-surface: #090909;
-    --bg-elevated: #121212;
-    --bg-hover: rgba(255, 255, 255, 0.06);
-    --bg-active: rgba(255, 255, 255, 0.14);
-    --border: rgba(255, 255, 255, 0.16);
-    --border-strong: rgba(255, 255, 255, 0.40);
-    --border-accent: rgba(255, 255, 255, 0.78);
-    --text: #ffffff;
-    --text-soft: #d4d4d4;
-    --muted: #7a7a7a;
-    --accent: #ffffff;
-    --accent-dim: rgba(255, 255, 255, 0.10);
-    --cyan: #ffffff;
-    --amber: #d4d4d4;
-    --orange: #ffffff;
-    --green: #ffffff;
-    --red: #ff1744;
-    --purple: #ffffff;
-    --user-bg: #0e0e0e;
-    --code-bg: #050505;
-    --shadow-lg: 0 22px 54px rgba(0, 0, 0, 0.92);
+    --bg: #08090d;
+    --bg-rail: rgba(14, 16, 23, 0.66);
+    --bg-surface: rgba(22, 25, 35, 0.54);
+    --bg-elevated: rgba(34, 38, 52, 0.64);
+    --bg-hover: rgba(226, 232, 240, 0.07);
+    --bg-active: rgba(226, 232, 240, 0.14);
+    --border: rgba(226, 232, 240, 0.13);
+    --border-strong: rgba(226, 232, 240, 0.30);
+    --border-accent: rgba(241, 245, 249, 0.62);
+    --text: #f1f5f9;
+    --text-soft: #cbd5e1;
+    --muted: #8b95a5;
+    --accent: #e2e8f0;
+    --accent-dim: rgba(226, 232, 240, 0.11);
+    --cyan: #e2e8f0;
+    --amber: #cbd5e1;
+    --orange: #e2e8f0;
+    --green: #e2e8f0;
+    --red: #ff2a5f;
+    --purple: #cbd5e1;
+    --user-bg: rgba(28, 32, 44, 0.62);
+    --code-bg: rgba(9, 11, 16, 0.82);
+    --shadow-lg: 0 22px 56px rgba(2, 4, 10, 0.76);
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
@@ -44,29 +44,29 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
 
   [data-theme="light"] {
-    --bg: #ffffff;
-    --bg-rail: #f6f6f6;
-    --bg-surface: #ffffff;
-    --bg-elevated: #ebebeb;
-    --bg-hover: rgba(0, 0, 0, 0.05);
-    --bg-active: rgba(0, 0, 0, 0.11);
-    --border: rgba(0, 0, 0, 0.15);
-    --border-strong: rgba(0, 0, 0, 0.36);
-    --border-accent: rgba(0, 0, 0, 0.80);
-    --text: #000000;
-    --text-soft: #262626;
-    --muted: #666666;
-    --accent: #000000;
-    --accent-dim: rgba(0, 0, 0, 0.07);
-    --cyan: #000000;
-    --amber: #262626;
-    --orange: #000000;
-    --green: #000000;
-    --red: #d90429;
-    --purple: #000000;
-    --user-bg: #f3f3f3;
-    --code-bg: #f5f5f5;
-    --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.14);
+    --bg: #eef2f7;
+    --bg-rail: rgba(255, 255, 255, 0.66);
+    --bg-surface: rgba(255, 255, 255, 0.58);
+    --bg-elevated: rgba(241, 245, 249, 0.78);
+    --bg-hover: rgba(15, 23, 42, 0.05);
+    --bg-active: rgba(15, 23, 42, 0.10);
+    --border: rgba(15, 23, 42, 0.11);
+    --border-strong: rgba(15, 23, 42, 0.24);
+    --border-accent: rgba(15, 23, 42, 0.56);
+    --text: #0f172a;
+    --text-soft: #334155;
+    --muted: #64748b;
+    --accent: #1e293b;
+    --accent-dim: rgba(15, 23, 42, 0.07);
+    --cyan: #0f172a;
+    --amber: #334155;
+    --orange: #1e293b;
+    --green: #0f172a;
+    --red: #dc2626;
+    --purple: #334155;
+    --user-bg: rgba(241, 245, 249, 0.72);
+    --code-bg: rgba(248, 250, 252, 0.88);
+    --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.11);
   }
 
   /* ═══ PURPLE GLASS — 2030 CSS CRAFT SHOWCASE (EDITION 01) ═══ */
@@ -101,6 +101,26 @@ STUDIO_HTML = r"""<!DOCTYPE html>
     50% { background-position: 18% 12%, 82% 88%, 45% 55%; }
   }
 
+  [data-theme="dark"] body {
+    background-color: #08090d;
+    background-image:
+      radial-gradient(ellipse 68% 54% at 86% 6%, rgba(148, 163, 184, 0.13), transparent 64%),
+      radial-gradient(ellipse 60% 52% at 12% 94%, rgba(71, 85, 105, 0.16), transparent 66%),
+      linear-gradient(160deg, #0c0e14 0%, #08090d 52%, #11141d 100%);
+    background-size: 125% 125%, 125% 125%, 100% 100%;
+    animation: purpleAuraShift 22s ease-in-out infinite;
+  }
+
+  [data-theme="light"] body {
+    background-color: #eef2f7;
+    background-image:
+      radial-gradient(ellipse 65% 55% at 86% 6%, rgba(148, 163, 184, 0.24), transparent 64%),
+      radial-gradient(ellipse 58% 52% at 12% 94%, rgba(203, 213, 225, 0.36), transparent 64%),
+      linear-gradient(160deg, #f8fafc 0%, #eef2f7 54%, #e2e8f0 100%);
+    background-size: 125% 125%, 125% 125%, 100% 100%;
+    animation: purpleAuraShift 22s ease-in-out infinite;
+  }
+
   [data-theme="purple"] body {
     background-color: #04010a;
     background-image:
@@ -109,6 +129,88 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       radial-gradient(ellipse 46% 40% at 48% 48%, rgba(76, 29, 149, 0.28), transparent 72%);
     background-size: 130% 130%, 130% 130%, 100% 100%;
     animation: purpleAuraShift 18s ease-in-out infinite;
+  }
+
+  .sidebar,
+  .topbar,
+  .cc-card,
+  .composer-card,
+  .telemetry-dock,
+  .starter-card,
+  .mem-fact-card,
+  .cmd-dialog,
+  .theme-switch,
+  .rail-tabs,
+  .btn-new-session,
+  #target-selector {
+    backdrop-filter: blur(24px) saturate(165%);
+    -webkit-backdrop-filter: blur(24px) saturate(165%);
+  }
+
+  [data-theme="dark"] .sidebar,
+  [data-theme="dark"] .topbar,
+  [data-theme="dark"] .cc-card,
+  [data-theme="dark"] .composer-card,
+  [data-theme="dark"] .telemetry-dock,
+  [data-theme="dark"] .starter-card,
+  [data-theme="dark"] .mem-fact-card,
+  [data-theme="dark"] .cmd-dialog {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 18px 44px rgba(2, 4, 10, 0.56);
+  }
+
+  [data-theme="dark"] .cc-card,
+  [data-theme="dark"] .starter-card,
+  [data-theme="dark"] .composer-card {
+    background: linear-gradient(155deg, rgba(34, 39, 54, 0.52), rgba(13, 15, 22, 0.72));
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  [data-theme="dark"] .cc-card:hover,
+  [data-theme="dark"] .starter-card:hover {
+    border-color: rgba(226, 232, 240, 0.36);
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 22px 50px rgba(0, 0, 0, 0.68);
+  }
+
+  [data-theme="dark"] .brand-title,
+  [data-theme="dark"] .empty-title {
+    background: linear-gradient(125deg, #ffffff 12%, #cbd5e1 58%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  [data-theme="light"] .sidebar,
+  [data-theme="light"] .topbar,
+  [data-theme="light"] .cc-card,
+  [data-theme="light"] .composer-card,
+  [data-theme="light"] .telemetry-dock,
+  [data-theme="light"] .starter-card,
+  [data-theme="light"] .mem-fact-card,
+  [data-theme="light"] .cmd-dialog {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88), 0 14px 36px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .cc-card,
+  [data-theme="light"] .starter-card,
+  [data-theme="light"] .composer-card {
+    background: linear-gradient(155deg, rgba(255, 255, 255, 0.78), rgba(241, 245, 249, 0.62));
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  [data-theme="light"] .cc-card:hover,
+  [data-theme="light"] .starter-card:hover {
+    border-color: rgba(15, 23, 42, 0.28);
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 18px 42px rgba(15, 23, 42, 0.12);
+  }
+
+  [data-theme="light"] .brand-title,
+  [data-theme="light"] .empty-title {
+    background: linear-gradient(125deg, #0f172a 10%, #334155 58%, #64748b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   [data-theme="purple"] .sidebar,
@@ -745,11 +847,11 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
 
   [data-theme="dark"] .topbar {
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(14, 16, 23, 0.68);
   }
 
   [data-theme="light"] .topbar {
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.72);
   }
 
   [data-theme="purple"] .topbar {
@@ -977,6 +1079,20 @@ STUDIO_HTML = r"""<!DOCTYPE html>
 
   .settings-popover.open {
     display: flex;
+  }
+
+  [data-theme="dark"] .settings-popover {
+    background: rgba(18, 21, 30, 0.88);
+    backdrop-filter: blur(26px) saturate(170%);
+    -webkit-backdrop-filter: blur(26px) saturate(170%);
+    border-color: rgba(226, 232, 240, 0.24);
+  }
+
+  [data-theme="light"] .settings-popover {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(26px) saturate(170%);
+    -webkit-backdrop-filter: blur(26px) saturate(170%);
+    border-color: rgba(15, 23, 42, 0.18);
   }
 
   [data-theme="purple"] .settings-popover {
@@ -1690,13 +1806,17 @@ STUDIO_HTML = r"""<!DOCTYPE html>
   }
 
   [data-theme="dark"] .btn-send {
-    background: #ffffff;
-    color: #000000;
+    background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+    color: #090b10;
+    border-color: rgba(248, 250, 252, 0.75);
+    box-shadow: 0 4px 18px rgba(226, 232, 240, 0.16);
   }
 
   [data-theme="light"] .btn-send {
-    background: #000000;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
     color: #ffffff;
+    border-color: rgba(15, 23, 42, 0.72);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
   }
 
   [data-theme="purple"] .btn-send {
@@ -1855,7 +1975,7 @@ STUDIO_HTML = r"""<!DOCTYPE html>
       <div class="brand-lockup">
         <span class="brand-title">Jupiter Studio</span>
       </div>
-      <span class="brand-ver">v2.2.0</span>
+      <span class="brand-ver">v2.2.1</span>
     </div>
 
     <div class="rail-actions">

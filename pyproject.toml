@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memoryos"
-version = "2.2.0"
+version = "2.2.1"
 description = "A tiered memory engine for local AI. TLB + Temporal Graph + NVMe checkpoints."
 readme = "README.md"
 requires-python = ">=3.8"
